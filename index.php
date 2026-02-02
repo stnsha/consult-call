@@ -332,7 +332,7 @@ $totalReminder = $reminderPending + $reminderCompleted + $reminderRescheduled + 
                         </div>
                         <div class="col-md-1">
                             <button type="button" class="btn btn-secondary w-100" id="resetBtn" title="Reset Filters">
-                                <i class="bi bi-x-lg"></i>
+                                <i class="bi bi-x-lg me-1"></i>Reset
                             </button>
                         </div>
                     </div>
@@ -374,10 +374,10 @@ $totalReminder = $reminderPending + $reminderCompleted + $reminderRescheduled + 
                                     <th>#</th>
                                     <th>Consult Call ID</th>
                                     <th>Patient Details</th>
+                                    <th>Enrollment Type</th>
                                     <th>Consent Status</th>
                                     <th>Process Status</th>
                                     <th>Follow Up Reminder</th>
-                                    <th>Enrollment Type</th>
                                     <th>Enrollment Date</th>
                                     <th>Last Consultation</th>
                                     <th>Actions</th>
@@ -438,10 +438,10 @@ $totalReminder = $reminderPending + $reminderCompleted + $reminderRescheduled + 
                                     echo '<small class="text-muted">' . htmlspecialchars($patient['icno']) . '</small><br>';
                                     echo '<small class="text-muted"><i class="bi bi-telephone me-1"></i>' . htmlspecialchars($patient['phone']) . '</small>';
                                     echo '</td>';
+                                    echo '<td><span class="badge ' . $enrollmentClass . '">' . ucfirst(htmlspecialchars($patient['enrollment'])) . '</span></td>';
                                     echo '<td><span class="badge ' . $consentClass . '">' . ucfirst(htmlspecialchars($patient['consent_status'])) . '</span></td>';
                                     echo '<td><span class="badge ' . $processClass . '">' . ucfirst(htmlspecialchars($patient['process_status'])) . '</span></td>';
                                     echo '<td><span class="badge ' . $reminderClass . '">' . ucfirst(htmlspecialchars($patient['followup_reminder'])) . '</span></td>';
-                                    echo '<td><span class="badge ' . $enrollmentClass . '">' . ucfirst(htmlspecialchars($patient['enrollment'])) . '</span></td>';
                                     echo '<td>' . htmlspecialchars(formatEnrollmentDate($patient['enrollment_date'])) . '</td>';
                                     echo '<td>' . $lastConsultDisplay . '</td>';
                                     echo '<td>';
