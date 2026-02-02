@@ -430,3 +430,35 @@ button {
     min-width: 70px;
     padding-right: 25px;
 }
+
+/* Navbar Styling */
+.consultcall-nav {
+    background-color: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(19, 92, 170, 0.1);
+    padding: 0.5rem 1rem;
+}
+
+.consultcall-nav .navbar-nav {
+    gap: 0.5rem;
+}
+
+.consultcall-nav .nav-link {
+    font-size: 14px;
+    font-weight: 500;
+    color: #6c757d;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.consultcall-nav .nav-link:hover {
+    color: #0d6efd;
+    background-color: rgba(13, 110, 253, 0.1);
+}
+
+.consultcall-nav .nav-link.active {
+    color: #0d6efd;
+    background-color: rgba(13, 110, 253, 0.1);
+    font-weight: 600;
+}

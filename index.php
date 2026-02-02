@@ -21,7 +21,7 @@ $connect = 1;
 include('../common/index_adv.php');
 ?>
 <body>
-    <?php // include('navbar.php'); ?>
+    <?php include('navbar.php'); ?>
     <div class="consultcall-container mb-3">
 <?php
 // Dummy data for patients - PHP 5.3 compatible syntax

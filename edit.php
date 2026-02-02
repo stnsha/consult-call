@@ -220,6 +220,7 @@ $connect = 1;
 include('../common/index_adv.php');
 ?>
 <body>
+    <?php include('navbar.php'); ?>
     <div class="consultcall-container mb-3">
         <!-- Page Header -->
         <div class="page-header">
@@ -233,53 +234,84 @@ include('../common/index_adv.php');
         </div>
 
         <form id="editPatientForm" method="post">
-            <!-- Section 1: Patient Details (Read-only) -->
-            <div class="bento-card section-card">
-                <div class="section-header" data-section="patient-details">
-                    <h5><i class="bi bi-person me-2"></i>Patient Details</h5>
-                    <i class="bi bi-chevron-up"></i>
+            <!-- Row 1: Patient Details & Blood Test Report -->
+            <div class="row g-4 mb-4">
+                <!-- Section 1: Patient Details (Read-only) -->
+                <div class="col-md-6">
+                    <div class="bento-card h-100">
+                        <div class="section-header" data-section="patient-details">
+                            <h5><i class="bi bi-person me-2"></i>Patient Details</h5>
+                            <i class="bi bi-chevron-up"></i>
+                        </div>
+                        <div class="form-section" id="section-patient-details">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Name</label>
+                                    <div class="readonly-field"><?php echo htmlspecialchars($patient['name']); ?></div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">IC No</label>
+                                    <div class="readonly-field"><?php echo htmlspecialchars($patient['icno']); ?></div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Phone</label>
+                                    <div class="readonly-field"><?php echo htmlspecialchars($patient['phone']); ?></div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Email</label>
+                                    <div class="readonly-field"><?php echo htmlspecialchars($patient['email']); ?></div>
+                                </div>
+                                <div class="col-md-12">
+                                    <label class="form-label">Address</label>
+                                    <div class="readonly-field"><?php echo htmlspecialchars($patient['address']); ?></div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Age</label>
+                                    <div class="readonly-field"><?php echo htmlspecialchars($patient['age']); ?></div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Gender</label>
+                                    <div class="readonly-field"><?php echo htmlspecialchars($patient['gender']); ?></div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Risk Tier</label>
+                                    <div class="readonly-field">
+                                        <span class="badge <?php echo getRiskTierBadgeClass($patient['risk_tier']); ?>"><?php echo ucfirst(htmlspecialchars($patient['risk_tier'])); ?></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="form-section" id="section-patient-details">
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Name</label>
-                            <div class="readonly-field"><?php echo htmlspecialchars($patient['name']); ?></div>
+
+                <!-- Section 2: Blood Test Report (Read-only) -->
+                <div class="col-md-6">
+                    <div class="bento-card h-100">
+                        <div class="section-header" data-section="blood-test">
+                            <h5><i class="bi bi-file-earmark-medical me-2"></i>Blood Test Report</h5>
+                            <i class="bi bi-chevron-up"></i>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label">IC No</label>
-                            <div class="readonly-field"><?php echo htmlspecialchars($patient['icno']); ?></div>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Phone</label>
-                            <div class="readonly-field"><?php echo htmlspecialchars($patient['phone']); ?></div>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Email</label>
-                            <div class="readonly-field"><?php echo htmlspecialchars($patient['email']); ?></div>
-                        </div>
-                        <div class="col-md-12">
-                            <label class="form-label">Address</label>
-                            <div class="readonly-field"><?php echo htmlspecialchars($patient['address']); ?></div>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Age</label>
-                            <div class="readonly-field"><?php echo htmlspecialchars($patient['age']); ?></div>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Gender</label>
-                            <div class="readonly-field"><?php echo htmlspecialchars($patient['gender']); ?></div>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Risk Tier</label>
-                            <div class="readonly-field">
-                                <span class="badge <?php echo getRiskTierBadgeClass($patient['risk_tier']); ?>"><?php echo ucfirst(htmlspecialchars($patient['risk_tier'])); ?></span>
+                        <div class="form-section" id="section-blood-test">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Collected Date</label>
+                                    <div class="readonly-field">15 Jan 2026</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Report</label>
+                                    <div>
+                                        <a href="javascript:void(0);" class="btn btn-outline-danger" onclick="openPdfReport()" title="View Blood Test Report">
+                                            <i class="bi bi-file-earmark-pdf me-1"></i>View PDF
+                                        </a>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Section 2: ConsultCall Eligibility -->
+            <!-- Section 3: ConsultCall Eligibility -->
             <div class="bento-card section-card">
                 <div class="section-header" data-section="eligibility">
                     <h5><i class="bi bi-clipboard-check me-2"></i>ConsultCall Eligibility</h5>
@@ -581,6 +613,21 @@ include('../common/index_adv.php');
         </form>
     </div>
 
+    <!-- PDF Modal -->
+    <div class="modal fade" id="pdfModal" tabindex="-1" aria-labelledby="pdfModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="pdfModalLabel">Blood Test Report</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <iframe id="pdfViewer" src="" style="width: 100%; height: 75vh; border: none;"></iframe>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
     // Section collapse/expand functionality
@@ -656,6 +703,14 @@ include('../common/index_adv.php');
                 rescheduleFields[i].classList.remove('visible');
             }
         }
+    }
+
+    function openPdfReport() {
+        // Sample PDF URL - replace with actual PDF path
+        var pdfUrl = 'consultcall/reports/sample_blood_test.pdf';
+        document.getElementById('pdfViewer').src = pdfUrl;
+        var pdfModal = new bootstrap.Modal(document.getElementById('pdfModal'));
+        pdfModal.show();
     }
     </script>
 </body>

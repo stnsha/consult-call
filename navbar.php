@@ -5,6 +5,7 @@ $current_dir = basename(dirname($_SERVER['PHP_SELF']));
 
 // Determine active class for each nav item
 $dashboard_active = ($current_page == 'index.php' && $current_dir == 'consultcall') ? 'active' : '';
+$report_active = ($current_page == 'report.php' && $current_dir == 'consultcall') ? 'active' : '';
 ?>
 <nav class="consultcall-nav navbar navbar-expand-lg navbar-light mb-3">
     <div class="container-fluid">
@@ -15,7 +16,10 @@ $dashboard_active = ($current_page == 'index.php' && $current_dir == 'consultcal
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav">
                 <li class="nav-item">
-                    <a class="nav-link <?php echo $dashboard_active; ?>" href="consultcall/index.php">Telehealth Dashboard</a>
+                    <a class="nav-link <?php echo $dashboard_active; ?>" href="consultcall/index.php">Dashboard</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link <?php echo $report_active; ?>" href="consultcall/report.php">Report</a>
                 </li>
             </ul>
         </div>
