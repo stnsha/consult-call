@@ -1,6 +1,6 @@
 /**
  * Telehealth Consultation Dashboard - Main JavaScript
- * Handles filter functionality for the patient table
+ * Handles filter and pagination functionality for the patient table
  */
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -19,10 +19,15 @@ document.addEventListener('DOMContentLoaded', function() {
     var tbody = table.getElementsByTagName('tbody')[0];
     var rows = tbody.getElementsByTagName('tr');
 
+    // Pagination variables
+    var currentPage = 1;
+    var rowsPerPage = 10;
+    var filteredRows = [];
+
     /**
-     * Apply filters to the table
+     * Get all rows that pass the current filters
      */
-    function applyFilters() {
+    function getFilteredRows() {
         var searchValue = searchInput.value.toLowerCase();
         var consentValue = consentFilter.value;
         var processValue = processFilter.value;
@@ -32,6 +37,8 @@ document.addEventListener('DOMContentLoaded', function() {
         var toDate = dateTo.value;
         var lastConsultFromDate = lastConsultFrom.value;
         var lastConsultToDate = lastConsultTo.value;
+
+        var result = [];
 
         for (var i = 0; i < rows.length; i++) {
             var row = rows[i];
@@ -103,16 +110,132 @@ document.addEventListener('DOMContentLoaded', function() {
                 showRow = false;
             }
 
-            // Show or hide row
             if (showRow) {
-                row.classList.remove('hidden');
-            } else {
-                row.classList.add('hidden');
+                result.push(row);
             }
+        }
+
+        return result;
+    }
+
+    /**
+     * Apply filters and pagination to the table
+     */
+    function applyFilters() {
+        // Reset to first page when filters change
+        currentPage = 1;
+        filteredRows = getFilteredRows();
+        displayPage();
+        updatePagination();
+    }
+
+    /**
+     * Display current page of data
+     */
+    function displayPage() {
+        // Hide all rows first
+        for (var i = 0; i < rows.length; i++) {
+            rows[i].classList.add('hidden');
+        }
+
+        // Calculate start and end index for current page
+        var startIndex = (currentPage - 1) * rowsPerPage;
+        var endIndex = startIndex + rowsPerPage;
+
+        // Show only rows for current page
+        for (var j = startIndex; j < endIndex && j < filteredRows.length; j++) {
+            filteredRows[j].classList.remove('hidden');
         }
 
         // Update row numbers for visible rows
         updateRowNumbers();
+    }
+
+    /**
+     * Update pagination controls
+     */
+    function updatePagination() {
+        var totalRows = filteredRows.length;
+        var totalPages = Math.ceil(totalRows / rowsPerPage);
+        if (totalPages < 1) totalPages = 1;
+
+        var paginationInfo = document.getElementById('paginationInfo');
+        var paginationControls = document.getElementById('paginationControls');
+
+        // Update info text
+        var startRow = totalRows === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
+        var endRow = Math.min(currentPage * rowsPerPage, totalRows);
+        paginationInfo.textContent = 'Showing ' + startRow + ' to ' + endRow + ' of ' + totalRows + ' entries';
+
+        // Build pagination controls
+        var html = '';
+
+        // Previous button
+        html += '<li class="page-item ' + (currentPage === 1 ? 'disabled' : '') + '">';
+        html += '<a class="page-link" href="#" data-page="prev">Previous</a>';
+        html += '</li>';
+
+        // Page numbers
+        var startPage = Math.max(1, currentPage - 2);
+        var endPage = Math.min(totalPages, currentPage + 2);
+
+        if (startPage > 1) {
+            html += '<li class="page-item"><a class="page-link" href="#" data-page="1">1</a></li>';
+            if (startPage > 2) {
+                html += '<li class="page-item disabled"><span class="page-link">...</span></li>';
+            }
+        }
+
+        for (var p = startPage; p <= endPage; p++) {
+            html += '<li class="page-item ' + (p === currentPage ? 'active' : '') + '">';
+            html += '<a class="page-link" href="#" data-page="' + p + '">' + p + '</a>';
+            html += '</li>';
+        }
+
+        if (endPage < totalPages) {
+            if (endPage < totalPages - 1) {
+                html += '<li class="page-item disabled"><span class="page-link">...</span></li>';
+            }
+            html += '<li class="page-item"><a class="page-link" href="#" data-page="' + totalPages + '">' + totalPages + '</a></li>';
+        }
+
+        // Next button
+        html += '<li class="page-item ' + (currentPage === totalPages ? 'disabled' : '') + '">';
+        html += '<a class="page-link" href="#" data-page="next">Next</a>';
+        html += '</li>';
+
+        paginationControls.innerHTML = html;
+
+        // Add click handlers
+        var pageLinks = paginationControls.getElementsByTagName('a');
+        for (var k = 0; k < pageLinks.length; k++) {
+            pageLinks[k].addEventListener('click', handlePageClick);
+        }
+    }
+
+    /**
+     * Handle pagination click
+     */
+    function handlePageClick(e) {
+        e.preventDefault();
+        var page = this.getAttribute('data-page');
+        var totalPages = Math.ceil(filteredRows.length / rowsPerPage);
+        if (totalPages < 1) totalPages = 1;
+
+        if (page === 'prev') {
+            if (currentPage > 1) {
+                currentPage--;
+            }
+        } else if (page === 'next') {
+            if (currentPage < totalPages) {
+                currentPage++;
+            }
+        } else {
+            currentPage = parseInt(page, 10);
+        }
+
+        displayPage();
+        updatePagination();
     }
 
     /**
@@ -129,27 +252,35 @@ document.addEventListener('DOMContentLoaded', function() {
         lastConsultFrom.value = '';
         lastConsultTo.value = '';
 
-        // Show all rows
-        for (var i = 0; i < rows.length; i++) {
-            rows[i].classList.remove('hidden');
-        }
-
-        // Update row numbers
-        updateRowNumbers();
+        // Reset pagination
+        currentPage = 1;
+        filteredRows = getFilteredRows();
+        displayPage();
+        updatePagination();
     }
 
     /**
      * Update row numbers for visible rows
      */
     function updateRowNumbers() {
-        var visibleIndex = 1;
-        for (var i = 0; i < rows.length; i++) {
-            var row = rows[i];
-            if (!row.classList.contains('hidden')) {
-                var cells = row.getElementsByTagName('td');
-                cells[0].textContent = visibleIndex;
-                visibleIndex++;
-            }
+        var startIndex = (currentPage - 1) * rowsPerPage;
+        for (var i = 0; i < filteredRows.length; i++) {
+            var row = filteredRows[i];
+            var cells = row.getElementsByTagName('td');
+            cells[0].textContent = i + 1;
+        }
+    }
+
+    /**
+     * Handle rows per page change
+     */
+    function handleRowsPerPageChange() {
+        var select = document.getElementById('rowsPerPage');
+        if (select) {
+            rowsPerPage = parseInt(select.value, 10);
+            currentPage = 1;
+            displayPage();
+            updatePagination();
         }
     }
 
@@ -171,4 +302,15 @@ document.addEventListener('DOMContentLoaded', function() {
     dateTo.addEventListener('change', applyFilters);
     lastConsultFrom.addEventListener('change', applyFilters);
     lastConsultTo.addEventListener('change', applyFilters);
+
+    // Rows per page change
+    var rowsPerPageSelect = document.getElementById('rowsPerPage');
+    if (rowsPerPageSelect) {
+        rowsPerPageSelect.addEventListener('change', handleRowsPerPageChange);
+    }
+
+    // Initialize pagination on page load
+    filteredRows = getFilteredRows();
+    displayPage();
+    updatePagination();
 });

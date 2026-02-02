@@ -380,3 +380,53 @@ textarea,
 button {
     font-family: 'Inter', sans-serif;
 }
+
+/* Pagination Styling */
+.pagination-wrapper {
+    padding-top: 15px;
+    border-top: 1px solid #e9ecef;
+}
+
+.pagination {
+    margin-bottom: 0;
+}
+
+.pagination .page-link {
+    font-size: 13px;
+    padding: 0.35rem 0.65rem;
+    color: #0d6efd;
+    border-color: #dee2e6;
+}
+
+.pagination .page-item.active .page-link {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+    color: #fff;
+}
+
+.pagination .page-item.disabled .page-link {
+    color: #6c757d;
+}
+
+.pagination .page-link:hover {
+    background-color: #e9ecef;
+    border-color: #dee2e6;
+    color: #0a58ca;
+}
+
+.pagination .page-item.active .page-link:hover {
+    background-color: #0b5ed7;
+    border-color: #0a58ca;
+    color: #fff;
+}
+
+#paginationInfo {
+    color: #6c757d;
+}
+
+#rowsPerPage {
+    height: 32px;
+    font-size: 13px;
+    min-width: 70px;
+    padding-right: 25px;
+}

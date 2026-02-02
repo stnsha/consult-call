@@ -455,6 +455,26 @@ $totalReminder = $reminderPending + $reminderCompleted + $reminderRescheduled + 
                             </tbody>
                         </table>
                     </div>
+                    <!-- Pagination -->
+                    <div class="d-flex justify-content-between align-items-center mt-3 pagination-wrapper">
+                        <div class="d-flex align-items-center">
+                            <label for="rowsPerPage" class="me-2 mb-0" style="font-size: 13px;">Show</label>
+                            <select class="form-select form-select-sm" id="rowsPerPage" style="width: auto;">
+                                <option value="10" selected>10</option>
+                                <option value="25">25</option>
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                            </select>
+                            <span class="ms-2" style="font-size: 13px;">entries</span>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <span id="paginationInfo" class="me-3" style="font-size: 13px;">Showing 1 to 10 of 0 entries</span>
+                            <nav>
+                                <ul class="pagination pagination-sm mb-0" id="paginationControls">
+                                </ul>
+                            </nav>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
