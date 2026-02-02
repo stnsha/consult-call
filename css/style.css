@@ -1,0 +1,382 @@
+/* Telehealth Consultation Dashboard - Original Styles */
+
+* {
+    font-family: 'Inter', sans-serif;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: #f8f9fa;
+    font-size: 14px;
+    font-weight: 400;
+}
+
+/* Ensure Inter font on all elements */
+.consultcall-container,
+.consultcall-container * {
+    font-family: 'Inter', sans-serif;
+}
+
+/* Main Container - ODB Integration */
+.consultcall-container {
+    display: flex;
+    flex-direction: column;
+    padding: 15px 25px 35px 15px;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(19, 92, 170, 0.1);
+}
+
+/* Headings */
+h1, h2, h3, h4, h5, h6 {
+    font-weight: 600;
+}
+
+/* Bento Card Styling - Overview Cards */
+.bento-card {
+    background-color: #ffffff;
+    border-radius: 10px;
+    padding: 1.25rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    border: 1px solid #e9ecef;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.bento-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Overview Card specific styling */
+.col-md-3 .bento-card {
+    border-top: 3px solid #0d6efd;
+}
+
+.col-md-3:nth-child(1) .bento-card {
+    border-top-color: #0d6efd;
+}
+
+.col-md-3:nth-child(2) .bento-card {
+    border-top-color: #ffc107;
+}
+
+.col-md-3:nth-child(3) .bento-card {
+    border-top-color: #0dcaf0;
+}
+
+.col-md-3:nth-child(4) .bento-card {
+    border-top-color: #198754;
+}
+
+/* Card Icon Styling */
+.card-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+}
+
+/* Card Value Styling */
+.card-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: #212529;
+    line-height: 1.1;
+}
+
+.card-subtitle {
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: #6c757d;
+    text-align: left;
+}
+
+/* Status breakdown section in cards */
+.col-md-3 .bento-card > .d-flex.justify-content-between {
+    padding: 6px 0;
+    border-bottom: 1px solid #f1f3f4;
+}
+
+.col-md-3 .bento-card > .d-flex.justify-content-between:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.col-md-3 .bento-card > .d-flex.justify-content-between:first-of-type {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #e9ecef;
+}
+
+/* Status Label/Value in Cards */
+.status-label {
+    font-size: 13px;
+    color: #6c757d;
+    font-weight: 400;
+}
+
+.status-value {
+    font-size: 13px;
+    font-weight: 600;
+    color: #212529;
+    background-color: #f8f9fa;
+    padding: 2px 8px;
+    border-radius: 4px;
+    min-width: 24px;
+    text-align: center;
+}
+
+/* Table Styling */
+.table {
+    margin-bottom: 0;
+}
+
+.table th,
+.table td,
+.table tr {
+    text-align: left;
+}
+
+.table th {
+    font-weight: 600;
+    color: #6c757d;
+    border-bottom-width: 1px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background-color: #f8f9fa;
+    text-align: left;
+}
+
+.table td {
+    vertical-align: middle;
+    padding: 1rem 0.75rem;
+    font-size: 14px;
+    font-weight: 400;
+    text-align: left;
+}
+
+.table tbody tr {
+    transition: background-color 0.15s ease;
+}
+
+.table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+/* Ensure table cells show badge content */
+.table td span.badge {
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* Badge Styling - Table badges */
+/* Override ODB page.css position: absolute */
+.consultcall-container .badge,
+.table .badge,
+.badge {
+    position: static !important;
+    display: inline-block !important;
+    font-weight: 500;
+    padding: 0.35em 0.65em;
+    font-size: 12px;
+    border-radius: 4px;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: baseline;
+}
+
+/* Ensure badge colors display properly */
+.table .badge.bg-warning,
+.badge.bg-warning {
+    background-color: #ffc107 !important;
+    color: #000 !important;
+}
+
+.table .badge.bg-success,
+.badge.bg-success {
+    background-color: #198754 !important;
+    color: #fff !important;
+}
+
+.table .badge.bg-danger,
+.badge.bg-danger {
+    background-color: #dc3545 !important;
+    color: #fff !important;
+}
+
+.table .badge.bg-info,
+.badge.bg-info {
+    background-color: #0dcaf0 !important;
+    color: #000 !important;
+}
+
+.table .badge.bg-primary,
+.badge.bg-primary {
+    background-color: #0d6efd !important;
+    color: #fff !important;
+}
+
+.table .badge.bg-secondary,
+.badge.bg-secondary {
+    background-color: #6c757d !important;
+    color: #fff !important;
+}
+
+/* Button Styling */
+.btn {
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.btn-primary {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+    border-radius: 6px;
+}
+
+.btn-primary:hover {
+    background-color: #0b5ed7;
+    border-color: #0a58ca;
+}
+
+.btn-secondary {
+    border-radius: 6px;
+}
+
+.btn-outline-primary {
+    color: #0d6efd;
+    border-color: #0d6efd;
+    border-radius: 6px;
+}
+
+.btn-outline-primary:hover {
+    background-color: #0d6efd;
+    color: #fff;
+}
+
+.btn-outline-secondary {
+    color: #6c757d;
+    border-color: #6c757d;
+    border-radius: 6px;
+}
+
+.btn-outline-secondary:hover {
+    background-color: #6c757d;
+    color: #fff;
+}
+
+/* Filter Section */
+.form-label {
+    font-weight: 500;
+    font-size: 12px;
+    color: #495057;
+    text-align: left;
+    display: block;
+}
+
+.form-control,
+.form-select {
+    border-radius: 6px;
+    border-color: #ced4da;
+    font-size: 14px;
+    font-weight: 400;
+    height: 38px;
+    padding: 0.375rem 0.75rem;
+}
+
+.form-control::placeholder {
+    font-size: 14px;
+    font-weight: 400;
+    color: #adb5bd;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .card-icon {
+        width: 42px;
+        height: 42px;
+        font-size: 18px;
+    }
+
+    .card-value {
+        font-size: 22px;
+    }
+
+    .bento-card {
+        padding: 1rem;
+    }
+
+    .col-md-3 .bento-card {
+        border-top-width: 3px;
+    }
+
+    .table th,
+    .table td {
+        font-size: 13px;
+        padding: 0.75rem 0.5rem;
+    }
+
+    .consultcall-container {
+        padding: 10px 15px 25px 10px;
+    }
+
+    .status-label,
+    .status-value {
+        font-size: 12px;
+    }
+}
+
+/* Hide row on filter */
+.table tbody tr.hidden {
+    display: none;
+}
+
+/* Patient Details Cell */
+.patient-details {
+    min-width: 200px;
+    text-align: left;
+}
+
+.patient-details .fw-medium {
+    font-size: 14px;
+    font-weight: 500;
+    color: #212529;
+    text-align: left;
+}
+
+.patient-details small {
+    font-size: 12px;
+    text-align: left;
+}
+
+/* Consult Call ID Styling */
+.table td code {
+    background-color: #f8f9fa;
+    padding: 0.25em 0.5em;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #495057;
+    font-family: 'Inter', sans-serif;
+}
+
+/* Ensure form elements use Inter */
+input,
+select,
+textarea,
+button {
+    font-family: 'Inter', sans-serif;
+}
