@@ -445,8 +445,8 @@ $totalReminder = $reminderPending + $reminderCompleted + $reminderRescheduled + 
                                     echo '<td>' . htmlspecialchars(formatEnrollmentDate($patient['enrollment_date'])) . '</td>';
                                     echo '<td>' . $lastConsultDisplay . '</td>';
                                     echo '<td>';
-                                    echo '<button class="btn btn-sm btn-outline-primary me-1" title="View"><i class="bi bi-eye"></i></button>';
-                                    echo '<button class="btn btn-sm btn-outline-secondary" title="Edit"><i class="bi bi-pencil"></i></button>';
+                                    echo '<a href="" type="button" class="btn btn-sm btn-outline-primary me-1" title="View"><i class="bi bi-eye"></i></a>';
+                                    echo '<a href="consultcall/edit.php?id=' . htmlspecialchars($patient['consult_call_id']) . '" type="button" class="btn btn-sm btn-outline-secondary" title="Edit"><i class="bi bi-pencil"></i></a>';
                                     echo '</td>';
                                     echo '</tr>';
                                     $rowNum++;
