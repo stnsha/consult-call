@@ -19,156 +19,18 @@
 require_once('../lock_adv.php');
 $connect = 1;
 include('../common/index_adv.php');
+
+$consult_call_permission = 0;
+$cc_query = "SELECT consult_call FROM staff WHERE id = '" . mysqli_real_escape_string($conn, $id_user) . "'";
+$cc_result = mysqli_query($conn, $cc_query);
+if ($cc_result && mysqli_num_rows($cc_result) > 0) {
+    $cc_row = mysqli_fetch_assoc($cc_result);
+    $consult_call_permission = isset($cc_row['consult_call']) ? (int)$cc_row['consult_call'] : 0;
+}
 ?>
 <body>
     <?php include('navbar.php'); ?>
     <div class="consultcall-container mb-3">
-<?php
-// Dummy data for patients - PHP 5.3 compatible syntax
-$patients = array(
-    array(
-        'consult_call_id' => '#CC001',
-        'name' => 'Ahmad bin Ismail',
-        'icno' => '850615-01-5678',
-        'phone' => '60123456789',
-        'consent_status' => 'obtained',
-        'process_status' => 'active',
-        'followup_reminder' => 'pending',
-        'enrollment' => 'follow-up',
-        'enrollment_date' => '2026-01-15',
-        'last_consultation' => '2026-01-28'
-    ),
-    array(
-        'consult_call_id' => '#CC002',
-        'name' => 'Siti Nurhaliza binti Abdullah',
-        'icno' => '900220-14-5432',
-        'phone' => '60198765432',
-        'consent_status' => 'pending',
-        'process_status' => 'active',
-        'followup_reminder' => 'pending',
-        'enrollment' => 'primary',
-        'enrollment_date' => '2026-01-31',
-        'last_consultation' => ''
-    ),
-    array(
-        'consult_call_id' => '#CC003',
-        'name' => 'Raj Kumar a/l Subramaniam',
-        'icno' => '780812-08-7890',
-        'phone' => '60167890123',
-        'consent_status' => 'obtained',
-        'process_status' => 'closed',
-        'followup_reminder' => 'completed',
-        'enrollment' => 'follow-up',
-        'enrollment_date' => '2026-01-10',
-        'last_consultation' => '2026-01-20'
-    ),
-    array(
-        'consult_call_id' => '#CC004',
-        'name' => 'Lim Wei Ling',
-        'icno' => '950505-10-1234',
-        'phone' => '60134567890',
-        'consent_status' => 'refused',
-        'process_status' => 'closed',
-        'followup_reminder' => 'cancelled',
-        'enrollment' => 'primary',
-        'enrollment_date' => '2026-01-22',
-        'last_consultation' => ''
-    ),
-    array(
-        'consult_call_id' => '#CC005',
-        'name' => 'Fatimah binti Hassan',
-        'icno' => '880930-03-9012',
-        'phone' => '60145678901',
-        'consent_status' => 'pending',
-        'process_status' => 'escalated',
-        'followup_reminder' => 'rescheduled',
-        'enrollment' => 'primary',
-        'enrollment_date' => '2026-01-30',
-        'last_consultation' => ''
-    ),
-    array(
-        'consult_call_id' => '#CC006',
-        'name' => 'Tan Ah Kow',
-        'icno' => '700115-07-3456',
-        'phone' => '60156789012',
-        'consent_status' => 'obtained',
-        'process_status' => 'active',
-        'followup_reminder' => 'pending',
-        'enrollment' => 'follow-up',
-        'enrollment_date' => '2026-01-05',
-        'last_consultation' => '2026-01-29'
-    )
-);
-
-// Helper function to format date - PHP 5.3 compatible
-function formatEnrollmentDate($dateStr) {
-    $timestamp = strtotime($dateStr);
-    return date('D, j M Y', $timestamp);
-}
-
-// Calculate statistics for consent status
-$consentPending = 0;
-$consentObtained = 0;
-$consentRefused = 0;
-
-// Calculate statistics for process status
-$processActive = 0;
-$processClosed = 0;
-$processEscalated = 0;
-
-// Calculate statistics for follow up reminder
-$reminderPending = 0;
-$reminderCompleted = 0;
-$reminderRescheduled = 0;
-$reminderCancelled = 0;
-
-// Calculate enrollment type counts
-$enrollmentPrimary = 0;
-$enrollmentFollowUp = 0;
-
-foreach ($patients as $patient) {
-    // Consent status counts
-    if ($patient['consent_status'] === 'pending') {
-        $consentPending++;
-    } elseif ($patient['consent_status'] === 'obtained') {
-        $consentObtained++;
-    } elseif ($patient['consent_status'] === 'refused') {
-        $consentRefused++;
-    }
-
-    // Process status counts
-    if ($patient['process_status'] === 'active') {
-        $processActive++;
-    } elseif ($patient['process_status'] === 'closed') {
-        $processClosed++;
-    } elseif ($patient['process_status'] === 'escalated') {
-        $processEscalated++;
-    }
-
-    // Follow up reminder counts
-    if ($patient['followup_reminder'] === 'pending') {
-        $reminderPending++;
-    } elseif ($patient['followup_reminder'] === 'completed') {
-        $reminderCompleted++;
-    } elseif ($patient['followup_reminder'] === 'rescheduled') {
-        $reminderRescheduled++;
-    } elseif ($patient['followup_reminder'] === 'cancelled') {
-        $reminderCancelled++;
-    }
-
-    // Enrollment counts
-    if ($patient['enrollment'] === 'primary') {
-        $enrollmentPrimary++;
-    } elseif ($patient['enrollment'] === 'follow-up') {
-        $enrollmentFollowUp++;
-    }
-}
-
-$totalPatients = count($patients);
-$totalConsent = $consentPending + $consentObtained + $consentRefused;
-$totalProcess = $processActive + $processClosed + $processEscalated;
-$totalReminder = $reminderPending + $reminderCompleted + $reminderRescheduled + $reminderCancelled;
-?>
 
         <div class="row mb-4">
             <div class="col-12">
@@ -188,16 +50,16 @@ $totalReminder = $reminderPending + $reminderCompleted + $reminderRescheduled + 
                         </div>
                         <div class="ms-3 text-start">
                             <h6 class="card-subtitle text-muted mb-1">Total Patients</h6>
-                            <h2 class="card-value mb-0"><?php echo $totalPatients; ?></h2>
+                            <h2 class="card-value mb-0"><span id="summary-total">--</span></h2>
                         </div>
                     </div>
                     <div class="d-flex justify-content-between w-100">
                         <span class="status-label">Primary</span>
-                        <span class="status-value"><?php echo $enrollmentPrimary; ?></span>
+                        <span class="status-value" id="summary-enrollment-primary">--</span>
                     </div>
                     <div class="d-flex justify-content-between w-100">
                         <span class="status-label">Follow-up</span>
-                        <span class="status-value"><?php echo $enrollmentFollowUp; ?></span>
+                        <span class="status-value" id="summary-enrollment-followup">--</span>
                     </div>
                 </div>
             </div>
@@ -210,20 +72,20 @@ $totalReminder = $reminderPending + $reminderCompleted + $reminderRescheduled + 
                         </div>
                         <div class="ms-3 text-start">
                             <h6 class="card-subtitle text-muted mb-1">Consent Status</h6>
-                            <h2 class="card-value mb-0"><?php echo $totalConsent; ?></h2>
+                            <h2 class="card-value mb-0"><span id="summary-consent-total">--</span></h2>
                         </div>
                     </div>
                     <div class="d-flex justify-content-between w-100">
                         <span class="status-label">Pending</span>
-                        <span class="status-value"><?php echo $consentPending; ?></span>
+                        <span class="status-value" id="summary-consent-pending">--</span>
                     </div>
                     <div class="d-flex justify-content-between w-100">
                         <span class="status-label">Obtained</span>
-                        <span class="status-value"><?php echo $consentObtained; ?></span>
+                        <span class="status-value" id="summary-consent-obtained">--</span>
                     </div>
                     <div class="d-flex justify-content-between w-100">
                         <span class="status-label">Refused</span>
-                        <span class="status-value"><?php echo $consentRefused; ?></span>
+                        <span class="status-value" id="summary-consent-refused">--</span>
                     </div>
                 </div>
             </div>
@@ -236,20 +98,20 @@ $totalReminder = $reminderPending + $reminderCompleted + $reminderRescheduled + 
                         </div>
                         <div class="ms-3 text-start">
                             <h6 class="card-subtitle text-muted mb-1">Process Status</h6>
-                            <h2 class="card-value mb-0"><?php echo $totalProcess; ?></h2>
+                            <h2 class="card-value mb-0"><span id="summary-process-total">--</span></h2>
                         </div>
                     </div>
                     <div class="d-flex justify-content-between w-100">
                         <span class="status-label">Active</span>
-                        <span class="status-value"><?php echo $processActive; ?></span>
+                        <span class="status-value" id="summary-process-active">--</span>
                     </div>
                     <div class="d-flex justify-content-between w-100">
                         <span class="status-label">Closed</span>
-                        <span class="status-value"><?php echo $processClosed; ?></span>
+                        <span class="status-value" id="summary-process-closed">--</span>
                     </div>
                     <div class="d-flex justify-content-between w-100">
                         <span class="status-label">Escalated</span>
-                        <span class="status-value"><?php echo $processEscalated; ?></span>
+                        <span class="status-value" id="summary-process-escalated">--</span>
                     </div>
                 </div>
             </div>
@@ -262,24 +124,24 @@ $totalReminder = $reminderPending + $reminderCompleted + $reminderRescheduled + 
                         </div>
                         <div class="ms-3 text-start">
                             <h6 class="card-subtitle text-muted mb-1">Follow Up Reminder</h6>
-                            <h2 class="card-value mb-0"><?php echo $totalReminder; ?></h2>
+                            <h2 class="card-value mb-0"><span id="summary-followup-total">--</span></h2>
                         </div>
                     </div>
                     <div class="d-flex justify-content-between w-100">
                         <span class="status-label">Pending</span>
-                        <span class="status-value"><?php echo $reminderPending; ?></span>
+                        <span class="status-value" id="summary-followup-pending">--</span>
                     </div>
                     <div class="d-flex justify-content-between w-100">
                         <span class="status-label">Completed</span>
-                        <span class="status-value"><?php echo $reminderCompleted; ?></span>
+                        <span class="status-value" id="summary-followup-completed">--</span>
                     </div>
                     <div class="d-flex justify-content-between w-100">
                         <span class="status-label">Rescheduled</span>
-                        <span class="status-value"><?php echo $reminderRescheduled; ?></span>
+                        <span class="status-value" id="summary-followup-rescheduled">--</span>
                     </div>
                     <div class="d-flex justify-content-between w-100">
                         <span class="status-label">Cancelled</span>
-                        <span class="status-value"><?php echo $reminderCancelled; ?></span>
+                        <span class="status-value" id="summary-followup-cancelled">--</span>
                     </div>
                 </div>
             </div>
@@ -298,36 +160,36 @@ $totalReminder = $reminderPending + $reminderCompleted + $reminderRescheduled + 
                             <label for="consentFilter" class="form-label">Consent Status</label>
                             <select class="form-select" id="consentFilter">
                                 <option value="">All</option>
-                                <option value="pending">Pending</option>
-                                <option value="obtained">Obtained</option>
-                                <option value="refused">Refused</option>
+                                <option value="0">Pending</option>
+                                <option value="1">Obtained</option>
+                                <option value="2">Refused</option>
                             </select>
                         </div>
                         <div class="col-md-2">
                             <label for="processFilter" class="form-label">Process Status</label>
                             <select class="form-select" id="processFilter">
                                 <option value="">All</option>
-                                <option value="active">Active</option>
-                                <option value="closed">Closed</option>
-                                <option value="escalated">Escalated</option>
+                                <option value="1">Active</option>
+                                <option value="2">Escalated</option>
+                                <option value="3">Closed</option>
                             </select>
                         </div>
                         <div class="col-md-2">
                             <label for="reminderFilter" class="form-label">Follow Up Reminder</label>
                             <select class="form-select" id="reminderFilter">
                                 <option value="">All</option>
-                                <option value="pending">Pending</option>
-                                <option value="completed">Completed</option>
-                                <option value="rescheduled">Rescheduled</option>
-                                <option value="cancelled">Cancelled</option>
+                                <option value="0">Pending</option>
+                                <option value="1">Completed</option>
+                                <option value="2">Rescheduled</option>
+                                <option value="3">Cancelled</option>
                             </select>
                         </div>
                         <div class="col-md-2">
                             <label for="enrollmentFilter" class="form-label">Enrollment Type</label>
                             <select class="form-select" id="enrollmentFilter">
                                 <option value="">All</option>
-                                <option value="primary">Primary</option>
-                                <option value="follow-up">Follow-up</option>
+                                <option value="1">Primary</option>
+                                <option value="2">Follow-up</option>
                             </select>
                         </div>
                         <div class="col-md-1">
@@ -383,75 +245,15 @@ $totalReminder = $reminderPending + $reminderCompleted + $reminderRescheduled + 
                                     <th>Actions</th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                <?php
-                                $rowNum = 1;
-                                foreach ($patients as $patient) {
-                                    // Consent status badge class
-                                    $consentClass = '';
-                                    if ($patient['consent_status'] === 'pending') {
-                                        $consentClass = 'bg-warning';
-                                    } elseif ($patient['consent_status'] === 'obtained') {
-                                        $consentClass = 'bg-success';
-                                    } elseif ($patient['consent_status'] === 'refused') {
-                                        $consentClass = 'bg-danger';
-                                    }
-
-                                    // Process status badge class
-                                    $processClass = '';
-                                    if ($patient['process_status'] === 'active') {
-                                        $processClass = 'bg-success';
-                                    } elseif ($patient['process_status'] === 'closed') {
-                                        $processClass = 'bg-secondary';
-                                    } elseif ($patient['process_status'] === 'escalated') {
-                                        $processClass = 'bg-danger';
-                                    }
-
-                                    // Follow up reminder badge class
-                                    $reminderClass = '';
-                                    if ($patient['followup_reminder'] === 'pending') {
-                                        $reminderClass = 'bg-warning';
-                                    } elseif ($patient['followup_reminder'] === 'completed') {
-                                        $reminderClass = 'bg-success';
-                                    } elseif ($patient['followup_reminder'] === 'rescheduled') {
-                                        $reminderClass = 'bg-info';
-                                    } elseif ($patient['followup_reminder'] === 'cancelled') {
-                                        $reminderClass = 'bg-danger';
-                                    }
-
-                                    // Enrollment badge class
-                                    $enrollmentClass = ($patient['enrollment'] === 'primary') ? 'bg-primary' : 'bg-secondary';
-
-                                    // Last consultation display
-                                    $lastConsultDisplay = '';
-                                    if ($patient['enrollment'] === 'primary' || empty($patient['last_consultation'])) {
-                                        $lastConsultDisplay = '<span class="text-muted">-</span>';
-                                    } else {
-                                        $lastConsultDisplay = htmlspecialchars(formatEnrollmentDate($patient['last_consultation']));
-                                    }
-
-                                    echo '<tr data-consent="' . htmlspecialchars($patient['consent_status']) . '" data-process="' . htmlspecialchars($patient['process_status']) . '" data-reminder="' . htmlspecialchars($patient['followup_reminder']) . '" data-enrollment="' . htmlspecialchars($patient['enrollment']) . '" data-enrollment-date="' . htmlspecialchars($patient['enrollment_date']) . '" data-last-consult="' . htmlspecialchars($patient['last_consultation']) . '">';
-                                    echo '<td>' . $rowNum . '</td>';
-                                    echo '<td><code>' . htmlspecialchars($patient['consult_call_id']) . '</code></td>';
-                                    echo '<td class="patient-details">';
-                                    echo '<div class="fw-medium">' . htmlspecialchars($patient['name']) . '</div>';
-                                    echo '<small class="text-muted">' . htmlspecialchars($patient['icno']) . '</small><br>';
-                                    echo '<small class="text-muted"><i class="bi bi-telephone me-1"></i>' . htmlspecialchars($patient['phone']) . '</small>';
-                                    echo '</td>';
-                                    echo '<td><span class="badge ' . $enrollmentClass . '">' . ucfirst(htmlspecialchars($patient['enrollment'])) . '</span></td>';
-                                    echo '<td><span class="badge ' . $consentClass . '">' . ucfirst(htmlspecialchars($patient['consent_status'])) . '</span></td>';
-                                    echo '<td><span class="badge ' . $processClass . '">' . ucfirst(htmlspecialchars($patient['process_status'])) . '</span></td>';
-                                    echo '<td><span class="badge ' . $reminderClass . '">' . ucfirst(htmlspecialchars($patient['followup_reminder'])) . '</span></td>';
-                                    echo '<td>' . htmlspecialchars(formatEnrollmentDate($patient['enrollment_date'])) . '</td>';
-                                    echo '<td>' . $lastConsultDisplay . '</td>';
-                                    echo '<td>';
-                                    echo '<a href="" type="button" class="btn btn-sm btn-outline-primary me-1" title="View"><i class="bi bi-eye"></i></a>';
-                                    echo '<a href="consultcall/edit.php?id=' . htmlspecialchars($patient['consult_call_id']) . '" type="button" class="btn btn-sm btn-outline-secondary" title="Edit"><i class="bi bi-pencil"></i></a>';
-                                    echo '</td>';
-                                    echo '</tr>';
-                                    $rowNum++;
-                                }
-                                ?>
+                            <tbody id="patientsTableBody">
+                                <tr>
+                                    <td colspan="10" class="text-center py-4">
+                                        <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        <span class="ms-2 text-muted">Loading data...</span>
+                                    </td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
@@ -468,7 +270,7 @@ $totalReminder = $reminderPending + $reminderCompleted + $reminderRescheduled + 
                             <span class="ms-2" style="font-size: 13px;">entries</span>
                         </div>
                         <div class="d-flex align-items-center">
-                            <span id="paginationInfo" class="me-3" style="font-size: 13px;">Showing 1 to 10 of 0 entries</span>
+                            <span id="paginationInfo" class="me-3" style="font-size: 13px;">Showing 0 to 0 of 0 entries</span>
                             <nav>
                                 <ul class="pagination pagination-sm mb-0" id="paginationControls">
                                 </ul>
@@ -480,6 +282,13 @@ $totalReminder = $reminderPending + $reminderCompleted + $reminderRescheduled + 
         </div>
     </div>
 
+    <script>
+    var CC_CONFIG = {
+        staffId: <?php echo json_encode(isset($id_user) ? $id_user : ''); ?>,
+        permission: <?php echo json_encode($consult_call_permission); ?>,
+        apiUrl: 'consultcall/api-jwt.php'
+    };
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="consultcall/js/main.js?v=<?php echo time(); ?>"></script>
 </body>

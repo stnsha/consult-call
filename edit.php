@@ -1,45 +1,3 @@
-<?php
-// Dummy patient data - PHP 5.3 compatible syntax
-$patient = array(
-    'consult_call_id' => '#CC001',
-    'name' => 'Ahmad bin Ismail',
-    'icno' => '850615-01-5678',
-    'phone' => '60123456789',
-    'address' => '123 Jalan Merdeka, Taman Sejahtera, 43000 Kajang, Selangor',
-    'email' => 'ahmad.ismail@email.com',
-    'age' => 41,
-    'gender' => 'Male',
-    'risk_tier' => 'moderate'
-);
-
-// Staff list - PHP 5.3 compatible syntax
-$staffList = array(
-    array('id' => 1, 'name' => 'Dr. Sarah Lee'),
-    array('id' => 2, 'name' => 'Dr. Tan Wei Ming'),
-    array('id' => 3, 'name' => 'Nurse Fatimah'),
-    array('id' => 4, 'name' => 'Nurse Raj Kumar')
-);
-
-// Outlet list - PHP 5.3 compatible syntax
-$outletList = array(
-    array('code' => 'KPJ-001', 'name' => 'KPJ Kajang'),
-    array('code' => 'KPJ-002', 'name' => 'KPJ Ampang'),
-    array('code' => 'HOSP-001', 'name' => 'Hospital Serdang'),
-    array('code' => 'KLIN-001', 'name' => 'Klinik Kesihatan Kajang')
-);
-
-// Risk tier badge class helper
-function getRiskTierBadgeClass($tier) {
-    if ($tier === 'low') {
-        return 'bg-success';
-    } elseif ($tier === 'moderate') {
-        return 'bg-warning';
-    } elseif ($tier === 'high') {
-        return 'bg-danger';
-    }
-    return 'bg-secondary';
-}
-?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -218,6 +176,27 @@ function getRiskTierBadgeClass($tier) {
 require_once('../lock_adv.php');
 $connect = 1;
 include('../common/index_adv.php');
+
+$consult_call_id = isset($_GET['id']) ? $_GET['id'] : '';
+$view_only = isset($_GET['view_only']) ? $_GET['view_only'] : '';
+
+$staffList = array();
+$sq = "SELECT id, nama_staff FROM staff WHERE recycle != 1 ORDER BY nama_staff";
+$sr = mysqli_query($conn, $sq);
+if ($sr) {
+    while ($row = mysqli_fetch_assoc($sr)) {
+        $staffList[] = array('id' => $row['id'], 'name' => $row['nama_staff']);
+    }
+}
+
+$outletList = array();
+$oq = "SELECT id, code, comp_name FROM outlet ORDER BY comp_name";
+$or2 = mysqli_query($conn, $oq);
+if ($or2) {
+    while ($row = mysqli_fetch_assoc($or2)) {
+        $outletList[] = array('code' => $row['code'], 'name' => $row['comp_name']);
+    }
+}
 ?>
 <body>
     <?php include('navbar.php'); ?>
@@ -229,7 +208,7 @@ include('../common/index_adv.php');
                     <i class="bi bi-arrow-left"></i> Back
                 </a>
                 <h1>Edit Patient</h1>
-                <span class="patient-id"><?php echo htmlspecialchars($patient['consult_call_id']); ?></span>
+                <span class="patient-id" id="consult-call-id">--</span>
             </div>
         </div>
 
@@ -247,37 +226,35 @@ include('../common/index_adv.php');
                             <div class="row g-3">
                                 <div class="col-md-6">
                                     <label class="form-label">Name</label>
-                                    <div class="readonly-field"><?php echo htmlspecialchars($patient['name']); ?></div>
+                                    <div class="readonly-field" id="patient-name">--</div>
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label">IC No</label>
-                                    <div class="readonly-field"><?php echo htmlspecialchars($patient['icno']); ?></div>
+                                    <div class="readonly-field" id="patient-icno">--</div>
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label">Phone</label>
-                                    <div class="readonly-field"><?php echo htmlspecialchars($patient['phone']); ?></div>
+                                    <div class="readonly-field" id="patient-phone">--</div>
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label">Email</label>
-                                    <div class="readonly-field"><?php echo htmlspecialchars($patient['email']); ?></div>
+                                    <div class="readonly-field" id="patient-email">--</div>
                                 </div>
                                 <div class="col-md-12">
                                     <label class="form-label">Address</label>
-                                    <div class="readonly-field"><?php echo htmlspecialchars($patient['address']); ?></div>
+                                    <div class="readonly-field" id="patient-address">--</div>
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label">Age</label>
-                                    <div class="readonly-field"><?php echo htmlspecialchars($patient['age']); ?></div>
+                                    <div class="readonly-field" id="patient-age">--</div>
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label">Gender</label>
-                                    <div class="readonly-field"><?php echo htmlspecialchars($patient['gender']); ?></div>
+                                    <div class="readonly-field" id="patient-gender">--</div>
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label">Risk Tier</label>
-                                    <div class="readonly-field">
-                                        <span class="badge <?php echo getRiskTierBadgeClass($patient['risk_tier']); ?>"><?php echo ucfirst(htmlspecialchars($patient['risk_tier'])); ?></span>
-                                    </div>
+                                    <div class="readonly-field" id="patient-risk-tier">--</div>
                                 </div>
                             </div>
                         </div>
@@ -295,7 +272,7 @@ include('../common/index_adv.php');
                             <div class="row g-3">
                                 <div class="col-md-6">
                                     <label class="form-label">Collected Date</label>
-                                    <div class="readonly-field">15 Jan 2026</div>
+                                    <div class="readonly-field" id="blood-test-date">--</div>
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label">Report</label>
@@ -324,15 +301,15 @@ include('../common/index_adv.php');
                             <label class="form-label">Consent Status</label>
                             <div class="radio-group">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="consent_status" id="consent_pending" value="pending" checked>
+                                    <input class="form-check-input" type="radio" name="consent_status" id="consent_pending" value="0" checked>
                                     <label class="form-check-label" for="consent_pending">Pending</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="consent_status" id="consent_obtained" value="obtained">
+                                    <input class="form-check-input" type="radio" name="consent_status" id="consent_obtained" value="1">
                                     <label class="form-check-label" for="consent_obtained">Obtained</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="consent_status" id="consent_refused" value="refused">
+                                    <input class="form-check-input" type="radio" name="consent_status" id="consent_refused" value="2">
                                     <label class="form-check-label" for="consent_refused">Refused</label>
                                 </div>
                             </div>
@@ -341,27 +318,27 @@ include('../common/index_adv.php');
                         <!-- Conditional fields when consent = obtained -->
                         <div class="col-md-6 conditional-field" data-condition="consent_obtained">
                             <label class="form-label">Consent Date</label>
-                            <input type="date" class="form-control" name="consent_date" id="consent_date">
+                            <input type="date" class="form-control" name="consent_call_date" id="consent_call_date">
                         </div>
 
                         <div class="col-md-6 conditional-field" data-condition="consent_obtained">
                             <label class="form-label">Scheduled Consult Date &amp; Time</label>
-                            <input type="datetime-local" class="form-control" name="scheduled_consult_datetime" id="scheduled_consult_datetime">
+                            <input type="date" class="form-control" name="scheduled_call_date" id="scheduled_call_date">
                         </div>
 
                         <div class="col-md-12 conditional-field" data-condition="consent_obtained">
                             <label class="form-label">Scheduled Status</label>
                             <div class="radio-group">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="scheduled_status" id="scheduled_confirmed" value="confirmed" checked>
+                                    <input class="form-check-input" type="radio" name="scheduled_status" id="scheduled_confirmed" value="1" checked>
                                     <label class="form-check-label" for="scheduled_confirmed">Confirmed</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="scheduled_status" id="scheduled_reschedule" value="reschedule">
+                                    <input class="form-check-input" type="radio" name="scheduled_status" id="scheduled_reschedule" value="2">
                                     <label class="form-check-label" for="scheduled_reschedule">Reschedule</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="scheduled_status" id="scheduled_cancelled" value="cancelled">
+                                    <input class="form-check-input" type="radio" name="scheduled_status" id="scheduled_cancelled" value="3">
                                     <label class="form-check-label" for="scheduled_cancelled">Cancelled</label>
                                 </div>
                             </div>
@@ -387,15 +364,15 @@ include('../common/index_adv.php');
                             <label class="form-label">Mode of Consult</label>
                             <div class="radio-group">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="mode_of_consult" id="mode_phone" value="phone">
+                                    <input class="form-check-input" type="radio" name="mode_of_consultation" id="mode_phone" value="1">
                                     <label class="form-check-label" for="mode_phone">Phone</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="mode_of_consult" id="mode_google_meet" value="google_meet">
+                                    <input class="form-check-input" type="radio" name="mode_of_consultation" id="mode_google_meet" value="2">
                                     <label class="form-check-label" for="mode_google_meet">Google Meet</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="mode_of_consult" id="mode_whatsapp" value="whatsapp">
+                                    <input class="form-check-input" type="radio" name="mode_of_consultation" id="mode_whatsapp" value="3">
                                     <label class="form-check-label" for="mode_whatsapp">WhatsApp</label>
                                 </div>
                             </div>
@@ -440,15 +417,15 @@ include('../common/index_adv.php');
                             <label class="form-label">Consult Status</label>
                             <div class="radio-group">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="consult_status" id="consult_completed" value="completed">
+                                    <input class="form-check-input" type="radio" name="consult_status" id="consult_completed" value="1">
                                     <label class="form-check-label" for="consult_completed">Completed</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="consult_status" id="consult_no_show" value="no-show">
+                                    <input class="form-check-input" type="radio" name="consult_status" id="consult_no_show" value="2">
                                     <label class="form-check-label" for="consult_no_show">No-show</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="consult_status" id="consult_cancelled" value="cancelled">
+                                    <input class="form-check-input" type="radio" name="consult_status" id="consult_cancelled" value="3">
                                     <label class="form-check-label" for="consult_cancelled">Cancelled</label>
                                 </div>
                             </div>
@@ -460,10 +437,10 @@ include('../common/index_adv.php');
                             <textarea class="form-control" name="diagnosis" id="diagnosis" rows="3" placeholder="Enter diagnosis"></textarea>
                         </div>
 
-                        <!-- Management Plan -->
+                        <!-- Treatment Plan -->
                         <div class="col-md-12">
-                            <label class="form-label">Management Plan</label>
-                            <textarea class="form-control" name="management_plan" id="management_plan" rows="3" placeholder="Enter management plan"></textarea>
+                            <label class="form-label">Treatment Plan</label>
+                            <textarea class="form-control" name="treatment_plan" id="treatment_plan" rows="3" placeholder="Enter treatment plan"></textarea>
                         </div>
 
                         <!-- Rx Issued -->
@@ -480,15 +457,15 @@ include('../common/index_adv.php');
                             <label class="form-label">Action</label>
                             <div class="radio-group">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="action" id="action_refer_outlet" value="refer_outlet">
-                                    <label class="form-check-label" for="action_refer_outlet">Refer Outlet</label>
+                                    <input class="form-check-input" type="radio" name="action" id="action_refer_outlet" value="1">
+                                    <label class="form-check-label" for="action_refer_outlet">Refer Internal</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="action" id="action_refer_clinic" value="refer_clinic">
-                                    <label class="form-check-label" for="action_refer_clinic">Refer Clinic/Hospital</label>
+                                    <input class="form-check-input" type="radio" name="action" id="action_refer_clinic" value="2">
+                                    <label class="form-check-label" for="action_refer_clinic">Refer External</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="action" id="action_end_process" value="end_process">
+                                    <input class="form-check-input" type="radio" name="action" id="action_end_process" value="3">
                                     <label class="form-check-label" for="action_end_process">End Process</label>
                                 </div>
                             </div>
@@ -499,11 +476,11 @@ include('../common/index_adv.php');
                             <label class="form-label">Follow Up Type</label>
                             <div class="radio-group">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="follow_up_type" id="followup_blood_review" value="blood_test_review">
+                                    <input class="form-check-input" type="radio" name="followup_type" id="followup_blood_review" value="1">
                                     <label class="form-check-label" for="followup_blood_review">Blood Test + Review</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="follow_up_type" id="followup_review_only" value="review_only">
+                                    <input class="form-check-input" type="radio" name="followup_type" id="followup_review_only" value="2">
                                     <label class="form-check-label" for="followup_review_only">Review Only</label>
                                 </div>
                             </div>
@@ -514,19 +491,19 @@ include('../common/index_adv.php');
                             <label class="form-label">Next Follow Up</label>
                             <div class="radio-group">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="next_follow_up" id="followup_none" value="none">
+                                    <input class="form-check-input" type="radio" name="next_followup" id="followup_none" value="0">
                                     <label class="form-check-label" for="followup_none">None</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="next_follow_up" id="followup_1month" value="1_month">
+                                    <input class="form-check-input" type="radio" name="next_followup" id="followup_1month" value="1">
                                     <label class="form-check-label" for="followup_1month">1 Month</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="next_follow_up" id="followup_3months" value="3_months">
+                                    <input class="form-check-input" type="radio" name="next_followup" id="followup_3months" value="2">
                                     <label class="form-check-label" for="followup_3months">3 Months</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="next_follow_up" id="followup_6months" value="6_months">
+                                    <input class="form-check-input" type="radio" name="next_followup" id="followup_6months" value="3">
                                     <label class="form-check-label" for="followup_6months">6 Months</label>
                                 </div>
                             </div>
@@ -535,7 +512,7 @@ include('../common/index_adv.php');
                         <!-- Next Follow Up Date -->
                         <div class="col-md-6">
                             <label class="form-label">Next Follow Up Date</label>
-                            <input type="datetime-local" class="form-control" name="next_follow_up_date" id="next_follow_up_date">
+                            <input type="datetime-local" class="form-control" name="followup_date" id="followup_date">
                         </div>
 
                         <!-- Blood Test Required -->
@@ -543,11 +520,11 @@ include('../common/index_adv.php');
                             <label class="form-label">Blood Test Required</label>
                             <div class="radio-group">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="blood_test_required" id="blood_test_yes" value="yes">
+                                    <input class="form-check-input" type="radio" name="is_blood_test_required" id="blood_test_yes" value="1">
                                     <label class="form-check-label" for="blood_test_yes">Yes</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="blood_test_required" id="blood_test_no" value="no">
+                                    <input class="form-check-input" type="radio" name="is_blood_test_required" id="blood_test_no" value="0">
                                     <label class="form-check-label" for="blood_test_no">No</label>
                                 </div>
                             </div>
@@ -558,11 +535,11 @@ include('../common/index_adv.php');
                             <label class="form-label">Mode of Conversion</label>
                             <div class="radio-group">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="mode_of_conversion" id="conversion_outlet" value="outlet">
+                                    <input class="form-check-input" type="radio" name="mode_of_conversion" id="conversion_outlet" value="1">
                                     <label class="form-check-label" for="conversion_outlet">Outlet</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="mode_of_conversion" id="conversion_clinic" value="clinic">
+                                    <input class="form-check-input" type="radio" name="mode_of_conversion" id="conversion_clinic" value="2">
                                     <label class="form-check-label" for="conversion_clinic">Clinic</label>
                                 </div>
                             </div>
@@ -584,12 +561,12 @@ include('../common/index_adv.php');
                             <label class="form-label">MyReferral Status</label>
                             <div class="radio-group">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="myreferral_status" id="myreferral_yes" value="yes">
-                                    <label class="form-check-label" for="myreferral_yes">Yes</label>
+                                    <input class="form-check-input" type="radio" name="my_referral_status" id="myreferral_referred" value="1">
+                                    <label class="form-check-label" for="myreferral_referred">Referred</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="myreferral_status" id="myreferral_no" value="no">
-                                    <label class="form-check-label" for="myreferral_no">No</label>
+                                    <input class="form-check-input" type="radio" name="my_referral_status" id="myreferral_none" value="0">
+                                    <label class="form-check-label" for="myreferral_none">None</label>
                                 </div>
                             </div>
                         </div>
@@ -604,9 +581,9 @@ include('../common/index_adv.php');
             </div>
 
             <!-- Save Button -->
-            <div class="d-flex justify-content-end gap-2 mt-4">
+            <div class="d-flex justify-content-end gap-2 mt-4" id="form-actions">
                 <a href="consultcall/index.php" class="btn btn-outline-secondary">Cancel</a>
-                <button type="submit" class="btn btn-primary">
+                <button type="submit" class="btn btn-primary" id="saveBtn">
                     <i class="bi bi-check-lg me-1"></i>Save Changes
                 </button>
             </div>
@@ -628,90 +605,15 @@ include('../common/index_adv.php');
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-    // Section collapse/expand functionality
-    document.addEventListener('DOMContentLoaded', function() {
-        var sectionHeaders = document.querySelectorAll('.section-header');
-        for (var i = 0; i < sectionHeaders.length; i++) {
-            sectionHeaders[i].addEventListener('click', function() {
-                var sectionName = this.getAttribute('data-section');
-                var sectionContent = document.getElementById('section-' + sectionName);
-                if (sectionContent) {
-                    this.classList.toggle('collapsed');
-                    sectionContent.classList.toggle('collapsed');
-                }
-            });
-        }
-
-        // Consent status change handler
-        var consentRadios = document.querySelectorAll('input[name="consent_status"]');
-        for (var j = 0; j < consentRadios.length; j++) {
-            consentRadios[j].addEventListener('change', function() {
-                handleConsentChange(this.value);
-            });
-        }
-
-        // Scheduled status change handler
-        var scheduledRadios = document.querySelectorAll('input[name="scheduled_status"]');
-        for (var k = 0; k < scheduledRadios.length; k++) {
-            scheduledRadios[k].addEventListener('change', function() {
-                handleScheduledStatusChange(this.value);
-            });
-        }
-
-        // Initialize conditional fields state
-        handleConsentChange('pending');
-    });
-
-    function handleConsentChange(value) {
-        // Handle consent_obtained fields
-        var consentFields = document.querySelectorAll('[data-condition="consent_obtained"]');
-        for (var i = 0; i < consentFields.length; i++) {
-            if (value === 'obtained') {
-                consentFields[i].classList.add('visible');
-            } else {
-                consentFields[i].classList.remove('visible');
-            }
-        }
-
-        // Handle consent_refused fields
-        var refusedFields = document.querySelectorAll('[data-condition="consent_refused"]');
-        for (var k = 0; k < refusedFields.length; k++) {
-            if (value === 'refused') {
-                refusedFields[k].classList.add('visible');
-            } else {
-                refusedFields[k].classList.remove('visible');
-            }
-        }
-
-        // Also reset reschedule field visibility when consent changes
-        if (value !== 'obtained') {
-            var rescheduleFields = document.querySelectorAll('[data-condition="scheduled_reschedule"]');
-            for (var j = 0; j < rescheduleFields.length; j++) {
-                rescheduleFields[j].classList.remove('visible');
-            }
-        }
-    }
-
-    function handleScheduledStatusChange(value) {
-        var rescheduleFields = document.querySelectorAll('[data-condition="scheduled_reschedule"]');
-        for (var i = 0; i < rescheduleFields.length; i++) {
-            if (value === 'reschedule') {
-                rescheduleFields[i].classList.add('visible');
-            } else {
-                rescheduleFields[i].classList.remove('visible');
-            }
-        }
-    }
-
-    function openPdfReport() {
-        // Sample PDF URL - replace with actual PDF path
-        var pdfUrl = 'consultcall/reports/sample_blood_test.pdf';
-        document.getElementById('pdfViewer').src = pdfUrl;
-        var pdfModal = new bootstrap.Modal(document.getElementById('pdfModal'));
-        pdfModal.show();
-    }
+    var EDIT_CONFIG = {
+        consultCallId: <?php echo json_encode($consult_call_id); ?>,
+        viewOnly: <?php echo json_encode($view_only === 'true'); ?>,
+        staffId: <?php echo json_encode(isset($id_user) ? $id_user : ''); ?>,
+        apiUrl: 'consultcall/api-jwt.php'
+    };
     </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="consultcall/js/edit.js?v=<?php echo time(); ?>"></script>
 </body>
 </html>
