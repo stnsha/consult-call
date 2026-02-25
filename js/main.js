@@ -17,21 +17,50 @@
     var perPage = 10;
     var searchTimeout = null;
 
-    // Integer ID to label maps (from API status libraries)
+    // Integer ID to label maps for fields not loaded from API
     var LABELS = {
         consent:    { 0: 'Pending', 1: 'Obtained', 2: 'Refused' },
-        enrollment: { 1: 'Primary', 2: 'Follow Up' },
-        process:    { 1: 'Active', 2: 'Escalated', 3: 'Closed' },
-        reminder:   { 0: 'Pending', 1: 'Completed', 2: 'Rescheduled', 3: 'Cancelled' }
+        enrollment: { 1: 'Primary', 2: 'Follow Up' }
     };
 
     // Integer ID to badge class maps
     var BADGES = {
-        consent:    { 0: 'bg-warning', 1: 'bg-success', 2: 'bg-danger' },
-        enrollment: { 1: 'bg-primary', 2: 'bg-secondary' },
-        process:    { 1: 'bg-success', 2: 'bg-danger', 3: 'bg-secondary' },
-        reminder:   { 0: 'bg-warning', 1: 'bg-success', 2: 'bg-info', 3: 'bg-danger' }
+        consent:    { 0: 'bg-warning',  1: 'bg-success', 2: 'bg-danger' },
+        enrollment: { 1: 'bg-primary',  2: 'bg-secondary' },
+        process:    { 1: 'bg-success',  2: 'bg-danger',   3: 'bg-secondary' },
+        reminder:   { 0: 'bg-warning',  1: 'bg-success',  2: 'bg-info', 3: 'bg-danger' }
     };
+
+    // Status label maps loaded from StatusLibraryController via get-statuses
+    var statusMaps = {
+        processStatuses:    {},
+        followUpReminders:  {}
+    };
+
+    /**
+     * Load process-statuses and follow-up-reminders from the API status library.
+     * Must resolve before the first renderRow() call so labels are available.
+     * @returns {Promise}
+     */
+    function loadStatusMaps() {
+        var types = ['process-statuses', 'follow-up-reminders'];
+        var keys  = ['processStatuses',  'followUpReminders'];
+        var promises = [];
+        for (var i = 0; i < types.length; i++) {
+            promises.push(apiCall('get-statuses', { type: types[i] }));
+        }
+        return Promise.all(promises).then(function(results) {
+            for (var j = 0; j < results.length; j++) {
+                if (results[j].success && results[j].data) {
+                    var map = {};
+                    for (var k = 0; k < results[j].data.length; k++) {
+                        map[String(results[j].data[k].id)] = results[j].data[k].label;
+                    }
+                    statusMaps[keys[j]] = map;
+                }
+            }
+        });
+    }
 
     /**
      * Make an API call to the consult call backend
@@ -209,36 +238,38 @@
     function renderRow(record, index, customerMap) {
         var rowNum = (currentPage - 1) * perPage + index + 1;
         var customer = (record.customer_id && customerMap[record.customer_id]) ? customerMap[record.customer_id] : {};
-        var name = escapeHtml(customer.name || '--');
-        var icno = escapeHtml(customer.ic || '--');
-        var phone = escapeHtml(customer.phone || '--');
+        var name = escapeHtml(customer.name || '');
+        var icno = escapeHtml(customer.ic || '');
+        var phone = escapeHtml(customer.phone || '');
+
+        // process_status lives on the latest detail; followup_reminder on the latest follow-up
+        var details = record.details || [];
+        var followUps = record.follow_ups || [];
+        var latestDetail  = details.length  > 0 ? details[details.length - 1]   : null;
+        var latestFollowUp = followUps.length > 0 ? followUps[followUps.length - 1] : null;
 
         // Resolve integer IDs to labels and badge classes
-        var consentId = record.consent_call_status;
-        var enrollId = record.enrollment_type;
-        var processId = record.process_status;
-        var reminderId = record.followup_reminder;
+        var consentId  = record.consent_call_status;
+        var enrollId   = record.enrollment_type;
+        var processId  = latestDetail  ? latestDetail.process_status       : null;
+        var reminderId = latestFollowUp ? latestFollowUp.followup_reminder  : null;
 
-        var consentLabel = LABELS.consent[consentId] || '--';
-        var enrollLabel = LABELS.enrollment[enrollId] || '--';
-        var processLabel = LABELS.process[processId] || '--';
-        var reminderLabel = LABELS.reminder[reminderId] || '--';
+        var consentLabel  = LABELS.consent[consentId]   || '';
+        var enrollLabel   = LABELS.enrollment[enrollId] || '';
+        var processLabel  = processId  !== null ? (statusMaps.processStatuses[String(processId)]   || '') : '';
+        var reminderLabel = reminderId !== null ? (statusMaps.followUpReminders[String(reminderId)] || '') : '';
 
-        var consentBadge = BADGES.consent[consentId] || 'bg-secondary';
-        var enrollBadge = BADGES.enrollment[enrollId] || 'bg-secondary';
-        var processBadge = BADGES.process[processId] || 'bg-secondary';
-        var reminderBadge = BADGES.reminder[reminderId] || 'bg-secondary';
+        var consentBadge  = BADGES.consent[consentId]    || 'bg-secondary';
+        var enrollBadge   = BADGES.enrollment[enrollId]  || 'bg-secondary';
+        var processBadge  = BADGES.process[processId]    || 'bg-secondary';
+        var reminderBadge = BADGES.reminder[reminderId]  || 'bg-secondary';
 
-        var enrollmentDate = record.enrollment_date ? formatDate(record.enrollment_date) : '--';
+        var enrollmentDate = record.enrollment_date ? formatDate(record.enrollment_date) : '';
 
-        // Last consultation: derive from latest detail consult_date or follow-up
+        // Last consultation: derive from latest detail consult_date
         var lastConsult = '';
-        var details = record.details || [];
-        if (details.length > 0) {
-            var latestDetail = details[details.length - 1];
-            if (latestDetail.consult_date) {
-                lastConsult = formatDate(latestDetail.consult_date);
-            }
+        if (latestDetail && latestDetail.consult_date) {
+            lastConsult = formatDate(latestDetail.consult_date);
         }
         if (!lastConsult) {
             lastConsult = '<span class="text-muted">-</span>';
@@ -473,6 +504,8 @@
         });
 
         loadSummary();
-        loadTableData();
+        loadStatusMaps().then(function() {
+            loadTableData();
+        });
     });
 })();

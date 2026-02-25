@@ -193,6 +193,17 @@ function getStaffAuthData($staff_id)
         'consult_call' => isset($row['consult_call']) ? (int)$row['consult_call'] : 2
     );
 
+    // Dev role override: localhost only, for testing different roles without re-login
+    if (getEnvironment() === 'local' && isset($_SESSION['dev_role_override'])) {
+        $returnData['consult_call'] = (int)$_SESSION['dev_role_override'];
+        logJWTOperation(
+            'getStaffAuthData',
+            'Dev role override applied',
+            array('staff_id' => $staff_id, 'override_role' => $returnData['consult_call']),
+            'WARNING'
+        );
+    }
+
     // Return in the format expected by JWT API
     return $returnData;
 }
@@ -1210,6 +1221,32 @@ if (!defined('API_JWT_INCLUDED')) {
                         $response = getCustomersByIds($jsonData['customer_ids']);
                     } else {
                         $response = array('success' => false, 'message' => 'Missing or invalid customer_ids array');
+                    }
+                    break;
+
+                case 'get-pdf':
+                    $consultCallId = isset($jsonData['consult_call_id']) ? intval($jsonData['consult_call_id']) : 0;
+                    if (!$consultCallId) {
+                        $response = array('success' => false, 'message' => 'consult_call_id is required.');
+                        break;
+                    }
+                    $pdfEndpoint = $consultCallId . '/pdf';
+                    if (isset($jsonData['test_result_id']) && intval($jsonData['test_result_id']) > 0) {
+                        $pdfEndpoint .= '?test_result_id=' . intval($jsonData['test_result_id']);
+                    }
+                    $apiResult = getApiDataWithJWT($pdfEndpoint, null, 'GET', $staff_id);
+                    if ($apiResult['success']) {
+                        $decoded = json_decode($apiResult['response'], true);
+                        $response = array(
+                            'success' => true,
+                            'data' => $decoded
+                        );
+                    } else {
+                        $decoded = json_decode($apiResult['response'], true);
+                        $response = array(
+                            'success' => false,
+                            'message' => isset($decoded['message']) ? $decoded['message'] : 'Failed to generate PDF'
+                        );
                     }
                     break;
 

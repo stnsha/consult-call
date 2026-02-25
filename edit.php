@@ -165,10 +165,41 @@
         }
         .consultcall-container .form-label {
             font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 6px;
         }
         .consultcall-container .form-control,
         .consultcall-container .form-select {
             font-size: 14px;
+        }
+        /* Radio and checkbox groups sit slightly lower than the label */
+        .consultcall-container .radio-group,
+        .consultcall-container .form-check {
+            padding-top: 2px;
+        }
+        /* Section cards get a little extra inner padding */
+        .consultcall-container .bento-card {
+            padding: 1.25rem 1.5rem;
+        }
+        .field-error {
+            color: #dc3545;
+            font-size: 0.8rem;
+            margin-top: 4px;
+            display: block;
+        }
+        .history-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-bottom: 2px;
+        }
+        .history-value {
+            font-size: 14px;
+            color: #212529;
+            word-break: break-word;
+            white-space: pre-wrap;
         }
     </style>
 </head>
@@ -197,6 +228,45 @@ if ($or2) {
         $outletList[] = array('code' => $row['code'], 'name' => $row['comp_name']);
     }
 }
+
+// HQ staff only (consult_call = 4) for the Handled By dropdown
+$hqStaffList = array();
+$hq_q = "SELECT id, nama_staff FROM staff WHERE consult_call = 4 AND recycle != 1 ORDER BY nama_staff";
+$hq_r = mysqli_query($conn, $hq_q);
+if ($hq_r) {
+    while ($row = mysqli_fetch_assoc($hq_r)) {
+        $hqStaffList[] = array('id' => $row['id'], 'name' => $row['nama_staff']);
+    }
+}
+
+// Resolve current staff role and ID from session
+$currentStaffRole = 0;
+$currentStaffId = null;
+if (isset($_SESSION["myusername"])) {
+    $cs_q = "SELECT id, consult_call FROM staff WHERE username = '" . mysqli_real_escape_string($conn, $_SESSION["myusername"]) . "' AND recycle != 1";
+    $cs_r = mysqli_query($conn, $cs_q);
+    if ($cs_r && $cs_row = mysqli_fetch_assoc($cs_r)) {
+        $currentStaffRole = (int)$cs_row['consult_call'];
+        $currentStaffId   = (int)$cs_row['id'];
+    }
+}
+
+// Dev role override (localhost only) -- matches the dev role switcher in navbar
+$_ep_serverName = isset($_SERVER['SERVER_NAME']) ? $_SERVER['SERVER_NAME'] : '';
+$_ep_httpHost   = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : '';
+$_ep_isLocal    = in_array($_ep_serverName, array('localhost', '127.0.0.1'))
+    || strpos($_ep_serverName, 'localhost') !== false
+    || strpos($_ep_httpHost, 'localhost') !== false
+    || strpos($_ep_httpHost, '127.0.0.1') !== false;
+if ($_ep_isLocal && isset($_SESSION['dev_role_override'])) {
+    $currentStaffRole = (int)$_SESSION['dev_role_override'];
+}
+
+// Eligibility section controls are disabled for non-HQ roles
+$eD = ($currentStaffRole !== 4) ? 'disabled' : '';
+
+// Consultation Details controls are disabled for non-Doctor roles
+$dD = ($currentStaffRole !== 2) ? 'disabled' : '';
 ?>
 <body>
     <?php include('navbar.php'); ?>
@@ -220,7 +290,12 @@ if ($or2) {
                     <div class="bento-card h-100">
                         <div class="section-header" data-section="patient-details">
                             <h5><i class="bi bi-person me-2"></i>Patient Details</h5>
-                            <i class="bi bi-chevron-up"></i>
+                            <div class="d-flex align-items-center gap-2">
+                                <button type="button" id="btn-view-customer" class="btn btn-sm btn-outline-secondary" onclick="event.stopPropagation(); openCustomerModal();" style="display:none;">
+                                    <i class="bi bi-person-lines-fill me-1"></i>View Customer
+                                </button>
+                                <i class="bi bi-chevron-up"></i>
+                            </div>
                         </div>
                         <div class="form-section" id="section-patient-details">
                             <div class="row g-3">
@@ -244,44 +319,29 @@ if ($or2) {
                                     <label class="form-label">Address</label>
                                     <div class="readonly-field" id="patient-address">--</div>
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-6">
                                     <label class="form-label">Age</label>
                                     <div class="readonly-field" id="patient-age">--</div>
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-6">
                                     <label class="form-label">Gender</label>
                                     <div class="readonly-field" id="patient-gender">--</div>
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label">Risk Tier</label>
-                                    <div class="readonly-field" id="patient-risk-tier">--</div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Section 2: Blood Test Report (Read-only) -->
+                <!-- Section 2: Consultation History -->
                 <div class="col-md-6">
-                    <div class="bento-card h-100">
-                        <div class="section-header" data-section="blood-test">
-                            <h5><i class="bi bi-file-earmark-medical me-2"></i>Blood Test Report</h5>
+                    <div class="bento-card h-100" id="consultation-history-section">
+                        <div class="section-header" data-section="consultation-history">
+                            <h5><i class="bi bi-clock-history me-2"></i>Consultation History</h5>
                             <i class="bi bi-chevron-up"></i>
                         </div>
-                        <div class="form-section" id="section-blood-test">
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label class="form-label">Collected Date</label>
-                                    <div class="readonly-field" id="blood-test-date">--</div>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">Report</label>
-                                    <div>
-                                        <a href="javascript:void(0);" class="btn btn-outline-danger" onclick="openPdfReport()" title="View Blood Test Report">
-                                            <i class="bi bi-file-earmark-pdf me-1"></i>View PDF
-                                        </a>
-                                    </div>
-                                </div>
+                        <div class="form-section" id="section-consultation-history">
+                            <div id="consultation-history-container">
+                                <div class="text-muted small">No consultation history.</div>
                             </div>
                         </div>
                     </div>
@@ -291,25 +351,31 @@ if ($or2) {
             <!-- Section 3: ConsultCall Eligibility -->
             <div class="bento-card section-card">
                 <div class="section-header" data-section="eligibility">
-                    <h5><i class="bi bi-clipboard-check me-2"></i>ConsultCall Eligibility</h5>
+                    <h5><i class="bi bi-clipboard-check me-2"></i>ConsultCall Eligibility
+                        <?php if ($eD): ?>
+                        <span style="font-size:11px;font-weight:400;color:#888;margin-left:8px;">
+                            <i class="bi bi-lock-fill"></i> View only
+                        </span>
+                        <?php endif; ?>
+                    </h5>
                     <i class="bi bi-chevron-up"></i>
                 </div>
                 <div class="form-section" id="section-eligibility">
-                    <div class="row g-3">
+                    <div class="row g-4">
                         <!-- Consent Status -->
                         <div class="col-md-12">
-                            <label class="form-label">Consent Status</label>
+                            <label class="form-label">Consent Status<span style="color:red;"> *</span></label>
                             <div class="radio-group">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="consent_status" id="consent_pending" value="0" checked>
+                                    <input class="form-check-input" type="radio" name="consent_status" id="consent_pending" value="0" checked <?php echo $eD; ?>>
                                     <label class="form-check-label" for="consent_pending">Pending</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="consent_status" id="consent_obtained" value="1">
+                                    <input class="form-check-input" type="radio" name="consent_status" id="consent_obtained" value="1" <?php echo $eD; ?>>
                                     <label class="form-check-label" for="consent_obtained">Obtained</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="consent_status" id="consent_refused" value="2">
+                                    <input class="form-check-input" type="radio" name="consent_status" id="consent_refused" value="2" <?php echo $eD; ?>>
                                     <label class="form-check-label" for="consent_refused">Refused</label>
                                 </div>
                             </div>
@@ -317,28 +383,28 @@ if ($or2) {
 
                         <!-- Conditional fields when consent = obtained -->
                         <div class="col-md-6 conditional-field" data-condition="consent_obtained">
-                            <label class="form-label">Consent Date</label>
-                            <input type="date" class="form-control" name="consent_call_date" id="consent_call_date">
+                            <label class="form-label">Consent Date<span style="color:red;"> *</span></label>
+                            <input type="date" class="form-control" name="consent_call_date" id="consent_call_date" <?php echo $eD; ?>>
                         </div>
 
                         <div class="col-md-6 conditional-field" data-condition="consent_obtained">
-                            <label class="form-label">Scheduled Consult Date &amp; Time</label>
-                            <input type="date" class="form-control" name="scheduled_call_date" id="scheduled_call_date">
+                            <label class="form-label">Scheduled Consult Date &amp; Time<span style="color:red;"> *</span></label>
+                            <input type="date" class="form-control" name="scheduled_call_date" id="scheduled_call_date" <?php echo $eD; ?>>
                         </div>
 
                         <div class="col-md-12 conditional-field" data-condition="consent_obtained">
-                            <label class="form-label">Scheduled Status</label>
+                            <label class="form-label">Scheduled Status<span style="color:red;"> *</span></label>
                             <div class="radio-group">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="scheduled_status" id="scheduled_confirmed" value="1" checked>
+                                    <input class="form-check-input" type="radio" name="scheduled_status" id="scheduled_confirmed" value="1" checked <?php echo $eD; ?>>
                                     <label class="form-check-label" for="scheduled_confirmed">Confirmed</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="scheduled_status" id="scheduled_reschedule" value="2">
+                                    <input class="form-check-input" type="radio" name="scheduled_status" id="scheduled_reschedule" value="2" <?php echo $eD; ?>>
                                     <label class="form-check-label" for="scheduled_reschedule">Reschedule</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="scheduled_status" id="scheduled_cancelled" value="3">
+                                    <input class="form-check-input" type="radio" name="scheduled_status" id="scheduled_cancelled" value="3" <?php echo $eD; ?>>
                                     <label class="form-check-label" for="scheduled_cancelled">Cancelled</label>
                                 </div>
                             </div>
@@ -346,33 +412,36 @@ if ($or2) {
 
                         <!-- Conditional field when scheduled_status = reschedule -->
                         <div class="col-md-6 conditional-field" data-condition="scheduled_reschedule">
-                            <label class="form-label">Updated Scheduled Date</label>
-                            <input type="datetime-local" class="form-control" name="updated_scheduled_date" id="updated_scheduled_date">
+                            <label class="form-label">Updated Scheduled Date<span style="color:red;"> *</span></label>
+                            <input type="date" class="form-control" name="updated_scheduled_date" id="updated_scheduled_date" <?php echo $eD; ?>>
                         </div>
 
                         <div class="col-md-6 conditional-field" data-condition="consent_obtained">
-                            <label class="form-label">Handled By</label>
-                            <select class="form-select" name="handled_by" id="handled_by">
+                            <label class="form-label">Handled By<span style="color:red;"> *</span></label>
+                            <select class="form-select" name="handled_by" id="handled_by" <?php echo $eD; ?>>
                                 <option value="">Select Staff</option>
-                                <?php foreach ($staffList as $staff): ?>
-                                <option value="<?php echo htmlspecialchars($staff['id']); ?>"><?php echo htmlspecialchars($staff['name']); ?></option>
+                                <?php foreach ($hqStaffList as $staff): ?>
+                                <option value="<?php echo htmlspecialchars($staff['id']); ?>"
+                                    <?php echo ($currentStaffRole === 4 && $staff['id'] == $currentStaffId) ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($staff['name']); ?>
+                                </option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
 
                         <div class="col-md-6 conditional-field" data-condition="consent_obtained">
-                            <label class="form-label">Mode of Consult</label>
+                            <label class="form-label">Mode of Consult<span style="color:red;"> *</span></label>
                             <div class="radio-group">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="mode_of_consultation" id="mode_phone" value="1">
+                                    <input class="form-check-input" type="radio" name="mode_of_consultation" id="mode_phone" value="1" <?php echo $eD; ?>>
                                     <label class="form-check-label" for="mode_phone">Phone</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="mode_of_consultation" id="mode_google_meet" value="2">
+                                    <input class="form-check-input" type="radio" name="mode_of_consultation" id="mode_google_meet" value="2" <?php echo $eD; ?>>
                                     <label class="form-check-label" for="mode_google_meet">Google Meet</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="mode_of_consultation" id="mode_whatsapp" value="3">
+                                    <input class="form-check-input" type="radio" name="mode_of_consultation" id="mode_whatsapp" value="3" <?php echo $eD; ?>>
                                     <label class="form-check-label" for="mode_whatsapp">WhatsApp</label>
                                 </div>
                             </div>
@@ -380,31 +449,84 @@ if ($or2) {
 
                         <!-- Conditional field when consent = refused -->
                         <div class="col-md-12 conditional-field" data-condition="consent_refused">
-                            <label class="form-label">Remarks</label>
-                            <textarea class="form-control" name="refusal_remarks" id="refusal_remarks" rows="3" placeholder="Enter reason for refusal"></textarea>
+                            <label class="form-label">Remarks<span style="color:red;"> *</span></label>
+                            <textarea class="form-control" name="refusal_remarks" id="refusal_remarks" rows="3" placeholder="Enter reason for refusal" <?php echo $eD; ?>></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Follow-up Checkpoint (shown by JS when doctor opted for follow-up) -->
+            <div class="bento-card section-card" id="followup-checkpoint-section" style="display:none;">
+                <div class="section-header" data-section="followup-checkpoint">
+                    <h5><i class="bi bi-calendar2-check me-2"></i>Follow-up Checkpoint
+                        <?php if ($eD): ?>
+                        <span style="font-size:11px;font-weight:400;color:#888;margin-left:8px;">
+                            <i class="bi bi-lock-fill"></i> View only
+                        </span>
+                        <?php endif; ?>
+                    </h5>
+                    <i class="bi bi-chevron-up"></i>
+                </div>
+                <div class="form-section" id="section-followup-checkpoint">
+                    <div class="row g-4">
+                        <div class="col-md-12">
+                            <label class="form-label">Follow-up Reminder Status<span style="color:red;"> *</span></label>
+                            <div class="radio-group">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="followup_reminder" id="reminder_pending" value="0" checked <?php echo $eD; ?>>
+                                    <label class="form-check-label" for="reminder_pending">Pending</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="followup_reminder" id="reminder_completed" value="1" <?php echo $eD; ?>>
+                                    <label class="form-check-label" for="reminder_completed">Completed</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="followup_reminder" id="reminder_rescheduled" value="2" <?php echo $eD; ?>>
+                                    <label class="form-check-label" for="reminder_rescheduled">Rescheduled</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="followup_reminder" id="reminder_cancelled" value="3" <?php echo $eD; ?>>
+                                    <label class="form-check-label" for="reminder_cancelled">Cancelled</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Follow-up Date<span style="color:red;"> *</span></label>
+                            <input type="date" class="form-control" name="checkpoint_followup_date" id="checkpoint_followup_date" <?php echo $eD; ?>>
+                        </div>
+                        <div class="col-md-6 conditional-field" data-condition="reminder_rescheduled">
+                            <label class="form-label">Rescheduled Date<span style="color:red;"> *</span></label>
+                            <input type="date" class="form-control" name="rescheduled_date" id="rescheduled_date" <?php echo $eD; ?>>
                         </div>
                     </div>
                 </div>
             </div>
 
             <!-- Section 3: Consultation Details (hidden by default, shown when consent = obtained) -->
-            <div class="bento-card section-card conditional-field" data-condition="consent_obtained" id="consultation-section">
+            <div class="bento-card section-card" id="consultation-section" style="display:none;">
                 <div class="section-header" data-section="consultation">
-                    <h5><i class="bi bi-journal-medical me-2"></i>Consultation Details</h5>
+                    <h5><i class="bi bi-journal-medical me-2"></i>Consultation Details
+                        <?php if ($dD): ?>
+                        <span style="font-size:11px;font-weight:400;color:#888;margin-left:8px;">
+                            <i class="bi bi-lock-fill"></i> View only
+                        </span>
+                        <?php endif; ?>
+                    </h5>
                     <i class="bi bi-chevron-up"></i>
                 </div>
                 <div class="form-section" id="section-consultation">
-                    <div class="row g-3">
+                    <div class="row g-4">
                         <!-- Consult Date -->
                         <div class="col-md-6">
-                            <label class="form-label">Consult Date</label>
-                            <input type="date" class="form-control" name="consult_date" id="consult_date">
+                            <label class="form-label">Consult Date<span style="color:red;"> *</span></label>
+                            <input type="date" class="form-control" name="consult_date" id="consult_date" <?php echo $dD; ?>>
                         </div>
 
                         <!-- Consulted By -->
                         <div class="col-md-6">
-                            <label class="form-label">Consulted By</label>
-                            <select class="form-select" name="consulted_by" id="consulted_by">
+                            <label class="form-label">Consulted By<span style="color:red;"> *</span></label>
+                            <select class="form-select" name="consulted_by" id="consulted_by" <?php echo $dD; ?>>
                                 <option value="">Select Staff</option>
                                 <?php foreach ($staffList as $staff): ?>
                                 <option value="<?php echo htmlspecialchars($staff['id']); ?>"><?php echo htmlspecialchars($staff['name']); ?></option>
@@ -414,167 +536,150 @@ if ($or2) {
 
                         <!-- Consult Status -->
                         <div class="col-md-12">
-                            <label class="form-label">Consult Status</label>
+                            <label class="form-label">Consult Status<span style="color:red;"> *</span></label>
                             <div class="radio-group">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="consult_status" id="consult_completed" value="1">
+                                    <input class="form-check-input" type="radio" name="consult_status" id="consult_completed" value="1" <?php echo $dD; ?>>
                                     <label class="form-check-label" for="consult_completed">Completed</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="consult_status" id="consult_no_show" value="2">
+                                    <input class="form-check-input" type="radio" name="consult_status" id="consult_no_show" value="2" <?php echo $dD; ?>>
                                     <label class="form-check-label" for="consult_no_show">No-show</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="consult_status" id="consult_cancelled" value="3">
+                                    <input class="form-check-input" type="radio" name="consult_status" id="consult_cancelled" value="3" <?php echo $dD; ?>>
                                     <label class="form-check-label" for="consult_cancelled">Cancelled</label>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Diagnosis -->
-                        <div class="col-md-12">
-                            <label class="form-label">Diagnosis</label>
-                            <textarea class="form-control" name="diagnosis" id="diagnosis" rows="3" placeholder="Enter diagnosis"></textarea>
+                        <div class="col-md-12 conditional-field" data-condition="consult_completed">
+                            <label class="form-label">Diagnosis<span style="color:red;"> *</span></label>
+                            <textarea class="form-control" name="diagnosis" id="diagnosis" rows="10" placeholder="Enter diagnosis" <?php echo $dD; ?>></textarea>
                         </div>
 
                         <!-- Treatment Plan -->
-                        <div class="col-md-12">
-                            <label class="form-label">Treatment Plan</label>
-                            <textarea class="form-control" name="treatment_plan" id="treatment_plan" rows="3" placeholder="Enter treatment plan"></textarea>
+                        <div class="col-md-12 conditional-field" data-condition="consult_completed">
+                            <label class="form-label">Treatment Plan<span style="color:red;"> *</span></label>
+                            <textarea class="form-control" name="treatment_plan" id="treatment_plan" rows="10" placeholder="Enter treatment plan" <?php echo $dD; ?>></textarea>
                         </div>
 
                         <!-- Rx Issued -->
-                        <div class="col-md-6">
-                            <label class="form-label">Rx Issued</label>
+                        <div class="col-md-12 conditional-field" data-condition="consult_completed">
+                            <label class="form-label">Rx Issued<span style="color:red;"> *</span></label>
                             <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="rx_issued" id="rx_issued" value="1">
+                                <input class="form-check-input" type="checkbox" name="rx_issued" id="rx_issued" value="1" <?php echo $dD; ?>>
                                 <label class="form-check-label" for="rx_issued">Yes</label>
                             </div>
                         </div>
 
-                        <!-- Action -->
-                        <div class="col-md-6">
-                            <label class="form-label">Action</label>
+                        <!-- Blood Test Required | Follow Up Type -->
+                        <div class="col-md-6 conditional-field" data-condition="consult_completed">
+                            <label class="form-label">Blood Test Required<span style="color:red;"> *</span></label>
                             <div class="radio-group">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="action" id="action_refer_outlet" value="1">
-                                    <label class="form-check-label" for="action_refer_outlet">Refer Internal</label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="action" id="action_refer_clinic" value="2">
-                                    <label class="form-check-label" for="action_refer_clinic">Refer External</label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="action" id="action_end_process" value="3">
-                                    <label class="form-check-label" for="action_end_process">End Process</label>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Follow Up Type -->
-                        <div class="col-md-6">
-                            <label class="form-label">Follow Up Type</label>
-                            <div class="radio-group">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="followup_type" id="followup_blood_review" value="1">
-                                    <label class="form-check-label" for="followup_blood_review">Blood Test + Review</label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="followup_type" id="followup_review_only" value="2">
-                                    <label class="form-check-label" for="followup_review_only">Review Only</label>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Next Follow Up -->
-                        <div class="col-md-6">
-                            <label class="form-label">Next Follow Up</label>
-                            <div class="radio-group">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="next_followup" id="followup_none" value="0">
-                                    <label class="form-check-label" for="followup_none">None</label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="next_followup" id="followup_1month" value="1">
-                                    <label class="form-check-label" for="followup_1month">1 Month</label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="next_followup" id="followup_3months" value="2">
-                                    <label class="form-check-label" for="followup_3months">3 Months</label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="next_followup" id="followup_6months" value="3">
-                                    <label class="form-check-label" for="followup_6months">6 Months</label>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Next Follow Up Date -->
-                        <div class="col-md-6">
-                            <label class="form-label">Next Follow Up Date</label>
-                            <input type="datetime-local" class="form-control" name="followup_date" id="followup_date">
-                        </div>
-
-                        <!-- Blood Test Required -->
-                        <div class="col-md-6">
-                            <label class="form-label">Blood Test Required</label>
-                            <div class="radio-group">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="is_blood_test_required" id="blood_test_yes" value="1">
+                                    <input class="form-check-input" type="radio" name="is_blood_test_required" id="blood_test_yes" value="1" <?php echo $dD; ?>>
                                     <label class="form-check-label" for="blood_test_yes">Yes</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="is_blood_test_required" id="blood_test_no" value="0">
+                                    <input class="form-check-input" type="radio" name="is_blood_test_required" id="blood_test_no" value="0" <?php echo $dD; ?>>
                                     <label class="form-check-label" for="blood_test_no">No</label>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Mode of Conversion -->
-                        <div class="col-md-6">
-                            <label class="form-label">Mode of Conversion</label>
+                        <div class="col-md-6 conditional-field" data-condition="consult_completed">
+                            <label class="form-label">Follow Up Type<span style="color:red;"> *</span></label>
                             <div class="radio-group">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="mode_of_conversion" id="conversion_outlet" value="1">
+                                    <input class="form-check-input" type="radio" name="followup_type" id="followup_type_no" value="0" checked <?php echo $dD; ?>>
+                                    <label class="form-check-label" for="followup_type_no">No</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="followup_type" id="followup_blood_review" value="1" <?php echo $dD; ?>>
+                                    <label class="form-check-label" for="followup_blood_review">Blood Test + Review</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="followup_type" id="followup_review_only" value="2" <?php echo $dD; ?>>
+                                    <label class="form-check-label" for="followup_review_only">Review Only</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Next Follow Up | Next Follow Up Date -->
+                        <div class="col-md-6 conditional-field" data-condition="consult_completed">
+                            <label class="form-label">Next Follow Up<span style="color:red;"> *</span></label>
+                            <div class="radio-group">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="next_followup" id="followup_none" value="0" checked <?php echo $dD; ?>>
+                                    <label class="form-check-label" for="followup_none">None</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="next_followup" id="followup_1month" value="1" <?php echo $dD; ?>>
+                                    <label class="form-check-label" for="followup_1month">1 Month</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="next_followup" id="followup_3months" value="2" <?php echo $dD; ?>>
+                                    <label class="form-check-label" for="followup_3months">3 Months</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="next_followup" id="followup_6months" value="3" <?php echo $dD; ?>>
+                                    <label class="form-check-label" for="followup_6months">6 Months</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6 conditional-field" data-condition="consult_completed" id="next-followup-date-container" style="display:none;">
+                            <label class="form-label">Next Follow Up Date<span style="color:red;"> *</span></label>
+                            <input type="date" class="form-control" name="followup_date" id="followup_date" <?php echo $dD; ?>>
+                        </div>
+
+                        <!-- Mode of Conversion -->
+                        <div class="col-md-6 conditional-field" data-condition="consult_completed">
+                            <label class="form-label">Mode of Conversion<span style="color:red;"> *</span></label>
+                            <div class="radio-group">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="mode_of_conversion" id="conversion_outlet" value="1" <?php echo $dD; ?>>
                                     <label class="form-check-label" for="conversion_outlet">Outlet</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="mode_of_conversion" id="conversion_clinic" value="2">
+                                    <input class="form-check-input" type="radio" name="mode_of_conversion" id="conversion_clinic" value="2" <?php echo $dD; ?>>
                                     <label class="form-check-label" for="conversion_clinic">Clinic</label>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Referral To -->
-                        <div class="col-md-6">
-                            <label class="form-label">Referral To</label>
-                            <select class="form-select" name="referral_to" id="referral_to">
-                                <option value="">Select Outlet</option>
-                                <?php foreach ($outletList as $outlet): ?>
-                                <option value="<?php echo htmlspecialchars($outlet['code']); ?>"><?php echo htmlspecialchars($outlet['code'] . ' - ' . $outlet['name']); ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-
-                        <!-- MyReferral Status -->
-                        <div class="col-md-6">
-                            <label class="form-label">MyReferral Status</label>
+                        <!-- Action -->
+                        <div class="col-md-12 conditional-field" data-condition="consult_completed">
+                            <label class="form-label">Action<span style="color:red;"> *</span></label>
                             <div class="radio-group">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="my_referral_status" id="myreferral_referred" value="1">
-                                    <label class="form-check-label" for="myreferral_referred">Referred</label>
+                                    <input class="form-check-input" type="radio" name="action" id="action_refer_outlet" value="1" <?php echo $dD; ?>>
+                                    <label class="form-check-label" for="action_refer_outlet">Refer Internal</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="my_referral_status" id="myreferral_none" value="0">
-                                    <label class="form-check-label" for="myreferral_none">None</label>
+                                    <input class="form-check-input" type="radio" name="action" id="action_refer_clinic" value="2" <?php echo $dD; ?>>
+                                    <label class="form-check-label" for="action_refer_clinic">Refer External</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="action" id="action_end_process" value="3" <?php echo $dD; ?>>
+                                    <label class="form-check-label" for="action_end_process">End Process</label>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Remarks -->
+                        <!-- MyReferral button — shown by JS when action = Refer Internal or Refer External -->
+                        <div class="col-md-12" id="myreferral-btn-container" style="display:none;">
+                            <a id="myreferral-create-btn" href="#" class="btn btn-outline-primary">
+                                <i class="bi bi-plus-circle me-1"></i>Create MyReferral
+                            </a>
+                        </div>
+
+                        <!-- Remarks (visible for all consult statuses) -->
                         <div class="col-md-12">
-                            <label class="form-label">Remarks</label>
-                            <textarea class="form-control" name="remarks" id="remarks" rows="3" placeholder="Enter any additional remarks"></textarea>
+                            <label class="form-label">Remarks<span style="color:red;"> *</span></label>
+                            <textarea class="form-control" name="remarks" id="remarks" rows="3" placeholder="Enter any additional remarks" <?php echo $dD; ?>></textarea>
                         </div>
                     </div>
                 </div>
@@ -605,11 +710,28 @@ if ($or2) {
         </div>
     </div>
 
+    <!-- Customer Modal -->
+    <div class="modal fade" id="customerModal" tabindex="-1" aria-labelledby="customerModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="customerModalLabel">Customer Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <iframe id="customerViewer" src="" style="width: 100%; height: 75vh; border: none;"></iframe>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
     var EDIT_CONFIG = {
         consultCallId: <?php echo json_encode($consult_call_id); ?>,
         viewOnly: <?php echo json_encode($view_only === 'true'); ?>,
         staffId: <?php echo json_encode(isset($id_user) ? $id_user : ''); ?>,
+        currentStaffId: <?php echo json_encode($currentStaffId); ?>,
+        currentStaffRole: <?php echo json_encode($currentStaffRole); ?>,
         apiUrl: 'consultcall/api-jwt.php'
     };
     </script>
