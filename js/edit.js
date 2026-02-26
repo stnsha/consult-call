@@ -1250,6 +1250,15 @@
                             }));
                         }
                     }
+
+                    // When the first detail is created and a follow-up date is set,
+                    // promote enrollment_type to Follow-up (2)
+                    if (!currentDetailId && followUpData.followup_date) {
+                        promises.push(apiCall('update-consult-call', {
+                            id: EDIT_CONFIG.consultCallId,
+                            data: { enrollment_type: 2 }
+                        }));
+                    }
                 }
 
                 if (promises.length > 0) {
