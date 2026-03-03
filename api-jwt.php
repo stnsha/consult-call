@@ -127,7 +127,8 @@ function getApiHost()
     $env = getEnvironment();
 
     if ($env === 'local') {
-        return 'http://127.0.0.1:8000/api/v1/consult-call/';
+        // return 'http://127.0.0.1:8000/api/v1/consult-call/';
+         return 'http://127.0.0.1:8001/api/v1/consult-call/';
     } else {
         return 'http://mytotalhealth.com.my/staging/api/v1/consult-call/'; //staging
     }
@@ -459,7 +460,8 @@ function getApiDataWithJWT($endpoint, $data = null, $method = 'GET', $staff_id =
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $error = curl_error($ch);
-    $headers = curl_getinfo($ch, CURLINFO_HEADER_OUT);
+    // Use a separate variable so the original $headers array is not overwritten
+    $sentHeaders = curl_getinfo($ch, CURLINFO_HEADER_OUT);
 
     // If unauthorized, clear token and retry once
     if ($httpCode === 401 && isset($_SESSION['jwt_token'])) {
@@ -469,7 +471,7 @@ function getApiDataWithJWT($endpoint, $data = null, $method = 'GET', $staff_id =
         // Get new token and retry
         $token = getAuthToken($staff_id);
         if ($token) {
-            $headers[0] = 'Authorization: Bearer ' . $token; // Update auth header
+            $headers[0] = 'Authorization: Bearer ' . $token; // Update Authorization in request headers array
             curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
 
             $response = curl_exec($ch);
@@ -508,7 +510,7 @@ function getApiDataWithJWT($endpoint, $data = null, $method = 'GET', $staff_id =
             'success' => true,
             'response' => $response,
             'httpCode' => $httpCode,
-            'headers' => $headers
+            'headers' => $sentHeaders
         );
     }
 
@@ -897,6 +899,37 @@ function updateConsultCallFollowUp($consult_call_id, $follow_up_id, $data, $staf
 }
 
 /**
+ * Link a MyReferral record to a consult call follow-up.
+ * Stores referral_to (outlet ID) and my_referral_id on the follow-up record.
+ * @param int $consult_call_id Consult call ID
+ * @param int $follow_up_id Follow-up ID
+ * @param array $data Must contain my_referral_id; optionally referral_to
+ * @param int $staff_id Staff ID for authentication
+ * @return array Result
+ */
+function linkConsultCallReferral($consult_call_id, $follow_up_id, $data, $staff_id)
+{
+    $endpoint = $consult_call_id . '/follow-up/' . $follow_up_id . '/link-referral';
+    $result = getApiDataWithJWT($endpoint, $data, 'PATCH', $staff_id);
+    $httpCode = $result['httpCode'];
+    $decoded = json_decode($result['response'], true);
+
+    if ($httpCode == 200) {
+        return array(
+            'success' => true,
+            'data'    => isset($decoded['data']) ? $decoded['data'] : null,
+            'message' => isset($decoded['message']) ? $decoded['message'] : 'Referral linked successfully'
+        );
+    } else {
+        return array(
+            'success' => false,
+            'message' => isset($decoded['message']) ? $decoded['message'] : 'Failed to link referral',
+            'errors'  => isset($decoded['data']) ? $decoded['data'] : null
+        );
+    }
+}
+
+/**
  * Delete a consult call follow-up
  * @param int $consult_call_id Consult call ID
  * @param int $follow_up_id Follow-up ID
@@ -1197,6 +1230,14 @@ if (!defined('API_JWT_INCLUDED')) {
                         $response = updateConsultCallFollowUp($jsonData['consult_call_id'], $jsonData['follow_up_id'], $jsonData['data'], $staff_id);
                     } else {
                         $response = array('success' => false, 'message' => 'Missing consult call ID, follow-up ID, or data');
+                    }
+                    break;
+
+                case 'link-referral':
+                    if (isset($jsonData['consult_call_id']) && isset($jsonData['follow_up_id']) && isset($jsonData['data'])) {
+                        $response = linkConsultCallReferral($jsonData['consult_call_id'], $jsonData['follow_up_id'], $jsonData['data'], $staff_id);
+                    } else {
+                        $response = array('success' => false, 'message' => 'Missing consult_call_id, follow_up_id, or data');
                     }
                     break;
 

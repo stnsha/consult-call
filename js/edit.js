@@ -506,18 +506,6 @@
         if (!container) return;
         if (value === '1' || value === '2') {
             container.style.display = '';
-            var btn = document.getElementById('myreferral-create-btn');
-            if (btn) {
-                var url = '/odb/referral/create.php';
-                var params = [];
-                if (currentCustomerIc) {
-                    params.push('customer_ic=' + encodeURIComponent(currentCustomerIc));
-                }
-                params.push('referral_reason=' + encodeURIComponent(
-                    'Blood Test for ConsultCall id #CC' + EDIT_CONFIG.consultCallId
-                ));
-                btn.href = url + '?' + params.join('&');
-            }
         } else {
             container.style.display = 'none';
         }
@@ -666,7 +654,16 @@
                     html += '<div class="col-6">' + renderHistoryField('Next Follow Up Date', (fu.next_followup && String(fu.next_followup) !== '0') ? formatDate(fu.followup_date) : null) + '</div>';
 
                     html += '<div class="col-6">' + renderHistoryField('Mode of Conversion', modeConversionMap[String(fu.mode_of_conversion)] || null) + '</div>';
-                    html += '<div class="col-6">' + renderHistoryField('Action', statusMaps.actions[String(d.action)] || null) + '</div>';
+
+                    var actionLabel = statusMaps.actions[String(d.action)] || null;
+                    var actionCell = '<div class="mb-2"><div class="history-label">Action</div>'
+                        + '<div class="history-value">' + escapeHtml(actionLabel || '') + '</div>';
+                    if (fu.my_referral_id && (String(d.action) === '1' || String(d.action) === '2')) {
+                        actionCell += '<a href="/odb/referral/view.php?id=' + encodeURIComponent(fu.my_referral_id) + '"'
+                            + ' target="_blank" class="btn btn-sm btn-outline-primary mt-1">View MyReferral</a>';
+                    }
+                    actionCell += '</div>';
+                    html += '<div class="col-6">' + actionCell + '</div>';
 
                     html += '</div>'; // row
                 }
@@ -1117,9 +1114,193 @@
     }
 
     /**
+     * Run the full save flow: validates, then saves consult call, detail, and follow-up.
+     * onSuccess is called with the saved follow-up ID (int or null) after all API calls succeed.
+     * onFailure is called (no args) after an error alert when any API call fails.
+     * @param {function} onSuccess Called with followUpId on success
+     * @param {function} [onFailure] Called with no args on failure or validation error
+     */
+    function runSaveFlow(onSuccess, onFailure) {
+        if (EDIT_CONFIG.viewOnly) {
+            if (onFailure) onFailure();
+            return;
+        }
+
+        clearAllErrors();
+        if (!validateForm()) {
+            if (onFailure) onFailure();
+            return;
+        }
+
+        var saveBtn = document.getElementById('saveBtn');
+        var originalText = saveBtn ? saveBtn.innerHTML : '';
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>Saving...';
+        }
+
+        // Consult call level data (matches API 2.5 Update fields)
+        var consultCallData = {
+            consent_call_status: toIntOrNull(getRadioValue('consent_status')),
+            consent_call_date: getInputValue('consent_call_date') || null,
+            scheduled_status: toIntOrNull(getRadioValue('scheduled_status')),
+            scheduled_call_date: getInputValue('scheduled_call_date') || null,
+            updated_scheduled_date: getInputValue('updated_scheduled_date') || null,
+            handled_by: toIntOrNull(getSelectValue('handled_by')),
+            mode_of_consultation: toIntOrNull(getRadioValue('mode_of_consultation')),
+            final_remarks: getInputValue('refusal_remarks') || null
+        };
+
+        // Detail level data (matches API 3.1 Create Detail fields)
+        var detailData = {
+            consult_date: getInputValue('consult_date') || null,
+            consulted_by: toIntOrNull(getSelectValue('consulted_by')),
+            consult_status: toIntOrNull(getRadioValue('consult_status')),
+            diagnosis: getInputValue('diagnosis') || null,
+            treatment_plan: getInputValue('treatment_plan') || null,
+            rx_issued: getCheckboxValue('rx_issued'),
+            action: toIntOrNull(getRadioValue('action')),
+            remarks: getInputValue('remarks') || null
+        };
+
+        // Follow-up level data (matches API 4.1 Create Follow-Up fields)
+        var followUpData = {
+            followup_type: toIntOrNull(getRadioValue('followup_type')),
+            next_followup: toIntOrNull(getRadioValue('next_followup')),
+            followup_date: getInputValue('followup_date') || null,
+            is_blood_test_required: getRadioValue('is_blood_test_required') === '1',
+            mode_of_conversion: toIntOrNull(getRadioValue('mode_of_conversion'))
+        };
+
+        // Only HQ (role 4) can update consult call eligibility fields
+        var consultCallPromise;
+        if (EDIT_CONFIG.currentStaffRole === 4) {
+            consultCallPromise = apiCall('update-consult-call', {
+                id: EDIT_CONFIG.consultCallId,
+                data: consultCallData
+            });
+        } else {
+            consultCallPromise = Promise.resolve({ success: true });
+        }
+
+        // Closure variables set inside the first .then() and read in the second
+        var followUpPromiseIndex = -1;
+        var isFollowUpCreate = false;
+
+        consultCallPromise.then(function(result) {
+            if (!result.success) {
+                if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = originalText; }
+                alert('Failed to save consult call: ' + (result.message || 'Unknown error'));
+                if (onFailure) onFailure();
+                // Throw to skip the next .then() so success path is not reached
+                throw new Error('__handled__');
+            }
+
+            // Only Doctor (role 2) can save Consultation Details and Follow-Up fields
+            var promises = [];
+
+            // HQ (role 4) saves Follow-up Checkpoint to the existing follow-up record
+            if (EDIT_CONFIG.currentStaffRole === 4 && isFollowUpCheckpointVisible && currentFollowUpId) {
+                promises.push(apiCall('update-follow-up', {
+                    consult_call_id: EDIT_CONFIG.consultCallId,
+                    follow_up_id: currentFollowUpId,
+                    data: {
+                        followup_reminder: toIntOrNull(getRadioValue('followup_reminder')),
+                        followup_date: getInputValue('checkpoint_followup_date') || null,
+                        rescheduled_date: getInputValue('rescheduled_date') || null
+                    }
+                }));
+            }
+
+            if (EDIT_CONFIG.currentStaffRole === 2) {
+                var hasDetail = detailData.consult_date || detailData.diagnosis ||
+                    detailData.treatment_plan || detailData.consult_status !== null;
+
+                // Only create a follow-up when the consultation is completed (status 1)
+                // and the user has entered meaningful follow-up data
+                var hasFollowUp = detailData.consult_status === 1 && (
+                    followUpData.followup_type !== null ||
+                    followUpData.next_followup !== null ||
+                    followUpData.followup_date
+                );
+
+                if (hasDetail) {
+                    if (currentDetailId) {
+                        promises.push(apiCall('update-detail', {
+                            consult_call_id: EDIT_CONFIG.consultCallId,
+                            detail_id: currentDetailId,
+                            data: detailData
+                        }));
+                    } else {
+                        promises.push(apiCall('create-detail', {
+                            consult_call_id: EDIT_CONFIG.consultCallId,
+                            data: detailData
+                        }));
+                    }
+                }
+
+                if (hasFollowUp) {
+                    followUpPromiseIndex = promises.length;
+                    isFollowUpCreate = !currentFollowUpId;
+                    if (currentFollowUpId) {
+                        promises.push(apiCall('update-follow-up', {
+                            consult_call_id: EDIT_CONFIG.consultCallId,
+                            follow_up_id: currentFollowUpId,
+                            data: followUpData
+                        }));
+                    } else {
+                        promises.push(apiCall('create-follow-up', {
+                            consult_call_id: EDIT_CONFIG.consultCallId,
+                            data: followUpData
+                        }));
+                    }
+                }
+            }
+
+            if (promises.length > 0) {
+                return Promise.all(promises);
+            }
+            return [];
+        }).then(function(results) {
+            results = results || [];
+            for (var i = 0; i < results.length; i++) {
+                if (!results[i].success) {
+                    if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = originalText; }
+                    alert('Failed to save: ' + (results[i].message || 'Unknown error'));
+                    if (onFailure) onFailure();
+                    return;
+                }
+            }
+
+            // Extract the follow-up ID from the create response, or use existing ID for updates
+            var followUpId = null;
+            if (followUpPromiseIndex >= 0 && results[followUpPromiseIndex]) {
+                if (isFollowUpCreate) {
+                    followUpId = (results[followUpPromiseIndex].data && results[followUpPromiseIndex].data.id)
+                        ? results[followUpPromiseIndex].data.id
+                        : null;
+                } else {
+                    followUpId = currentFollowUpId;
+                }
+            }
+
+            if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = originalText; }
+            if (onSuccess) onSuccess(followUpId);
+        }).catch(function(err) {
+            // '__handled__' errors have already shown an alert; skip re-alerting
+            if (err && err.message === '__handled__') {
+                return;
+            }
+            if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = originalText; }
+            alert('Error saving changes. Please try again.');
+            if (onFailure) onFailure();
+            console.error('Save error:', err);
+        });
+    }
+
+    /**
      * Initialize form submission handler.
-     * Sends consult call level fields via update-consult-call.
-     * Detail and follow-up fields are sent separately to their respective endpoints.
+     * Delegates to runSaveFlow; shows success alert and reloads on completion.
      */
     function initFormSubmission() {
         var form = document.getElementById('editPatientForm');
@@ -1127,168 +1308,58 @@
 
         form.addEventListener('submit', function(e) {
             e.preventDefault();
-
-            if (EDIT_CONFIG.viewOnly) return;
-
-            clearAllErrors();
-            if (!validateForm()) {
-                return;
-            }
-
-            var saveBtn = document.getElementById('saveBtn');
-            var originalText = saveBtn.innerHTML;
-            saveBtn.disabled = true;
-            saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>Saving...';
-
-            // Consult call level data (matches API 2.5 Update fields)
-            var consultCallData = {
-                consent_call_status: toIntOrNull(getRadioValue('consent_status')),
-                consent_call_date: getInputValue('consent_call_date') || null,
-                scheduled_status: toIntOrNull(getRadioValue('scheduled_status')),
-                scheduled_call_date: getInputValue('scheduled_call_date') || null,
-                updated_scheduled_date: getInputValue('updated_scheduled_date') || null,
-                handled_by: toIntOrNull(getSelectValue('handled_by')),
-                mode_of_consultation: toIntOrNull(getRadioValue('mode_of_consultation')),
-                final_remarks: getInputValue('refusal_remarks') || null
-            };
-
-            // Detail level data (matches API 3.1 Create Detail fields)
-            var detailData = {
-                consult_date: getInputValue('consult_date') || null,
-                consulted_by: toIntOrNull(getSelectValue('consulted_by')),
-                consult_status: toIntOrNull(getRadioValue('consult_status')),
-                diagnosis: getInputValue('diagnosis') || null,
-                treatment_plan: getInputValue('treatment_plan') || null,
-                rx_issued: getCheckboxValue('rx_issued'),
-                action: toIntOrNull(getRadioValue('action')),
-                remarks: getInputValue('remarks') || null
-            };
-
-            // Follow-up level data (matches API 4.1 Create Follow-Up fields)
-            var followUpData = {
-                followup_type: toIntOrNull(getRadioValue('followup_type')),
-                next_followup: toIntOrNull(getRadioValue('next_followup')),
-                followup_date: getInputValue('followup_date') || null,
-                is_blood_test_required: getRadioValue('is_blood_test_required') === '1',
-                mode_of_conversion: toIntOrNull(getRadioValue('mode_of_conversion'))
-            };
-
-            // Only HQ (role 4) can update consult call eligibility fields
-            var consultCallPromise;
-            if (EDIT_CONFIG.currentStaffRole === 4) {
-                consultCallPromise = apiCall('update-consult-call', {
-                    id: EDIT_CONFIG.consultCallId,
-                    data: consultCallData
-                });
-            } else {
-                consultCallPromise = Promise.resolve({ success: true });
-            }
-
-            consultCallPromise.then(function(result) {
-                if (!result.success) {
-                    saveBtn.disabled = false;
-                    saveBtn.innerHTML = originalText;
-                    alert('Failed to save consult call: ' + (result.message || 'Unknown error'));
-                    // Throw to skip the next .then() so success is not shown
-                    throw new Error('__handled__');
-                }
-
-                // Only Doctor (role 2) can save Consultation Details and Follow-Up fields
-                var promises = [];
-
-                // HQ (role 4) saves Follow-up Checkpoint to the existing follow-up record
-                if (EDIT_CONFIG.currentStaffRole === 4 && isFollowUpCheckpointVisible && currentFollowUpId) {
-                    promises.push(apiCall('update-follow-up', {
-                        consult_call_id: EDIT_CONFIG.consultCallId,
-                        follow_up_id: currentFollowUpId,
-                        data: {
-                            followup_reminder: toIntOrNull(getRadioValue('followup_reminder')),
-                            followup_date: getInputValue('checkpoint_followup_date') || null,
-                            rescheduled_date: getInputValue('rescheduled_date') || null
-                        }
-                    }));
-                }
-
-                if (EDIT_CONFIG.currentStaffRole === 2) {
-                    var hasDetail = detailData.consult_date || detailData.diagnosis ||
-                        detailData.treatment_plan || detailData.consult_status !== null;
-
-                    // Only create a follow-up when the consultation is completed (status 1)
-                    // and the user has entered meaningful follow-up data
-                    var hasFollowUp = detailData.consult_status === 1 && (
-                        followUpData.followup_type !== null ||
-                        followUpData.next_followup !== null ||
-                        followUpData.followup_date
-                    );
-
-                    if (hasDetail) {
-                        if (currentDetailId) {
-                            promises.push(apiCall('update-detail', {
-                                consult_call_id: EDIT_CONFIG.consultCallId,
-                                detail_id: currentDetailId,
-                                data: detailData
-                            }));
-                        } else {
-                            promises.push(apiCall('create-detail', {
-                                consult_call_id: EDIT_CONFIG.consultCallId,
-                                data: detailData
-                            }));
-                        }
-                    }
-
-                    if (hasFollowUp) {
-                        if (currentFollowUpId) {
-                            promises.push(apiCall('update-follow-up', {
-                                consult_call_id: EDIT_CONFIG.consultCallId,
-                                follow_up_id: currentFollowUpId,
-                                data: followUpData
-                            }));
-                        } else {
-                            promises.push(apiCall('create-follow-up', {
-                                consult_call_id: EDIT_CONFIG.consultCallId,
-                                data: followUpData
-                            }));
-                        }
-                    }
-
-                    // When the first detail is created and a follow-up date is set,
-                    // promote enrollment_type to Follow-up (2)
-                    if (!currentDetailId && followUpData.followup_date) {
-                        promises.push(apiCall('update-consult-call', {
-                            id: EDIT_CONFIG.consultCallId,
-                            data: { enrollment_type: 2 }
-                        }));
-                    }
-                }
-
-                if (promises.length > 0) {
-                    return Promise.all(promises);
-                }
-                return [];
-            }).then(function(results) {
-                results = results || [];
-                for (var i = 0; i < results.length; i++) {
-                    if (!results[i].success) {
-                        saveBtn.disabled = false;
-                        saveBtn.innerHTML = originalText;
-                        alert('Failed to save: ' + (results[i].message || 'Unknown error'));
-                        return;
-                    }
-                }
-                saveBtn.disabled = false;
-                saveBtn.innerHTML = originalText;
+            runSaveFlow(function() {
                 alert('Changes saved successfully.');
                 window.location.reload();
-            }).catch(function(err) {
-                // '__handled__' errors have already shown an alert; skip re-alerting
-                if (err && err.message === '__handled__') {
-                    return;
-                }
-                saveBtn.disabled = false;
-                saveBtn.innerHTML = originalText;
-                alert('Error saving changes. Please try again.');
-                console.error('Save error:', err);
             });
+        });
+    }
+
+    /**
+     * Initialize the Create MyReferral button click handler.
+     * Saves the consultcall form first via runSaveFlow, then opens the referral
+     * creation page in a new tab with the saved follow_up_id in the URL.
+     */
+    function initMyReferralButton() {
+        var btn = document.getElementById('myreferral-create-btn');
+        if (!btn) return;
+
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            var self = this;
+            var originalHtml = self.innerHTML;
+            self.disabled = true;
+            self.textContent = 'Saving...';
+
+            runSaveFlow(
+                function(followUpId) {
+                    self.disabled = false;
+                    self.innerHTML = originalHtml;
+
+                    var url = '/odb/referral/create.php';
+                    var params = [];
+                    params.push('consult_call_id=' + encodeURIComponent(EDIT_CONFIG.consultCallId));
+                    if (followUpId) {
+                        params.push('follow_up_id=' + encodeURIComponent(followUpId));
+                    }
+                    if (currentCustomerIc) {
+                        params.push('customer_ic=' + encodeURIComponent(currentCustomerIc));
+                    }
+                    params.push('referral_reason=' + encodeURIComponent(
+                        'Blood Test for ConsultCall id #CC' + EDIT_CONFIG.consultCallId
+                    ));
+                    var diagnosisEl = document.getElementById('diagnosis');
+                    if (diagnosisEl && diagnosisEl.value.trim()) {
+                        params.push('referral_condition=' + encodeURIComponent(diagnosisEl.value.trim()));
+                    }
+                    window.open(url + '?' + params.join('&'), '_blank');
+                    window.location.reload();
+                },
+                function() {
+                    self.disabled = false;
+                    self.innerHTML = originalHtml;
+                }
+            );
         });
     }
 
@@ -1298,6 +1369,7 @@
         initSectionCollapse();
         initConditionalFields();
         initFormSubmission();
+        initMyReferralButton();
         loadStatusMaps().then(function() {
             loadConsultCallData();
         });
