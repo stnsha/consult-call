@@ -554,6 +554,12 @@ $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
                             </div>
                         </div>
 
+                        <!-- Documentation -->
+                        <div class="col-md-12 conditional-field" data-condition="consult_completed">
+                            <label class="form-label">Documentation<span style="color:red;"> *</span></label>
+                            <textarea class="form-control" name="documentation" id="documentation" rows="5" placeholder="Enter documentation" <?php echo $dD; ?>></textarea>
+                        </div>
+
                         <!-- Diagnosis -->
                         <div class="col-md-12 conditional-field" data-condition="consult_completed">
                             <label class="form-label">Diagnosis<span style="color:red;"> *</span></label>
@@ -569,9 +575,15 @@ $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
                         <!-- Rx Issued -->
                         <div class="col-md-12 conditional-field" data-condition="consult_completed">
                             <label class="form-label">Rx Issued<span style="color:red;"> *</span></label>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="rx_issued" id="rx_issued" value="1" <?php echo $dD; ?>>
-                                <label class="form-check-label" for="rx_issued">Yes</label>
+                            <div class="radio-group">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="rx_issued" id="rx_issued_yes" value="1" <?php echo $dD; ?>>
+                                    <label class="form-check-label" for="rx_issued_yes">Yes</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="rx_issued" id="rx_issued_no" value="0" checked <?php echo $dD; ?>>
+                                    <label class="form-check-label" for="rx_issued_no">No</label>
+                                </div>
                             </div>
                         </div>
 

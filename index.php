@@ -27,6 +27,15 @@ if ($cc_result && mysqli_num_rows($cc_result) > 0) {
     $cc_row = mysqli_fetch_assoc($cc_result);
     $consult_call_permission = isset($cc_row['consult_call']) ? (int)$cc_row['consult_call'] : 0;
 }
+
+$doctor_list = array();
+$doctor_query = "SELECT id, nama_staff FROM staff WHERE consult_call = 2 AND recycle != 1 ORDER BY nama_staff";
+$doctor_result = mysqli_query($conn, $doctor_query);
+if ($doctor_result) {
+    while ($doctor_row = mysqli_fetch_assoc($doctor_result)) {
+        $doctor_list[] = $doctor_row;
+    }
+}
 ?>
 <body>
     <?php include('navbar.php'); ?>
@@ -192,11 +201,6 @@ if ($cc_result && mysqli_num_rows($cc_result) > 0) {
                                 <option value="2">Follow-up</option>
                             </select>
                         </div>
-                        <div class="col-md-1">
-                            <button type="button" class="btn btn-secondary w-100" id="resetBtn" title="Reset Filters">
-                                <i class="bi bi-x-lg me-1"></i>Reset
-                            </button>
-                        </div>
                     </div>
                     <div class="row g-3 align-items-end mt-1">
                         <div class="col-md-2">
@@ -208,16 +212,25 @@ if ($cc_result && mysqli_num_rows($cc_result) > 0) {
                             <input type="date" class="form-control" id="dateTo">
                         </div>
                         <div class="col-md-2">
-                            <label for="lastConsultFrom" class="form-label">Last Consult From</label>
-                            <input type="date" class="form-control" id="lastConsultFrom">
+                            <label for="scheduledFrom" class="form-label">Scheduled From</label>
+                            <input type="date" class="form-control" id="scheduledFrom">
                         </div>
                         <div class="col-md-2">
-                            <label for="lastConsultTo" class="form-label">Last Consult To</label>
-                            <input type="date" class="form-control" id="lastConsultTo">
+                            <label for="scheduledTo" class="form-label">Scheduled To</label>
+                            <input type="date" class="form-control" id="scheduledTo">
                         </div>
                         <div class="col-md-2">
-                            <button type="button" class="btn btn-primary w-100" id="filterBtn">
-                                <i class="bi bi-funnel me-1"></i>Apply Filter
+                            <label for="consultedByFilter" class="form-label">Consulted By</label>
+                            <select class="form-select" id="consultedByFilter">
+                                <option value="">All</option>
+                                <?php foreach ($doctor_list as $doctor): ?>
+                                <option value="<?php echo (int)$doctor['id']; ?>"><?php echo htmlspecialchars($doctor['nama_staff']); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="button" class="btn btn-secondary w-100" id="resetBtn" title="Reset Filters">
+                                <i class="bi bi-x-lg me-1"></i>Reset
                             </button>
                         </div>
                     </div>
@@ -236,12 +249,11 @@ if ($cc_result && mysqli_num_rows($cc_result) > 0) {
                                     <th>#</th>
                                     <th>Consult Call ID</th>
                                     <th>Patient Details</th>
-                                    <th>Enrollment Type</th>
-                                    <th>Consent Status</th>
                                     <th>Process Status</th>
-                                    <th>Follow Up Reminder</th>
+                                    <th>Consent Status</th>
                                     <th>Enrollment Date</th>
-                                    <th>Last Consultation</th>
+                                    <th>Scheduled Date</th>
+                                    <th>Consulted By</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>

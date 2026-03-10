@@ -690,7 +690,7 @@ function createConsultCall($data, $staff_id)
     $httpCode = $result['httpCode'];
     $decoded = json_decode($result['response'], true);
 
-    if ($httpCode == 201) {
+    if ($httpCode == 200 || $httpCode == 201) {
         return array(
             'success' => true,
             'data' => isset($decoded['data']) ? $decoded['data'] : null,
@@ -771,7 +771,7 @@ function createConsultCallDetail($consult_call_id, $data, $staff_id)
     $httpCode = $result['httpCode'];
     $decoded = json_decode($result['response'], true);
 
-    if ($httpCode == 201) {
+    if ($httpCode == 200 || $httpCode == 201) {
         return array(
             'success' => true,
             'data' => isset($decoded['data']) ? $decoded['data'] : null,
@@ -854,7 +854,7 @@ function createConsultCallFollowUp($consult_call_id, $data, $staff_id)
     $httpCode = $result['httpCode'];
     $decoded = json_decode($result['response'], true);
 
-    if ($httpCode == 201) {
+    if ($httpCode == 200 || $httpCode == 201) {
         return array(
             'success' => true,
             'data' => isset($decoded['data']) ? $decoded['data'] : null,
@@ -1079,6 +1079,85 @@ function getCustomersByIds($customer_ids)
     return array('success' => true, 'data' => $customers);
 }
 
+/**
+ * Fetch staff names for a list of staff IDs from the ODB staff table.
+ * @param array $staff_ids Array of staff IDs (integers)
+ * @return array Standard response with data keyed by staff ID
+ */
+function getStaffByIds($staff_ids)
+{
+    global $conn;
+
+    if (empty($staff_ids)) {
+        return array('success' => true, 'data' => array());
+    }
+
+    $ids = array_map('intval', $staff_ids);
+    $ids = array_filter($ids);
+
+    if (empty($ids)) {
+        return array('success' => true, 'data' => array());
+    }
+
+    $ids_str = implode(',', $ids);
+    $query = "SELECT id, nama_staff FROM staff WHERE id IN ($ids_str)";
+    $result = mysqli_query($conn, $query);
+
+    if (!$result) {
+        return array('success' => false, 'message' => 'Database error: ' . mysqli_error($conn));
+    }
+
+    $staff = array();
+    while ($row = mysqli_fetch_assoc($result)) {
+        $staff[$row['id']] = array(
+            'id'   => (int)$row['id'],
+            'name' => $row['nama_staff']
+        );
+    }
+
+    return array('success' => true, 'data' => $staff);
+}
+
+/**
+ * Fetch outlet code and name for a list of outlet IDs from the ODB outlet table.
+ * @param array $outlet_ids Array of outlet IDs (integers)
+ * @return array Standard response with data keyed by outlet ID
+ */
+function getOutletsByIds($outlet_ids)
+{
+    global $conn;
+
+    if (empty($outlet_ids)) {
+        return array('success' => true, 'data' => array());
+    }
+
+    $ids = array_map('intval', $outlet_ids);
+    $ids = array_filter($ids);
+
+    if (empty($ids)) {
+        return array('success' => true, 'data' => array());
+    }
+
+    $ids_str = implode(',', $ids);
+    $query = "SELECT id, code, comp_name FROM outlet WHERE id IN ($ids_str)";
+    $result = mysqli_query($conn, $query);
+
+    if (!$result) {
+        return array('success' => false, 'message' => 'Database error: ' . mysqli_error($conn));
+    }
+
+    $outlets = array();
+    while ($row = mysqli_fetch_assoc($result)) {
+        $outlets[$row['id']] = array(
+            'id'        => (int)$row['id'],
+            'code'      => $row['code'],
+            'comp_name' => $row['comp_name']
+        );
+    }
+
+    return array('success' => true, 'data' => $outlets);
+}
+
 // Only run request handler if this file is accessed directly (not included)
 if (!defined('API_JWT_INCLUDED')) {
     // Check if we have a staff ID for authentication
@@ -1146,8 +1225,8 @@ if (!defined('API_JWT_INCLUDED')) {
                     $allowedParams = array(
                         'patient_id', 'consent_call_status', 'scheduled_status',
                         'date_from', 'date_to', 'search', 'enrollment_type',
-                        'process_status', 'followup_reminder', 'last_consult_from',
-                        'last_consult_to', 'per_page'
+                        'process_status', 'followup_reminder', 'scheduled_from',
+                        'scheduled_to', 'consulted_by', 'per_page'
                     );
                     foreach ($allowedParams as $param) {
                         if (isset($jsonData[$param]) && $jsonData[$param] !== '') {
@@ -1262,6 +1341,22 @@ if (!defined('API_JWT_INCLUDED')) {
                         $response = getCustomersByIds($jsonData['customer_ids']);
                     } else {
                         $response = array('success' => false, 'message' => 'Missing or invalid customer_ids array');
+                    }
+                    break;
+
+                case 'get-outlets':
+                    if (isset($jsonData['outlet_ids']) && is_array($jsonData['outlet_ids'])) {
+                        $response = getOutletsByIds($jsonData['outlet_ids']);
+                    } else {
+                        $response = array('success' => false, 'message' => 'Missing or invalid outlet_ids array');
+                    }
+                    break;
+
+                case 'get-staff':
+                    if (isset($jsonData['staff_ids']) && is_array($jsonData['staff_ids'])) {
+                        $response = getStaffByIds($jsonData['staff_ids']);
+                    } else {
+                        $response = array('success' => false, 'message' => 'Missing or invalid staff_ids array');
                     }
                     break;
 

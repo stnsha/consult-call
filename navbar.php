@@ -54,7 +54,8 @@ $current_dir = basename(dirname($_SERVER['PHP_SELF']));
 
 // Determine active class for each nav item
 $dashboard_active = ($current_page == 'index.php' && $current_dir == 'consultcall') ? 'active' : '';
-$report_active = ($current_page == 'report.php' && $current_dir == 'consultcall') ? 'active' : '';
+$report_active    = ($current_page == 'report.php' && $current_dir == 'consultcall') ? 'active' : '';
+$admin_active     = ($current_page == 'index.php'  && $current_dir == 'admin')       ? 'active' : '';
 ?>
 <nav class="consultcall-nav navbar navbar-expand-lg navbar-light mb-3">
     <div class="container-fluid">
@@ -70,6 +71,19 @@ $report_active = ($current_page == 'report.php' && $current_dir == 'consultcall'
                 <li class="nav-item">
                     <a class="nav-link <?php echo $report_active; ?>" href="consultcall/report.php">Report</a>
                 </li>
+                <?php
+                $_navbar_role = 0;
+                if (isset($consult_call_permission)) {
+                    $_navbar_role = (int)$consult_call_permission;
+                } elseif (isset($currentStaffRole)) {
+                    $_navbar_role = (int)$currentStaffRole;
+                }
+                ?>
+                <?php if ($_navbar_role === 1): ?>
+                <li class="nav-item">
+                    <a class="nav-link <?php echo $admin_active; ?>" href="consultcall/admin/index.php">Admin</a>
+                </li>
+                <?php endif; ?>
             </ul>
         </div>
     </div>

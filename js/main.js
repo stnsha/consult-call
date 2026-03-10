@@ -193,11 +193,14 @@
         var dateTo = document.getElementById('dateTo').value;
         if (dateTo) params.date_to = dateTo;
 
-        var lastConsultFrom = document.getElementById('lastConsultFrom').value;
-        if (lastConsultFrom) params.last_consult_from = lastConsultFrom;
+        var scheduledFrom = document.getElementById('scheduledFrom').value;
+        if (scheduledFrom) params.scheduled_from = scheduledFrom;
 
-        var lastConsultTo = document.getElementById('lastConsultTo').value;
-        if (lastConsultTo) params.last_consult_to = lastConsultTo;
+        var scheduledTo = document.getElementById('scheduledTo').value;
+        if (scheduledTo) params.scheduled_to = scheduledTo;
+
+        var consultedBy = document.getElementById('consultedByFilter').value;
+        if (consultedBy !== '') params.consulted_by = consultedBy;
 
         params.per_page = perPage;
         params.page = currentPage;
@@ -210,7 +213,7 @@
      */
     function showTableLoading() {
         var tbody = document.getElementById('patientsTableBody');
-        tbody.innerHTML = '<tr><td colspan="10" class="text-center py-4">' +
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4">' +
             '<div class="spinner-border spinner-border-sm text-primary" role="status">' +
             '<span class="visually-hidden">Loading...</span></div>' +
             '<span class="ms-2 text-muted">Loading data...</span></td></tr>';
@@ -222,75 +225,75 @@
      */
     function renderEmptyTable(message) {
         var tbody = document.getElementById('patientsTableBody');
-        tbody.innerHTML = '<tr><td colspan="10" class="text-center py-4 text-muted">' +
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-muted">' +
             escapeHtml(message || 'No records found') + '</td></tr>';
     }
 
     /**
      * Render a single table row from a consult call record.
-     * All status fields are integer IDs resolved via LABELS/BADGES maps.
-     * Customer details come from the ODB customer table (passed via customerMap).
+     * Columns: # | CC ID | Patient Details | Process Status | Consent Status |
+     *          Enrollment Date | Scheduled Date | Consulted By | Actions
      * @param {object} record Consult call record from API
      * @param {number} index Zero-based index within current page
      * @param {object} customerMap Map of customer_id to customer data from ODB
+     * @param {object} outletMap Map of outlet_id to outlet data from ODB
+     * @param {object} staffMap Map of staff_id to staff data from ODB
      * @returns {string} HTML string for the table row
      */
-    function renderRow(record, index, customerMap) {
+    function renderRow(record, index, customerMap, outletMap, staffMap) {
         var rowNum = (currentPage - 1) * perPage + index + 1;
         var customer = (record.customer_id && customerMap[record.customer_id]) ? customerMap[record.customer_id] : {};
-        var name = escapeHtml(customer.name || '');
-        var icno = escapeHtml(customer.ic || '');
+        var name  = escapeHtml(customer.name  || '');
+        var icno  = escapeHtml(customer.ic    || '');
         var phone = escapeHtml(customer.phone || '');
+        var outlet = (record.outlet_id && outletMap[record.outlet_id]) ? outletMap[record.outlet_id] : null;
 
-        // process_status lives on the latest detail; followup_reminder on the latest follow-up
-        var details = record.details || [];
-        var followUps = record.follow_ups || [];
-        var latestDetail  = details.length  > 0 ? details[details.length - 1]   : null;
-        var latestFollowUp = followUps.length > 0 ? followUps[followUps.length - 1] : null;
+        var details    = record.details   || [];
+        var latestDetail = details.length > 0 ? details[details.length - 1] : null;
 
-        // Resolve integer IDs to labels and badge classes
-        var consentId  = record.consent_call_status;
-        var enrollId   = record.enrollment_type;
-        var processId  = latestDetail  ? latestDetail.process_status       : null;
-        var reminderId = latestFollowUp ? latestFollowUp.followup_reminder  : null;
+        // Status IDs
+        var consentId = record.consent_call_status;
+        var enrollId  = record.enrollment_type;
+        var processId = latestDetail ? latestDetail.process_status : null;
 
-        var consentLabel  = LABELS.consent[consentId]   || '';
-        var enrollLabel   = LABELS.enrollment[enrollId] || '';
-        var processLabel  = processId  !== null ? (statusMaps.processStatuses[String(processId)]   || '') : '';
-        var reminderLabel = reminderId !== null ? (statusMaps.followUpReminders[String(reminderId)] || '') : '';
+        var consentLabel = LABELS.consent[consentId]    || '';
+        var enrollLabel  = LABELS.enrollment[enrollId]  || '';
+        var processLabel = processId !== null ? (statusMaps.processStatuses[String(processId)] || '') : '';
 
-        var consentBadge  = BADGES.consent[consentId]    || 'bg-secondary';
-        var enrollBadge   = BADGES.enrollment[enrollId]  || 'bg-secondary';
-        var processBadge  = BADGES.process[processId]    || 'bg-secondary';
-        var reminderBadge = BADGES.reminder[reminderId]  || 'bg-secondary';
+        var consentBadge = BADGES.consent[consentId]   || 'bg-secondary';
+        var enrollBadge  = BADGES.enrollment[enrollId] || 'bg-secondary';
+        var processBadge = BADGES.process[processId]   || 'bg-secondary';
 
-        var enrollmentDate = record.enrollment_date ? formatDate(record.enrollment_date) : '';
+        var enrollmentDate  = record.enrollment_date      ? formatDate(record.enrollment_date)      : '<span class="text-muted">-</span>';
+        var scheduledDate   = record.scheduled_call_date  ? formatDate(record.scheduled_call_date)  : '<span class="text-muted">-</span>';
 
-        // Last consultation: derive from latest detail consult_date
-        var lastConsult = '';
-        if (latestDetail && latestDetail.consult_date) {
-            lastConsult = formatDate(latestDetail.consult_date);
-        }
-        if (!lastConsult) {
-            lastConsult = '<span class="text-muted">-</span>';
+        // Consulted by: resolve staff name from staffMap
+        var consultedByName = '<span class="text-muted">-</span>';
+        if (latestDetail && latestDetail.consulted_by && staffMap[latestDetail.consulted_by]) {
+            consultedByName = escapeHtml(staffMap[latestDetail.consulted_by].name || '');
         }
 
         var ccIdDisplay = escapeHtml('#CC' + record.id);
 
         var html = '<tr>';
         html += '<td>' + rowNum + '</td>';
-        html += '<td><code>' + ccIdDisplay + '</code></td>';
+        html += '<td><code>' + ccIdDisplay + '</code><br><span class="badge ' + enrollBadge + ' mt-1">' + escapeHtml(enrollLabel) + '</span></td>';
+
+        // Patient Details: name, IC, phone, outlet code (tooltip)
         html += '<td class="patient-details">';
         html += '<div class="fw-medium">' + name + '</div>';
         html += '<small class="text-muted">' + icno + '</small><br>';
         html += '<small class="text-muted"><i class="bi bi-telephone me-1"></i>' + phone + '</small>';
+        if (outlet && outlet.code) {
+            html += '<br><small class="text-muted" data-bs-toggle="tooltip" data-bs-placement="top" title="' + escapeHtml(outlet.comp_name || '') + '"><i class="bi bi-shop me-1"></i>' + escapeHtml(outlet.code) + '</small>';
+        }
         html += '</td>';
-        html += '<td><span class="badge ' + enrollBadge + '">' + escapeHtml(enrollLabel) + '</span></td>';
-        html += '<td><span class="badge ' + consentBadge + '">' + escapeHtml(consentLabel) + '</span></td>';
+
         html += '<td><span class="badge ' + processBadge + '">' + escapeHtml(processLabel) + '</span></td>';
-        html += '<td><span class="badge ' + reminderBadge + '">' + escapeHtml(reminderLabel) + '</span></td>';
-        html += '<td>' + enrollmentDate + '</td>';
-        html += '<td>' + lastConsult + '</td>';
+        html += '<td><span class="badge ' + consentBadge + '">' + escapeHtml(consentLabel) + '</span></td>';
+        html += '<td style="white-space:nowrap">' + enrollmentDate + '</td>';
+        html += '<td style="white-space:nowrap">' + scheduledDate + '</td>';
+        html += '<td>' + consultedByName + '</td>';
         html += '<td>';
         html += '<a href="consultcall/edit.php?id=' + encodeURIComponent(record.id) + '&view_only=true" class="btn btn-sm btn-outline-primary me-1" title="View"><i class="bi bi-eye"></i></a>';
         html += '<a href="consultcall/edit.php?id=' + encodeURIComponent(record.id) + '" class="btn btn-sm btn-outline-secondary" title="Edit"><i class="bi bi-pencil"></i></a>';
@@ -395,32 +398,55 @@
                 return;
             }
 
-            // Collect unique customer_ids from records
+            // Collect unique customer_ids, outlet_ids, and consulted_by staff_ids from records
             var customerIds = [];
-            var seen = {};
+            var outletIds = [];
+            var staffIds = [];
+            var seenCustomers = {};
+            var seenOutlets = {};
+            var seenStaff = {};
             for (var i = 0; i < records.length; i++) {
                 var cid = records[i].customer_id;
-                if (cid && !seen[cid]) {
+                if (cid && !seenCustomers[cid]) {
                     customerIds.push(cid);
-                    seen[cid] = true;
+                    seenCustomers[cid] = true;
+                }
+                var oid = records[i].outlet_id;
+                if (oid && !seenOutlets[oid]) {
+                    outletIds.push(oid);
+                    seenOutlets[oid] = true;
+                }
+                var details = records[i].details || [];
+                var latestDetail = details.length > 0 ? details[details.length - 1] : null;
+                var sid = latestDetail ? latestDetail.consulted_by : null;
+                if (sid && !seenStaff[sid]) {
+                    staffIds.push(sid);
+                    seenStaff[sid] = true;
                 }
             }
 
-            // Batch-fetch customer details from ODB, then render rows
-            if (customerIds.length > 0) {
-                apiCall('get-customers', { customer_ids: customerIds }).then(function(custResult) {
-                    var customerMap = (custResult.success && custResult.data) ? custResult.data : {};
-                    renderTableRows(records, customerMap);
-                    renderPagination(totalPages, total);
-                }).catch(function() {
-                    // Render without customer details on failure
-                    renderTableRows(records, {});
-                    renderPagination(totalPages, total);
-                });
-            } else {
-                renderTableRows(records, {});
+            var customerPromise = customerIds.length > 0
+                ? apiCall('get-customers', { customer_ids: customerIds })
+                : Promise.resolve({ success: true, data: {} });
+
+            var outletPromise = outletIds.length > 0
+                ? apiCall('get-outlets', { outlet_ids: outletIds })
+                : Promise.resolve({ success: true, data: {} });
+
+            var staffPromise = staffIds.length > 0
+                ? apiCall('get-staff', { staff_ids: staffIds })
+                : Promise.resolve({ success: true, data: {} });
+
+            Promise.all([customerPromise, outletPromise, staffPromise]).then(function(results) {
+                var customerMap = (results[0].success && results[0].data) ? results[0].data : {};
+                var outletMap   = (results[1].success && results[1].data) ? results[1].data : {};
+                var staffMap    = (results[2].success && results[2].data) ? results[2].data : {};
+                renderTableRows(records, customerMap, outletMap, staffMap);
                 renderPagination(totalPages, total);
-            }
+            }).catch(function() {
+                renderTableRows(records, {}, {}, {});
+                renderPagination(totalPages, total);
+            });
         }).catch(function(err) {
             console.error('Failed to load table data:', err);
             renderEmptyTable('Error loading data. Please try again.');
@@ -429,17 +455,25 @@
     }
 
     /**
-     * Render all table rows with customer data
+     * Render all table rows with customer, outlet, and staff data.
+     * Initializes Bootstrap tooltips on outlet code spans after rendering.
      * @param {Array} records Consult call records
      * @param {object} customerMap Customer data keyed by customer_id
+     * @param {object} outletMap Outlet data keyed by outlet_id
+     * @param {object} staffMap Staff data keyed by staff_id
      */
-    function renderTableRows(records, customerMap) {
+    function renderTableRows(records, customerMap, outletMap, staffMap) {
         var tbody = document.getElementById('patientsTableBody');
         var html = '';
         for (var i = 0; i < records.length; i++) {
-            html += renderRow(records[i], i, customerMap);
+            html += renderRow(records[i], i, customerMap, outletMap, staffMap);
         }
         tbody.innerHTML = html;
+
+        var tooltipEls = tbody.querySelectorAll('[data-bs-toggle="tooltip"]');
+        for (var t = 0; t < tooltipEls.length; t++) {
+            new bootstrap.Tooltip(tooltipEls[t]);
+        }
     }
 
     /**
@@ -453,8 +487,9 @@
         document.getElementById('enrollmentFilter').value = '';
         document.getElementById('dateFrom').value = '';
         document.getElementById('dateTo').value = '';
-        document.getElementById('lastConsultFrom').value = '';
-        document.getElementById('lastConsultTo').value = '';
+        document.getElementById('scheduledFrom').value = '';
+        document.getElementById('scheduledTo').value = '';
+        document.getElementById('consultedByFilter').value = '';
         currentPage = 1;
         loadTableData();
     }
@@ -491,10 +526,10 @@
 
         document.getElementById('dateFrom').addEventListener('change', onFilterChange);
         document.getElementById('dateTo').addEventListener('change', onFilterChange);
-        document.getElementById('lastConsultFrom').addEventListener('change', onFilterChange);
-        document.getElementById('lastConsultTo').addEventListener('change', onFilterChange);
+        document.getElementById('scheduledFrom').addEventListener('change', onFilterChange);
+        document.getElementById('scheduledTo').addEventListener('change', onFilterChange);
+        document.getElementById('consultedByFilter').addEventListener('change', onFilterChange);
 
-        document.getElementById('filterBtn').addEventListener('click', onFilterChange);
         document.getElementById('resetBtn').addEventListener('click', resetFilters);
 
         document.getElementById('rowsPerPage').addEventListener('change', function() {

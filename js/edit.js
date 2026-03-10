@@ -357,6 +357,12 @@
             } else { clearFieldError('consult_status'); }
 
             if (consultStatus === '1') {
+                var documentation = getInputValue('documentation');
+                if (!documentation || !documentation.trim()) {
+                    showFieldError('documentation', 'Documentation is required.');
+                    valid = false;
+                } else { clearFieldError('documentation'); }
+
                 var diagnosis = getInputValue('diagnosis');
                 if (!diagnosis || !diagnosis.trim()) {
                     showFieldError('diagnosis', 'Diagnosis is required.');
@@ -478,6 +484,17 @@
             } else {
                 completedFields[i].classList.remove('visible');
             }
+        }
+        // Immediately persist consulted_by to the existing detail record when completed is selected.
+        // consult_status is intentionally not sent here; it is saved only on full form submit.
+        if (value === CONSULT_COMPLETED && currentDetailId && EDIT_CONFIG.currentStaffId) {
+            apiCall('update-detail', {
+                consult_call_id: EDIT_CONFIG.consultCallId,
+                detail_id: currentDetailId,
+                data: {
+                    consulted_by: parseInt(EDIT_CONFIG.currentStaffId, 10)
+                }
+            });
         }
         // Sync date container: show only if Completed AND a month is selected
         if (value === CONSULT_COMPLETED) {
@@ -635,6 +652,7 @@
                 html += '<div class="col-4">' + renderHistoryField('Consult Status', statusMaps.consultStatuses[String(d.consult_status)] || null) + '</div>';
                 html += '</div>';
                 if (isCompleted) {
+                    html += renderHistoryField('Documentation', d.documentation || null);
                     html += renderHistoryField('Diagnosis', d.diagnosis || null);
                     html += renderHistoryField('Treatment Plan', d.treatment_plan || null);
                     html += renderHistoryField('Rx Issued', d.rx_issued ? 'Yes' : 'No');
@@ -658,7 +676,7 @@
                     var actionLabel = statusMaps.actions[String(d.action)] || null;
                     var actionCell = '<div class="mb-2"><div class="history-label">Action</div>'
                         + '<div class="history-value">' + escapeHtml(actionLabel || '') + '</div>';
-                    if (fu.my_referral_id && (String(d.action) === '1' || String(d.action) === '2')) {
+                    if (fu.my_referral_id) {
                         actionCell += '<a href="/odb/referral/view.php?id=' + encodeURIComponent(fu.my_referral_id) + '"'
                             + ' target="_blank" class="btn btn-sm btn-outline-primary mt-1">View MyReferral</a>';
                     }
@@ -754,6 +772,15 @@
 
     function disableFollowUpCheckpointSection() {
         var section = document.getElementById('section-followup-checkpoint');
+        if (!section) return;
+        var fields = section.querySelectorAll('input, select, textarea');
+        for (var i = 0; i < fields.length; i++) {
+            fields[i].disabled = true;
+        }
+    }
+
+    function disableConsultationSection() {
+        var section = document.getElementById('section-consultation');
         if (!section) return;
         var fields = section.querySelectorAll('input, select, textarea');
         for (var i = 0; i < fields.length; i++) {
@@ -1048,6 +1075,12 @@
             disableEligibilitySection();
         }
 
+        // Lock consultation section when consulted_by is set and belongs to a different doctor
+        if (latestDetail && latestDetail.consulted_by &&
+            parseInt(EDIT_CONFIG.currentStaffId, 10) !== latestDetail.consulted_by) {
+            disableConsultationSection();
+        }
+
         // Populate Follow-up Checkpoint fields if visible
         if (hasActiveFollowUp && latestFollowUp) {
             var reminderVal = (latestFollowUp.followup_reminder !== undefined && latestFollowUp.followup_reminder !== null)
@@ -1152,13 +1185,21 @@
         };
 
         // Detail level data (matches API 3.1 Create Detail fields)
+        // When consult_status is completed (1) and no existing detail record exists yet,
+        // inject currentStaffId as consulted_by without relying on the select field.
+        var consultStatusForDetail = toIntOrNull(getRadioValue('consult_status'));
+        var consultedByValue = toIntOrNull(getSelectValue('consulted_by'));
+        if (consultStatusForDetail === 1 && !currentDetailId && EDIT_CONFIG.currentStaffId) {
+            consultedByValue = parseInt(EDIT_CONFIG.currentStaffId, 10);
+        }
         var detailData = {
             consult_date: getInputValue('consult_date') || null,
-            consulted_by: toIntOrNull(getSelectValue('consulted_by')),
-            consult_status: toIntOrNull(getRadioValue('consult_status')),
+            consulted_by: consultedByValue,
+            consult_status: consultStatusForDetail,
+            documentation: getInputValue('documentation') || null,
             diagnosis: getInputValue('diagnosis') || null,
             treatment_plan: getInputValue('treatment_plan') || null,
-            rx_issued: getCheckboxValue('rx_issued'),
+            rx_issued: getRadioValue('rx_issued') === '1',
             action: toIntOrNull(getRadioValue('action')),
             remarks: getInputValue('remarks') || null
         };
@@ -1346,7 +1387,7 @@
                         params.push('customer_ic=' + encodeURIComponent(currentCustomerIc));
                     }
                     params.push('referral_reason=' + encodeURIComponent(
-                        'Blood Test for ConsultCall id #CC' + EDIT_CONFIG.consultCallId
+                        '(TESTING. PLEASE IGNORE) Blood Test for ConsultCall id #CC' + EDIT_CONFIG.consultCallId
                     ));
                     var diagnosisEl = document.getElementById('diagnosis');
                     if (diagnosisEl && diagnosisEl.value.trim()) {
