@@ -24,6 +24,20 @@
     // Tracks the IDs of the latest loaded detail and follow-up records
     var currentDetailId = null;
     var currentFollowUpId = null;
+    // Doctor-specific follow-up ID: null when latest detail is completed (forces create)
+    var doctorFollowUpId = null;
+
+    // Base date for next follow-up auto-population. Set to the current follow-up's
+    // scheduled date when a follow-up consultation is being entered, so that the
+    // "add N months" calculation starts from the scheduled visit date, not today.
+    var followUpBaseDateStr = null;
+
+    // TODO [DEPLOY]: clinical_condition_id and test_result_id are required (non-nullable) on
+    // consult_call_details. For follow-up consultations these are carried over from the
+    // previous detail as a testing workaround. Before go-live, either (a) have the UI
+    // collect these values explicitly, or (b) migrate the columns to nullable.
+    var previousDetailClinicalConditionId = null;
+    var previousDetailTestResultId = null;
 
     // Consent status integer constants
     var CONSENT_PENDING = '0';
@@ -545,7 +559,9 @@
         if (months) {
             container.style.display = '';
             if (autoPopulate) {
-                var d = new Date();
+                // Use the current follow-up's scheduled date as the base when available,
+                // so the next follow-up is calculated from that visit, not from today.
+                var d = followUpBaseDateStr ? new Date(followUpBaseDateStr) : new Date();
                 d.setMonth(d.getMonth() + months);
                 var y = d.getFullYear();
                 var mo = String(d.getMonth() + 1).padStart(2, '0');
@@ -1047,9 +1063,35 @@
         // -- Detail and follow-up IDs (for update-vs-create logic on submit) --
         // Form fields are intentionally left blank; submitted data is read-only in history.
         var details = data.details || [];
+        var followUps = data.follow_ups || [];
         currentDetailId = null;
+        doctorFollowUpId = null;
+        currentFollowUpId = null;
+
+        // HQ checkpoint always targets the latest follow-up record
+        if (followUps.length > 0) {
+            currentFollowUpId = followUps[followUps.length - 1].id || null;
+        }
+
+        // Doctor update-vs-create: only track IDs when the latest detail is not yet
+        // completed. A completed detail means the doctor is starting a new consultation
+        // and new records must be created rather than the previous ones overwritten.
+        previousDetailClinicalConditionId = null;
+        previousDetailTestResultId = null;
         if (details.length > 0) {
-            currentDetailId = details[details.length - 1].id || null;
+            var lastDetail = details[details.length - 1];
+            // Always carry forward clinical_condition_id and test_result_id from the
+            // most recent detail so they can be re-used when creating the next one.
+            // TODO [DEPLOY]: remove this carry-forward once the UI collects these values.
+            previousDetailClinicalConditionId = lastDetail.clinical_condition_id || null;
+            previousDetailTestResultId = lastDetail.test_result_id || null;
+            if (String(lastDetail.consult_status) !== '1') {
+                currentDetailId = lastDetail.id || null;
+                var pairedFollowUp = followUps[details.length - 1];
+                if (pairedFollowUp) {
+                    doctorFollowUpId = pairedFollowUp.id || null;
+                }
+            }
         }
 
         // Auto-select current staff as Consulted By for Doctor role (role 2)
@@ -1057,15 +1099,16 @@
             setSelectValue('consulted_by', String(EDIT_CONFIG.currentStaffId));
         }
 
-        var followUps = data.follow_ups || [];
-        currentFollowUpId = null;
-        if (followUps.length > 0) {
-            currentFollowUpId = followUps[followUps.length - 1].id || null;
-        }
-
         // Show Follow-up Checkpoint section only when the latest follow-up has a type that is not None (0)
         var latestFollowUp = followUps.length > 0 ? followUps[followUps.length - 1] : null;
         var hasActiveFollowUp = latestFollowUp && String(latestFollowUp.followup_type) !== '0';
+
+        // When a new consultation is being entered (latest detail completed), use the
+        // current follow-up's scheduled date as the base for next-follow-up auto-population.
+        followUpBaseDateStr = null;
+        if (!currentDetailId && latestFollowUp && latestFollowUp.followup_date) {
+            followUpBaseDateStr = toDateValue(latestFollowUp.followup_date);
+        }
 
         toggleFollowUpCheckpointSection(!!hasActiveFollowUp);
 
@@ -1193,6 +1236,10 @@
             consultedByValue = parseInt(EDIT_CONFIG.currentStaffId, 10);
         }
         var detailData = {
+            // TODO [DEPLOY]: clinical_condition_id and test_result_id carried from previous
+            // detail as a testing workaround -- replace with actual UI input before go-live.
+            clinical_condition_id: currentDetailId ? null : previousDetailClinicalConditionId,
+            test_result_id: currentDetailId ? null : previousDetailTestResultId,
             consult_date: getInputValue('consult_date') || null,
             consulted_by: consultedByValue,
             consult_status: consultStatusForDetail,
@@ -1282,11 +1329,11 @@
 
                 if (hasFollowUp) {
                     followUpPromiseIndex = promises.length;
-                    isFollowUpCreate = !currentFollowUpId;
-                    if (currentFollowUpId) {
+                    isFollowUpCreate = !doctorFollowUpId;
+                    if (doctorFollowUpId) {
                         promises.push(apiCall('update-follow-up', {
                             consult_call_id: EDIT_CONFIG.consultCallId,
-                            follow_up_id: currentFollowUpId,
+                            follow_up_id: doctorFollowUpId,
                             data: followUpData
                         }));
                     } else {
@@ -1321,7 +1368,7 @@
                         ? results[followUpPromiseIndex].data.id
                         : null;
                 } else {
-                    followUpId = currentFollowUpId;
+                    followUpId = doctorFollowUpId;
                 }
             }
 
