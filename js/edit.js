@@ -1236,10 +1236,10 @@
             consultedByValue = parseInt(EDIT_CONFIG.currentStaffId, 10);
         }
         var detailData = {
-            // TODO [DEPLOY]: clinical_condition_id and test_result_id carried from previous
-            // detail as a testing workaround -- replace with actual UI input before go-live.
-            clinical_condition_id: currentDetailId ? null : previousDetailClinicalConditionId,
-            test_result_id: currentDetailId ? null : previousDetailTestResultId,
+            // TODO [DEPLOY]: clinical_condition_id and test_result_id carried forward from the
+            // most recent detail record (create or update) until the UI collects these values.
+            clinical_condition_id: previousDetailClinicalConditionId,
+            test_result_id: previousDetailTestResultId,
             consult_date: getInputValue('consult_date') || null,
             consulted_by: consultedByValue,
             consult_status: consultStatusForDetail,
@@ -1434,7 +1434,7 @@
                         params.push('customer_ic=' + encodeURIComponent(currentCustomerIc));
                     }
                     params.push('referral_reason=' + encodeURIComponent(
-                        '(TESTING. PLEASE IGNORE) Blood Test for ConsultCall id #CC' + EDIT_CONFIG.consultCallId
+                        'Blood Test for ConsultCall id #CC' + EDIT_CONFIG.consultCallId
                     ));
                     var diagnosisEl = document.getElementById('diagnosis');
                     if (diagnosisEl && diagnosisEl.value.trim()) {

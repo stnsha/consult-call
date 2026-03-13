@@ -1226,7 +1226,7 @@ if (!defined('API_JWT_INCLUDED')) {
                         'patient_id', 'consent_call_status', 'scheduled_status',
                         'date_from', 'date_to', 'search', 'enrollment_type',
                         'process_status', 'followup_reminder', 'scheduled_from',
-                        'scheduled_to', 'consulted_by', 'per_page'
+                        'scheduled_to', 'consulted_by', 'per_page', 'page'
                     );
                     foreach ($allowedParams as $param) {
                         if (isset($jsonData[$param]) && $jsonData[$param] !== '') {
