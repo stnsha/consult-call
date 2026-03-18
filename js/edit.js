@@ -1235,6 +1235,7 @@
         if (consultStatusForDetail === 1 && !currentDetailId && EDIT_CONFIG.currentStaffId) {
             consultedByValue = parseInt(EDIT_CONFIG.currentStaffId, 10);
         }
+        var actionValue = toIntOrNull(getRadioValue('action'));
         var detailData = {
             // TODO [DEPLOY]: clinical_condition_id and test_result_id carried forward from the
             // most recent detail record (create or update) until the UI collects these values.
@@ -1247,7 +1248,9 @@
             diagnosis: getInputValue('diagnosis') || null,
             treatment_plan: getInputValue('treatment_plan') || null,
             rx_issued: getRadioValue('rx_issued') === '1',
-            action: toIntOrNull(getRadioValue('action')),
+            action: actionValue,
+            // End Process (3) automatically closes the process status
+            process_status: actionValue === 3 ? 3 : null,
             remarks: getInputValue('remarks') || null
         };
 

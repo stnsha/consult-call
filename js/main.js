@@ -9,6 +9,7 @@
  *   followup_reminder:   0=Pending, 1=Completed, 2=Rescheduled, 3=Cancelled
  *   scheduled_status:    0=Pending, 1=Confirmed, 2=Rescheduled, 3=Cancelled
  *   mode_of_consultation:0=Pending, 1=Phone, 2=Google Meet, 3=WhatsApp
+ *   action:              1=Refer Internal, 2=Refer External, 3=End Process
  */
 (function() {
     'use strict';
@@ -28,13 +29,15 @@
         consent:    { 0: 'bg-warning',  1: 'bg-success', 2: 'bg-danger' },
         enrollment: { 1: 'bg-primary',  2: 'bg-secondary' },
         process:    { 1: 'bg-success',  2: 'bg-danger',   3: 'bg-secondary' },
-        reminder:   { 0: 'bg-warning',  1: 'bg-success',  2: 'bg-info', 3: 'bg-danger' }
+        reminder:   { 0: 'bg-warning',  1: 'bg-success',  2: 'bg-info', 3: 'bg-danger' },
+        action:     { 1: 'bg-primary',  2: 'bg-info',     3: 'bg-secondary' }
     };
 
     // Status label maps loaded from StatusLibraryController via get-statuses
     var statusMaps = {
         processStatuses:    {},
-        followUpReminders:  {}
+        followUpReminders:  {},
+        actions:            {}
     };
 
     /**
@@ -43,8 +46,8 @@
      * @returns {Promise}
      */
     function loadStatusMaps() {
-        var types = ['process-statuses', 'follow-up-reminders'];
-        var keys  = ['processStatuses',  'followUpReminders'];
+        var types = ['process-statuses', 'follow-up-reminders', 'actions'];
+        var keys  = ['processStatuses',  'followUpReminders',   'actions'];
         var promises = [];
         for (var i = 0; i < types.length; i++) {
             promises.push(apiCall('get-statuses', { type: types[i] }));
@@ -256,12 +259,13 @@
         var enrollId  = record.enrollment_type;
         var processId = latestDetail ? latestDetail.process_status : null;
 
+        var actionId     = latestDetail ? latestDetail.action : null;
         var consentLabel = LABELS.consent[consentId]    || '';
-        var enrollLabel  = LABELS.enrollment[enrollId]  || '';
+        var actionLabel  = actionId !== null ? (statusMaps.actions[String(actionId)] || '') : '';
         var processLabel = processId !== null ? (statusMaps.processStatuses[String(processId)] || '') : '';
 
         var consentBadge = BADGES.consent[consentId]   || 'bg-secondary';
-        var enrollBadge  = BADGES.enrollment[enrollId] || 'bg-secondary';
+        var actionBadge  = (actionId !== null && BADGES.action[actionId]) ? BADGES.action[actionId] : 'bg-secondary';
         var processBadge = BADGES.process[processId]   || 'bg-secondary';
 
         var enrollmentDate  = record.enrollment_date      ? formatDate(record.enrollment_date)      : '<span class="text-muted">-</span>';
@@ -277,7 +281,9 @@
 
         var html = '<tr>';
         html += '<td>' + rowNum + '</td>';
-        html += '<td><code>' + ccIdDisplay + '</code><br><span class="badge ' + enrollBadge + ' mt-1">' + escapeHtml(enrollLabel) + '</span></td>';
+        html += '<td><code>' + ccIdDisplay + '</code>'
+            + (actionLabel ? '<br><span class="badge ' + actionBadge + ' mt-1">' + escapeHtml(actionLabel) + '</span>' : '')
+            + '</td>';
 
         // Patient Details: name, IC, phone, outlet code (tooltip)
         html += '<td class="patient-details">';
