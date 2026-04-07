@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -37,21 +38,27 @@ if ($doctor_result) {
     }
 }
 ?>
+
 <body>
+    <div class="header" style="position: relative;">
+        <b class="rtop"><b class="r1"></b><b class="r2"></b><b class="r3"></b><b class="r4"></b></b>
+        <h1 class="headerH1"><img src='common/img/consultcall.png' width='20px'> ConsultCall Dashboard</h1>
+        <b class="rbottom"><b class="r4"></b><b class="r3"></b><b class="r2"></b><b class="r1"></b></b>
+    </div>
     <?php include('navbar.php'); ?>
     <div class="consultcall-container mb-3">
 
-        <div class="row mb-4">
+        <!-- <div class="row mb-4">
             <div class="col-12">
                 <h1 class="mb-1 fw-bold" style="font-size: 18px; font-weight: 500; text-align: left;">ConsultCall Dashboard</h1>
                 <p class="text-muted mb-0" style="font-size: 13px; text-align: left;">Track and manage telehealth patient consultations</p>
             </div>
-        </div>
+        </div> -->
 
         <!-- Row 1: Overview Cards -->
         <div class="row g-4 mb-4">
             <!-- Total Patients Card -->
-            <div class="col-md-3">
+            <div class="col-md-4">
                 <div class="bento-card h-100">
                     <div class="d-flex align-items-center mb-3">
                         <div class="card-icon bg-primary bg-opacity-10 text-primary">
@@ -62,21 +69,21 @@ if ($doctor_result) {
                             <h2 class="card-value mb-0"><span id="summary-total">--</span></h2>
                         </div>
                     </div>
-                    <div class="d-flex justify-content-between w-100">
+                    <div class="d-flex justify-content-between w-100 card-filter-row" data-filter-field="enrollmentFilter" data-filter-value="1">
                         <span class="status-label">Primary</span>
                         <span class="status-value" id="summary-enrollment-primary">--</span>
                     </div>
-                    <div class="d-flex justify-content-between w-100">
+                    <div class="d-flex justify-content-between w-100 card-filter-row" data-filter-field="enrollmentFilter" data-filter-value="2">
                         <span class="status-label">Follow-up</span>
                         <span class="status-value" id="summary-enrollment-followup">--</span>
                     </div>
                 </div>
             </div>
             <!-- Consent Status Card -->
-            <div class="col-md-3">
+            <div class="col-md-4">
                 <div class="bento-card h-100">
                     <div class="d-flex align-items-center mb-3">
-                        <div class="card-icon bg-warning bg-opacity-10 text-warning">
+                        <div class="card-icon bg-success bg-opacity-10 text-success">
                             <i class="bi bi-clipboard-check"></i>
                         </div>
                         <div class="ms-3 text-start">
@@ -84,22 +91,22 @@ if ($doctor_result) {
                             <h2 class="card-value mb-0"><span id="summary-consent-total">--</span></h2>
                         </div>
                     </div>
-                    <div class="d-flex justify-content-between w-100">
+                    <div class="d-flex justify-content-between w-100 card-filter-row" data-filter-field="consentFilter" data-filter-value="0">
                         <span class="status-label">Pending</span>
                         <span class="status-value" id="summary-consent-pending">--</span>
                     </div>
-                    <div class="d-flex justify-content-between w-100">
+                    <div class="d-flex justify-content-between w-100 card-filter-row" data-filter-field="consentFilter" data-filter-value="1">
                         <span class="status-label">Obtained</span>
                         <span class="status-value" id="summary-consent-obtained">--</span>
                     </div>
-                    <div class="d-flex justify-content-between w-100">
+                    <div class="d-flex justify-content-between w-100 card-filter-row" data-filter-field="consentFilter" data-filter-value="2">
                         <span class="status-label">Refused</span>
                         <span class="status-value" id="summary-consent-refused">--</span>
                     </div>
                 </div>
             </div>
             <!-- Process Status Card -->
-            <div class="col-md-3">
+            <div class="col-md-4">
                 <div class="bento-card h-100">
                     <div class="d-flex align-items-center mb-3">
                         <div class="card-icon bg-info bg-opacity-10 text-info">
@@ -110,49 +117,32 @@ if ($doctor_result) {
                             <h2 class="card-value mb-0"><span id="summary-process-total">--</span></h2>
                         </div>
                     </div>
-                    <div class="d-flex justify-content-between w-100">
+                    <div class="d-flex justify-content-between w-100 card-filter-row" data-filter-field="processFilter" data-filter-value="1">
                         <span class="status-label">Active</span>
                         <span class="status-value" id="summary-process-active">--</span>
                     </div>
-                    <div class="d-flex justify-content-between w-100">
+                    <div class="d-flex justify-content-between w-100 card-filter-row" data-filter-field="processFilter" data-filter-value="3">
                         <span class="status-label">Closed</span>
                         <span class="status-value" id="summary-process-closed">--</span>
                     </div>
-                    <div class="d-flex justify-content-between w-100">
+                    <div class="d-flex justify-content-between w-100 card-filter-row" data-filter-field="processFilter" data-filter-value="2">
                         <span class="status-label">Escalated</span>
                         <span class="status-value" id="summary-process-escalated">--</span>
                     </div>
                 </div>
             </div>
-            <!-- Follow Up Reminder Card -->
-            <div class="col-md-3">
-                <div class="bento-card h-100">
-                    <div class="d-flex align-items-center mb-3">
-                        <div class="card-icon bg-success bg-opacity-10 text-success">
-                            <i class="bi bi-bell"></i>
-                        </div>
-                        <div class="ms-3 text-start">
-                            <h6 class="card-subtitle text-muted mb-1">Follow Up Reminder</h6>
-                            <h2 class="card-value mb-0"><span id="summary-followup-total">--</span></h2>
-                        </div>
-                    </div>
-                    <div class="d-flex justify-content-between w-100">
-                        <span class="status-label">Pending</span>
-                        <span class="status-value" id="summary-followup-pending">--</span>
-                    </div>
-                    <div class="d-flex justify-content-between w-100">
-                        <span class="status-label">Completed</span>
-                        <span class="status-value" id="summary-followup-completed">--</span>
-                    </div>
-                    <div class="d-flex justify-content-between w-100">
-                        <span class="status-label">Rescheduled</span>
-                        <span class="status-value" id="summary-followup-rescheduled">--</span>
-                    </div>
-                    <div class="d-flex justify-content-between w-100">
-                        <span class="status-label">Cancelled</span>
-                        <span class="status-value" id="summary-followup-cancelled">--</span>
-                    </div>
-                </div>
+        </div>
+
+        <!-- Follow-up Reminder Banner -->
+        <div class="followup-banner mb-4">
+            <div class="d-flex align-items-center mb-3">
+                <i class="bi bi-bell-fill me-2 followup-banner-icon"></i>
+                <span class="followup-banner-title">Follow Up Reminder</span>
+                <span class="badge followup-banner-badge ms-2" id="followup-banner-count">--</span>
+                <span class="ms-auto followup-banner-range">Next 7 days</span>
+            </div>
+            <div class="followup-chips-wrapper" id="followup-chips-wrapper">
+                <span class="text-muted" style="font-size: 13px; padding: 6px 2px;">Loading...</span>
             </div>
         </div>
 
@@ -224,7 +214,7 @@ if ($doctor_result) {
                             <select class="form-select" id="consultedByFilter">
                                 <option value="">All</option>
                                 <?php foreach ($doctor_list as $doctor): ?>
-                                <option value="<?php echo (int)$doctor['id']; ?>"><?php echo htmlspecialchars($doctor['nama_staff']); ?></option>
+                                    <option value="<?php echo (int)$doctor['id']; ?>"><?php echo htmlspecialchars($doctor['nama_staff']); ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
@@ -295,13 +285,14 @@ if ($doctor_result) {
     </div>
 
     <script>
-    var CC_CONFIG = {
-        staffId: <?php echo json_encode(isset($id_user) ? $id_user : ''); ?>,
-        permission: <?php echo json_encode($consult_call_permission); ?>,
-        apiUrl: 'consultcall/api-jwt.php'
-    };
+        var CC_CONFIG = {
+            staffId: <?php echo json_encode(isset($id_user) ? $id_user : ''); ?>,
+            permission: <?php echo json_encode($consult_call_permission); ?>,
+            apiUrl: 'consultcall/api-jwt.php'
+        };
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="consultcall/js/main.js?v=<?php echo time(); ?>"></script>
 </body>
+
 </html>

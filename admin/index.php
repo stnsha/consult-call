@@ -137,6 +137,11 @@ $role_badges = array(
 
 ?>
 <body>
+    <div class="header" style="position: relative;">
+        <b class="rtop"><b class="r1"></b><b class="r2"></b><b class="r3"></b><b class="r4"></b></b>
+        <h1 class="headerH1"><img src='common/img/consultcall.png' width='20px'> ConsultCall Admin</h1>
+        <b class="rbottom"><b class="r4"></b><b class="r3"></b><b class="r2"></b><b class="r1"></b></b>
+    </div>
     <?php include('../navbar.php'); ?>
     <div class="consultcall-container mb-3">
 

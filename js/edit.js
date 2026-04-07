@@ -1249,8 +1249,8 @@
             treatment_plan: getInputValue('treatment_plan') || null,
             rx_issued: getRadioValue('rx_issued') === '1',
             action: actionValue,
-            // End Process (3) automatically closes the process status
-            process_status: actionValue === 3 ? 3 : null,
+            // No Show (2) and End Process action (3) both close the process status
+            process_status: (consultStatusForDetail === 2 || actionValue === 3) ? 3 : null,
             remarks: getInputValue('remarks') || null
         };
 
@@ -1303,17 +1303,35 @@
                 }));
             }
 
+            // HQ (role 4): when consent is Refused (2), automatically close the process status
+            if (EDIT_CONFIG.currentStaffRole === 4 && consultCallData.consent_call_status === 2) {
+                var closeDetailData = { process_status: 3 };
+                if (currentDetailId) {
+                    promises.push(apiCall('update-detail', {
+                        consult_call_id: EDIT_CONFIG.consultCallId,
+                        detail_id: currentDetailId,
+                        data: closeDetailData
+                    }));
+                } else {
+                    promises.push(apiCall('create-detail', {
+                        consult_call_id: EDIT_CONFIG.consultCallId,
+                        data: closeDetailData
+                    }));
+                }
+            }
+
             if (EDIT_CONFIG.currentStaffRole === 2) {
                 var hasDetail = detailData.consult_date || detailData.diagnosis ||
                     detailData.treatment_plan || detailData.consult_status !== null;
 
-                // Only create a follow-up when the consultation is completed (status 1)
-                // and the user has entered meaningful follow-up data
-                var hasFollowUp = detailData.consult_status === 1 && (
-                    followUpData.followup_type !== null ||
-                    followUpData.next_followup !== null ||
-                    followUpData.followup_date
-                );
+                // Only create a follow-up when the consultation is completed (status 1),
+                // the action is not End Process (3), and the user has entered follow-up data
+                var hasFollowUp = detailData.consult_status === 1 &&
+                    actionValue !== 3 && (
+                        followUpData.followup_type !== null ||
+                        followUpData.next_followup !== null ||
+                        followUpData.followup_date
+                    );
 
                 if (hasDetail) {
                     if (currentDetailId) {

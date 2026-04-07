@@ -483,6 +483,160 @@
     }
 
     /**
+     * Return the CSS modifier class for a follow-up chip based on how soon the date is.
+     * @param {Date} date Normalised (midnight) Date object
+     * @returns {string}
+     */
+    function getChipClass(date) {
+        var today    = new Date(); today.setHours(0, 0, 0, 0);
+        var tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+        if (date.getTime() === today.getTime())    return 'followup-chip-today';
+        if (date.getTime() === tomorrow.getTime()) return 'followup-chip-tomorrow';
+        return 'followup-chip-week';
+    }
+
+    /**
+     * Format a normalised Date for display inside a chip.
+     * @param {Date} date
+     * @returns {string}
+     */
+    function formatChipDate(date) {
+        var today    = new Date(); today.setHours(0, 0, 0, 0);
+        var tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+        var days   = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        var dm = date.getDate() + ' ' + months[date.getMonth()];
+        if (date.getTime() === today.getTime())    return 'Today \u2014 ' + dm;
+        if (date.getTime() === tomorrow.getTime()) return 'Tomorrow \u2014 ' + dm;
+        return days[date.getDay()] + ', ' + dm;
+    }
+
+    /**
+     * Render the empty state inside the follow-up banner.
+     */
+    function renderBannerEmpty() {
+        var countEl = document.getElementById('followup-banner-count');
+        var wrapper = document.getElementById('followup-chips-wrapper');
+        if (countEl) countEl.textContent = '0';
+        if (wrapper) {
+            wrapper.innerHTML = '<span class="text-muted" style="font-size: 13px; padding: 6px 2px;">No upcoming follow-ups in the next 7 days.</span>';
+        }
+    }
+
+    /**
+     * Render follow-up chips after customer names have been resolved.
+     * @param {Array}  upcoming    Sorted array of { id, customer_id, followup_date }
+     * @param {object} customerMap customer_id -> customer object from ODB
+     */
+    function renderBannerChips(upcoming, customerMap) {
+        var countEl = document.getElementById('followup-banner-count');
+        var wrapper = document.getElementById('followup-chips-wrapper');
+        if (countEl) countEl.textContent = upcoming.length;
+        if (!wrapper) return;
+
+        var html = '';
+        for (var i = 0; i < upcoming.length; i++) {
+            var item      = upcoming[i];
+            var customer  = customerMap[item.customer_id] || {};
+            var name      = customer.name || 'Unknown Patient';
+            var chipClass = getChipClass(item.followup_date);
+            var dateLabel = formatChipDate(item.followup_date);
+
+            html += '<a href="consultcall/edit.php?id=' + encodeURIComponent(item.id) + '" class="followup-chip ' + chipClass + '">';
+            html += '<span class="followup-chip-date">'  + escapeHtml(dateLabel) + '</span>';
+            html += '<span class="followup-chip-name">'  + escapeHtml(name)      + '</span>';
+            html += '<span class="followup-chip-meta">#CC' + escapeHtml(String(item.id)) + '</span>';
+            html += '</a>';
+        }
+        wrapper.innerHTML = html;
+    }
+
+    /**
+     * Fetch pending follow-ups from the API, filter to those due within the next 7 days,
+     * resolve customer names, then render the reminder banner.
+     */
+    function loadFollowupBanner() {
+        var today = new Date(); today.setHours(0, 0, 0, 0);
+        var cutoff = new Date(today); cutoff.setDate(today.getDate() + 7);
+
+        apiCall('all-consult-call', { followup_reminder: 0, per_page: 9999, page: 1 })
+            .then(function(result) {
+                if (!result.success || !result.data) { renderBannerEmpty(); return; }
+
+                var records  = result.data.data || [];
+                var upcoming = [];
+
+                for (var i = 0; i < records.length; i++) {
+                    var r  = records[i];
+                    var fu = r.follow_ups || [];
+                    if (fu.length === 0) continue;
+                    var latest = fu[fu.length - 1];
+                    if (!latest.followup_date) continue;
+
+                    var fuDate = new Date(latest.followup_date);
+                    fuDate.setHours(0, 0, 0, 0);
+
+                    if (fuDate >= today && fuDate <= cutoff) {
+                        upcoming.push({ id: r.id, customer_id: r.customer_id, followup_date: fuDate });
+                    }
+                }
+
+                if (upcoming.length === 0) { renderBannerEmpty(); return; }
+
+                // Sort soonest first
+                upcoming.sort(function(a, b) { return a.followup_date - b.followup_date; });
+
+                // Batch-fetch customer names
+                var customerIds = [];
+                var seen = {};
+                for (var j = 0; j < upcoming.length; j++) {
+                    var cid = upcoming[j].customer_id;
+                    if (cid && !seen[cid]) { customerIds.push(cid); seen[cid] = true; }
+                }
+
+                var custPromise = customerIds.length > 0
+                    ? apiCall('get-customers', { customer_ids: customerIds })
+                    : Promise.resolve({ success: true, data: {} });
+
+                custPromise.then(function(custResult) {
+                    var customerMap = (custResult.success && custResult.data) ? custResult.data : {};
+                    renderBannerChips(upcoming, customerMap);
+                }).catch(function() {
+                    renderBannerChips(upcoming, {});
+                });
+            })
+            .catch(function() { renderBannerEmpty(); });
+    }
+
+    /**
+     * Handle a card summary row click: clear all dropdowns, apply the clicked filter, reload.
+     * @param {Event} e Click event
+     */
+    function handleCardFilterClick(e) {
+        var field = this.getAttribute('data-filter-field');
+        var value = this.getAttribute('data-filter-value');
+
+        document.getElementById('searchInput').value = '';
+        document.getElementById('consentFilter').value = '';
+        document.getElementById('processFilter').value = '';
+        document.getElementById('reminderFilter').value = '';
+        document.getElementById('enrollmentFilter').value = '';
+        document.getElementById('dateFrom').value = '';
+        document.getElementById('dateTo').value = '';
+        document.getElementById('scheduledFrom').value = '';
+        document.getElementById('scheduledTo').value = '';
+        document.getElementById('consultedByFilter').value = '';
+
+        var el = document.getElementById(field);
+        if (el) {
+            el.value = value;
+        }
+
+        currentPage = 1;
+        loadTableData();
+    }
+
+    /**
      * Reset all filter inputs and reload table data
      */
     function resetFilters() {
@@ -538,12 +692,18 @@
 
         document.getElementById('resetBtn').addEventListener('click', resetFilters);
 
+        var filterRows = document.querySelectorAll('.card-filter-row');
+        for (var f = 0; f < filterRows.length; f++) {
+            filterRows[f].addEventListener('click', handleCardFilterClick);
+        }
+
         document.getElementById('rowsPerPage').addEventListener('change', function() {
             perPage = parseInt(this.value, 10);
             currentPage = 1;
             loadTableData();
         });
 
+        loadFollowupBanner();
         loadSummary();
         loadStatusMaps().then(function() {
             loadTableData();

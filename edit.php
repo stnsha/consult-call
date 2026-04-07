@@ -644,7 +644,7 @@ $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
                         </div>
 
                         <div class="col-md-6 conditional-field" data-condition="consult_completed" id="next-followup-date-container" style="display:none;">
-                            <label class="form-label">Next Follow Up Date<span style="color:red;"> *</span></label>
+                            <label class="form-label">Next Follow Up Date</label>
                             <input type="date" class="form-control" name="followup_date" id="followup_date" <?php echo $dD; ?>>
                         </div>
 
@@ -652,6 +652,10 @@ $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
                         <div class="col-md-6 conditional-field" data-condition="consult_completed">
                             <label class="form-label">Mode of Conversion<span style="color:red;"> *</span></label>
                             <div class="radio-group">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="mode_of_conversion" id="conversion_none" value="0" <?php echo $dD; ?>>
+                                    <label class="form-check-label" for="conversion_none">None</label>
+                                </div>
                                 <div class="form-check">
                                     <input class="form-check-input" type="radio" name="mode_of_conversion" id="conversion_outlet" value="1" <?php echo $dD; ?>>
                                     <label class="form-check-label" for="conversion_outlet">Outlet</label>
