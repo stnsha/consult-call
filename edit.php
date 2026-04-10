@@ -688,7 +688,7 @@ $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
 
                         <!-- MyReferral button — shown by JS when action = Refer Internal or Refer External -->
                         <div class="col-md-12" id="myreferral-btn-container" style="display:none;">
-                            <a id="myreferral-create-btn" href="#" target="_blank" rel="noopener" class="btn btn-outline-primary">
+                            <a id="myreferral-create-btn" href="#" rel="noopener" class="btn btn-outline-primary">
                                 <i class="bi bi-plus-circle me-1"></i>Create MyReferral
                             </a>
                         </div>

@@ -1424,11 +1424,6 @@
         });
     }
 
-    /**
-     * Initialize the Create MyReferral button click handler.
-     * Saves the consultcall form first via runSaveFlow, then opens the referral
-     * creation page in a new tab with the saved follow_up_id in the URL.
-     */
     function initMyReferralButton() {
         var btn = document.getElementById('myreferral-create-btn');
         if (!btn) return;
@@ -1441,28 +1436,10 @@
             self.textContent = 'Saving...';
 
             runSaveFlow(
-                function(followUpId) {
+                function() {
                     self.disabled = false;
                     self.innerHTML = originalHtml;
-
-                    var url = '/odb/referral/create.php';
-                    var params = [];
-                    params.push('consult_call_id=' + encodeURIComponent(EDIT_CONFIG.consultCallId));
-                    if (followUpId) {
-                        params.push('follow_up_id=' + encodeURIComponent(followUpId));
-                    }
-                    if (currentCustomerIc) {
-                        params.push('customer_ic=' + encodeURIComponent(currentCustomerIc));
-                    }
-                    params.push('referral_reason=' + encodeURIComponent(
-                        'Blood Test for ConsultCall id #CC' + EDIT_CONFIG.consultCallId
-                    ));
-                    var diagnosisEl = document.getElementById('diagnosis');
-                    if (diagnosisEl && diagnosisEl.value.trim()) {
-                        params.push('referral_condition=' + encodeURIComponent(diagnosisEl.value.trim()));
-                    }
-                    window.open(url + '?' + params.join('&'), '_blank');
-                    window.location.reload();
+                    window.open('/odb/referral/create.php', '_blank');
                 },
                 function() {
                     self.disabled = false;
