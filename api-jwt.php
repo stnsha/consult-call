@@ -130,7 +130,7 @@ function getApiHost()
         // return 'http://127.0.0.1:8000/api/v1/consult-call/';
          return 'http://127.0.0.1:8001/api/v1/consult-call/';
     } else {
-        return 'http://mytotalhealth.com.my/staging/api/v1/consult-call/'; //staging
+        return 'http://mytotalhealth.com.my/production/api/v1/consult-call/'; //production
     }
 }
 
@@ -1317,6 +1317,26 @@ if (!defined('API_JWT_INCLUDED')) {
                         $response = linkConsultCallReferral($jsonData['consult_call_id'], $jsonData['follow_up_id'], $jsonData['data'], $staff_id);
                     } else {
                         $response = array('success' => false, 'message' => 'Missing consult_call_id, follow_up_id, or data');
+                    }
+                    break;
+
+                case 'link-referral-by-call':
+                    if (isset($jsonData['consult_call_id']) && isset($jsonData['my_referral_id'])) {
+                        $ccId      = (int)$jsonData['consult_call_id'];
+                        $data      = array('my_referral_id' => (int)$jsonData['my_referral_id']);
+                        if (isset($jsonData['referral_to']) && (int)$jsonData['referral_to'] > 0) {
+                            $data['referral_to'] = (int)$jsonData['referral_to'];
+                        }
+                        $endpoint  = $ccId . '/link-referral-by-call';
+                        $result    = getApiDataWithJWT($endpoint, $data, 'PATCH', $staff_id);
+                        $decoded   = json_decode($result['response'], true);
+                        $response  = array(
+                            'success' => $result['httpCode'] == 200,
+                            'message' => isset($decoded['message']) ? $decoded['message'] : 'Request completed',
+                            'data'    => isset($decoded['data']) ? $decoded['data'] : null
+                        );
+                    } else {
+                        $response = array('success' => false, 'message' => 'Missing consult_call_id or my_referral_id');
                     }
                     break;
 
