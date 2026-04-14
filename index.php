@@ -103,6 +103,10 @@ if ($doctor_result) {
                         <span class="status-label">Refused</span>
                         <span class="status-value" id="summary-consent-refused">--</span>
                     </div>
+                    <div class="d-flex justify-content-between w-100 card-filter-row" data-filter-field="consentFilter" data-filter-value="3">
+                        <span class="status-label">On Medication</span>
+                        <span class="status-value" id="summary-consent-on-medication">--</span>
+                    </div>
                 </div>
             </div>
             <!-- Process Status Card -->
@@ -162,6 +166,7 @@ if ($doctor_result) {
                                 <option value="0">Pending</option>
                                 <option value="1">Obtained</option>
                                 <option value="2">Refused</option>
+                                <option value="3">On Medication</option>
                             </select>
                         </div>
                         <div class="col-md-2">

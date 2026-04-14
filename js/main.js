@@ -3,7 +3,7 @@
  * API-driven dashboard with fetch-based data loading
  *
  * Status ID reference (from API status libraries):
- *   consent_call_status: 0=Pending, 1=Obtained, 2=Refused
+ *   consent_call_status: 0=Pending, 1=Obtained, 2=Refused, 3=On Prescribed Medication
  *   enrollment_type:     1=Primary, 2=Follow Up
  *   process_status:      1=Active, 2=Escalated, 3=Closed
  *   followup_reminder:   0=Pending, 1=Completed, 2=Rescheduled, 3=Cancelled
@@ -20,13 +20,13 @@
 
     // Integer ID to label maps for fields not loaded from API
     var LABELS = {
-        consent:    { 0: 'Pending', 1: 'Obtained', 2: 'Refused' },
+        consent:    { 0: 'Pending', 1: 'Obtained', 2: 'Refused', 3: 'On Medication' },
         enrollment: { 1: 'Primary', 2: 'Follow Up' }
     };
 
     // Integer ID to badge class maps
     var BADGES = {
-        consent:    { 0: 'bg-warning',  1: 'bg-success', 2: 'bg-danger' },
+        consent:    { 0: 'bg-warning',  1: 'bg-success', 2: 'bg-danger', 3: 'bg-info' },
         enrollment: { 1: 'bg-primary',  2: 'bg-secondary' },
         process:    { 1: 'bg-success',  2: 'bg-danger',   3: 'bg-secondary' },
         reminder:   { 0: 'bg-warning',  1: 'bg-success',  2: 'bg-info', 3: 'bg-danger' },
@@ -142,11 +142,12 @@
             setText('summary-enrollment-followup', enroll.follow_up || 0);
 
             var consent = d.consent_call_status || {};
-            var consentTotal = (consent.pending || 0) + (consent.obtained || 0) + (consent.refused || 0);
+            var consentTotal = (consent.pending || 0) + (consent.obtained || 0) + (consent.refused || 0) + (consent.on_medication || 0);
             setText('summary-consent-total', consentTotal);
             setText('summary-consent-pending', consent.pending || 0);
             setText('summary-consent-obtained', consent.obtained || 0);
             setText('summary-consent-refused', consent.refused || 0);
+            setText('summary-consent-on-medication', consent.on_medication || 0);
 
             var process = d.process_status || {};
             var processTotal = (process.active || 0) + (process.escalated || 0) + (process.closed || 0);

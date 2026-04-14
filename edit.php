@@ -379,6 +379,10 @@ $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
                                     <input class="form-check-input" type="radio" name="consent_status" id="consent_refused" value="2" <?php echo $eD; ?>>
                                     <label class="form-check-label" for="consent_refused">Refused</label>
                                 </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="consent_status" id="consent_on_medication" value="3" <?php echo $eD; ?>>
+                                    <label class="form-check-label" for="consent_on_medication">On Prescribed Medication</label>
+                                </div>
                             </div>
                         </div>
 

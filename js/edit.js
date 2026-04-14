@@ -43,6 +43,7 @@
     var CONSENT_PENDING = '0';
     var CONSENT_OBTAINED = '1';
     var CONSENT_REFUSED = '2';
+    var CONSENT_ON_PRESCRIBED_MED = '3';
 
     // Scheduled status integer constants
     var SCHEDULED_RESCHEDULE = '2';
@@ -1249,8 +1250,8 @@
             treatment_plan: getInputValue('treatment_plan') || null,
             rx_issued: getRadioValue('rx_issued') === '1',
             action: actionValue,
-            // No Show (2) and End Process action (3) both close the process status
-            process_status: (consultStatusForDetail === 2 || actionValue === 3) ? 3 : null,
+            // No Show (2), Refer External action (2), and End Process action (3) all close the process status
+            process_status: (consultStatusForDetail === 2 || actionValue === 2 || actionValue === 3) ? 3 : null,
             remarks: getInputValue('remarks') || null
         };
 
@@ -1303,8 +1304,8 @@
                 }));
             }
 
-            // HQ (role 4): when consent is Refused (2), automatically close the process status
-            if (EDIT_CONFIG.currentStaffRole === 4 && consultCallData.consent_call_status === 2) {
+            // HQ (role 4): when consent is Refused (2) or On Prescribed Medication (3), automatically close the process status
+            if (EDIT_CONFIG.currentStaffRole === 4 && (consultCallData.consent_call_status === 2 || consultCallData.consent_call_status === 3)) {
                 var closeDetailData = { process_status: 3 };
                 if (currentDetailId) {
                     promises.push(apiCall('update-detail', {
@@ -1325,9 +1326,9 @@
                     detailData.treatment_plan || detailData.consult_status !== null;
 
                 // Only create a follow-up when the consultation is completed (status 1),
-                // the action is not End Process (3), and the user has entered follow-up data
+                // the action is not Refer External (2) or End Process (3), and the user has entered follow-up data
                 var hasFollowUp = detailData.consult_status === 1 &&
-                    actionValue !== 3 && (
+                    actionValue !== 2 && actionValue !== 3 && (
                         followUpData.followup_type !== null ||
                         followUpData.next_followup !== null ||
                         followUpData.followup_date
@@ -1437,6 +1438,10 @@
 
             runSaveFlow(
                 function() {
+                    // Reload form data so doctorFollowUpId reflects the just-created follow-up.
+                    // Without this, a subsequent Save Changes would see doctorFollowUpId = null
+                    // and create a duplicate follow-up record instead of updating the existing one.
+                    loadConsultCallData();
                     self.disabled = false;
                     self.innerHTML = originalHtml;
                     window.open('/odb/referral/create.php', '_blank');
