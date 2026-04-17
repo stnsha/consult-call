@@ -7,7 +7,7 @@
  * bar chart for enrollment by outlet) and a CSV export.
  *
  * Status reference:
- *   consent_call_status:   0=Pending, 1=Obtained, 2=Refused
+ *   consent_call_status:   0=Pending, 1=Obtained, 2=Refused, 3=On Medication
  *   enrollment_type:       1=Primary, 2=Follow Up
  *   scheduled_status:      0=Pending, 1=Confirmed, 2=Rescheduled, 3=Cancelled
  *   mode_of_consultation:  0=Pending, 1=Phone, 2=Google Meet, 3=WhatsApp
@@ -24,7 +24,7 @@
     // Status ID to label maps
     var LABELS = {
         enrollment:  { '1': 'Primary', '2': 'Follow Up' },
-        consent:     { '0': 'Pending', '1': 'Obtained', '2': 'Refused' },
+        consent:     { '0': 'Pending', '1': 'Obtained', '2': 'Refused', '3': 'On Medication' },
         scheduled:   { '0': 'Pending', '1': 'Confirmed', '2': 'Rescheduled', '3': 'Cancelled' },
         modeConsult: { '0': 'Pending', '1': 'Phone', '2': 'Google Meet', '3': 'WhatsApp' },
         process:     { '1': 'Active', '2': 'Escalated', '3': 'Closed' },
@@ -40,6 +40,7 @@
         'Pending':             '#ffc107',
         'Obtained':            '#198754',
         'Refused':             '#dc3545',
+        'On Medication':       '#0dcaf0',
         'Active':              '#198754',
         'Escalated':           '#dc3545',
         'Closed':              '#6c757d',

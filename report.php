@@ -68,6 +68,7 @@ if ($doctor_result) {
                                 <option value="0">Pending</option>
                                 <option value="1">Obtained</option>
                                 <option value="2">Refused</option>
+                                <option value="3">On Medication</option>
                             </select>
                         </div>
                         <div class="col-md-2 col-sm-6">
