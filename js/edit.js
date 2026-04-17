@@ -656,8 +656,8 @@
             var isPending   = String(d.consult_status) === '0';
             var isCompleted = String(d.consult_status) === '1';
 
-            // Build accordion header: always use created_at of the detail record
-            var headerCreatedAt = d.created_at ? formatDate(d.created_at) : '';
+            // Build accordion header: always use updated_at of the detail record
+            var headerCreatedAt = d.updated_at ? formatDate(d.updated_at) : '';
             var headerLabel = isPending
                 ? 'Pending Consultation'
                 : (statusMaps.consultStatuses[String(d.consult_status)] || '');
