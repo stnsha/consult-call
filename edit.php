@@ -544,6 +544,10 @@ $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
                             <label class="form-label">Consult Status<span style="color:red;"> *</span></label>
                             <div class="radio-group">
                                 <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="consult_status" id="consult_pending" value="0" <?php echo $dD; ?>>
+                                    <label class="form-check-label" for="consult_pending">Pending</label>
+                                </div>
+                                <div class="form-check">
                                     <input class="form-check-input" type="radio" name="consult_status" id="consult_completed" value="1" <?php echo $dD; ?>>
                                     <label class="form-check-label" for="consult_completed">Completed</label>
                                 </div>

@@ -24,6 +24,14 @@
     // Tracks the IDs of the latest loaded detail and follow-up records
     var currentDetailId = null;
     var currentFollowUpId = null;
+
+    // Tracks the last confirmed consult status so the radio can be reverted
+    // when the doctor declines the "Completed" confirmation dialog.
+    var prevConsultStatus = '';
+
+    // Preserves the handled_by value loaded from the API so it is not lost
+    // when the staff does not exist in the local dropdown options.
+    var originalHandledBy = null;
     // Doctor-specific follow-up ID: null when latest detail is completed (forces create)
     var doctorFollowUpId = null;
 
@@ -49,7 +57,13 @@
     var SCHEDULED_RESCHEDULE = '2';
 
     // Consult status integer constants
+    var CONSULT_PENDING = '0';
     var CONSULT_COMPLETED = '1';
+
+    // True when the current doctor has already claimed the active detail (consulted_by set)
+    // but has not yet saved consult_status as completed. Used to skip the confirmation dialog
+    // on the subsequent click to Completed (they already confirmed the initial claim).
+    var isDetailClaimedByCurrentDoctor = false;
 
     // Follow-up reminder integer constants
     var FOLLOWUP_REMINDER_RESCHEDULED = '2';
@@ -307,7 +321,7 @@
                     }
                 }
 
-                var handledBy = getSelectValue('handled_by');
+                var handledBy = getSelectValue('handled_by') || originalHandledBy;
                 if (!handledBy) {
                     showFieldError('handled_by', 'Please select the person handling this call.');
                     valid = false;
@@ -500,8 +514,9 @@
                 completedFields[i].classList.remove('visible');
             }
         }
-        // Immediately persist consulted_by to the existing detail record when completed is selected.
-        // consult_status is intentionally not sent here; it is saved only on full form submit.
+        // Claim the detail record for this doctor as soon as Completed is selected.
+        // This prevents a second doctor from editing the same pending record.
+        // Safe to re-run: if consulted_by is already this doctor the backend is a no-op.
         if (value === CONSULT_COMPLETED && currentDetailId && EDIT_CONFIG.currentStaffId) {
             apiCall('update-detail', {
                 consult_call_id: EDIT_CONFIG.consultCallId,
@@ -509,6 +524,21 @@
                 data: {
                     consulted_by: parseInt(EDIT_CONFIG.currentStaffId, 10)
                 }
+            }).then(function(result) {
+                if (!result.success) {
+                    // Claim rejected (another doctor already owns this record). Revert the UI.
+                    var allCR = document.querySelectorAll('input[name="consult_status"]');
+                    for (var cri = 0; cri < allCR.length; cri++) { allCR[cri].checked = false; }
+                    prevConsultStatus = '';
+                    handleConsultStatusChange('');
+                    alert(result.message || 'This consultation has already been assigned to another doctor.');
+                }
+            }).catch(function() {
+                var allCR = document.querySelectorAll('input[name="consult_status"]');
+                for (var cri = 0; cri < allCR.length; cri++) { allCR[cri].checked = false; }
+                prevConsultStatus = '';
+                handleConsultStatusChange('');
+                alert('Failed to claim this consultation. Please try again.');
             });
         }
         // Sync date container: show only if Completed AND a month is selected
@@ -805,6 +835,13 @@
         }
     }
 
+    function collapseConsultationSection() {
+        var header = document.querySelector('.section-header[data-section="consultation"]');
+        var content = document.getElementById('section-consultation');
+        if (header) { header.classList.add('collapsed'); }
+        if (content) { content.classList.add('collapsed'); }
+    }
+
     function handleFollowUpReminderChange(value) {
         var fields = document.querySelectorAll('[data-condition="reminder_rescheduled"]');
         for (var i = 0; i < fields.length; i++) {
@@ -851,7 +888,27 @@
         var consultRadios = document.querySelectorAll('input[name="consult_status"]');
         for (var l = 0; l < consultRadios.length; l++) {
             consultRadios[l].addEventListener('change', function() {
-                handleConsultStatusChange(this.value);
+                var newValue = this.value;
+                if (newValue === CONSULT_COMPLETED && !isDetailClaimedByCurrentDoctor) {
+                    var confirmed = window.confirm(
+                        'Assign this consultation to yourself?\n\n' +
+                        'Once confirmed, other doctors will not be able to edit this record.'
+                    );
+                    if (!confirmed) {
+                        if (prevConsultStatus) {
+                            setRadioValue('consult_status', prevConsultStatus);
+                        } else {
+                            var allConsultRadios = document.querySelectorAll('input[name="consult_status"]');
+                            for (var ci = 0; ci < allConsultRadios.length; ci++) {
+                                allConsultRadios[ci].checked = false;
+                            }
+                        }
+                        handleConsultStatusChange(prevConsultStatus);
+                        return;
+                    }
+                }
+                prevConsultStatus = newValue;
+                handleConsultStatusChange(newValue);
             });
         }
 
@@ -1047,6 +1104,7 @@
         }
         if (data.handled_by) {
             setSelectValue('handled_by', data.handled_by);
+            originalHandledBy = data.handled_by;
         }
         // Auto-select current staff for Handled By if no saved value and user is HQ (role 4)
         if (!data.handled_by && EDIT_CONFIG.currentStaffRole === 4 && EDIT_CONFIG.currentStaffId) {
@@ -1068,6 +1126,29 @@
         currentDetailId = null;
         doctorFollowUpId = null;
         currentFollowUpId = null;
+        isDetailClaimedByCurrentDoctor = false;
+
+        // Reset all consultation detail fields so that a soft refresh via loadConsultCallData()
+        // leaves the form in the same blank state as a full page reload would. Without this,
+        // fields filled in by the doctor remain visible after the save completes.
+        setInputValue('consult_date', '');
+        setSelectValue('consulted_by', '');
+        setInputValue('documentation', '');
+        setInputValue('diagnosis', '');
+        setInputValue('treatment_plan', '');
+        setInputValue('followup_date', '');
+        setInputValue('remarks', '');
+        setRadioValue('followup_type', '0');
+        setRadioValue('next_followup', '0');
+        var detailFieldsToDeselect = ['consult_status', 'rx_issued', 'is_blood_test_required', 'mode_of_conversion', 'action'];
+        for (var dfi = 0; dfi < detailFieldsToDeselect.length; dfi++) {
+            var dfRads = document.querySelectorAll('input[name="' + detailFieldsToDeselect[dfi] + '"]');
+            for (var dfj = 0; dfj < dfRads.length; dfj++) { dfRads[dfj].checked = false; }
+        }
+        handleConsultStatusChange('');
+        handleNextFollowUpChange('0', false);
+        handleActionChange('');
+        prevConsultStatus = '';
 
         // HQ checkpoint always targets the latest follow-up record
         if (followUps.length > 0) {
@@ -1086,11 +1167,68 @@
             // TODO [DEPLOY]: remove this carry-forward once the UI collects these values.
             previousDetailClinicalConditionId = lastDetail.clinical_condition_id || null;
             previousDetailTestResultId = lastDetail.test_result_id || null;
-            if (String(lastDetail.consult_status) !== '1') {
+            var lastIsCompleted = String(lastDetail.consult_status) === '1';
+            var lastIsByCurrentDoctor = !!(lastDetail.consulted_by &&
+                parseInt(EDIT_CONFIG.currentStaffId, 10) === lastDetail.consulted_by);
+            var pairedFollowUp = followUps[details.length - 1] || null;
+            // When HQ has marked the follow-up checkpoint as completed (followup_reminder = 1),
+            // the previous consultation cycle is closed. The doctor must start a fresh record.
+            var followUpCheckpointDone = pairedFollowUp && String(pairedFollowUp.followup_reminder) === '1';
+            // Track ID for update when: detail is pending, OR detail is completed by this doctor.
+            // Completed-by-same-doctor keeps UPDATE mode so a re-save edits the record rather
+            // than creating a duplicate. Only a pending record from a new re-enrollment cycle
+            // (created by the eligibility service) should enter CREATE mode.
+            // When followUpCheckpointDone is true, always enter CREATE mode for the new cycle.
+            if ((!lastIsCompleted || lastIsByCurrentDoctor) && !followUpCheckpointDone) {
                 currentDetailId = lastDetail.id || null;
-                var pairedFollowUp = followUps[details.length - 1];
                 if (pairedFollowUp) {
                     doctorFollowUpId = pairedFollowUp.id || null;
+                }
+            }
+            // Doctor has already claimed this detail (consulted_by = current staff) but has
+            // not yet saved consult_status as completed. Show Pending radio pre-selected and
+            // flag the claim so the confirmation dialog is skipped when they click Completed.
+            if (lastIsByCurrentDoctor && !lastIsCompleted && !followUpCheckpointDone) {
+                isDetailClaimedByCurrentDoctor = true;
+                setRadioValue('consult_status', CONSULT_PENDING);
+                prevConsultStatus = CONSULT_PENDING;
+            }
+            // Pre-populate consultation form fields when the same doctor re-opens their
+            // completed record so that a subsequent save goes to UPDATE, not CREATE.
+            // Only pre-populate when there is no paired follow-up yet (i.e., the detail was
+            // saved without a follow-up, such as EndProcess). Once a follow-up exists the
+            // UPDATE mode guard on currentDetailId is enough to prevent duplicates, and
+            // pre-populating would leave stale form data visible after the save completes.
+            // Skip pre-population when the follow-up checkpoint is done (new cycle expected).
+            if (lastIsCompleted && lastIsByCurrentDoctor && !followUpCheckpointDone && !pairedFollowUp) {
+                setInputValue('consult_date', toDateValue(lastDetail.consult_date));
+                setSelectValue('consulted_by', String(lastDetail.consulted_by));
+                var completedStatus = String(lastDetail.consult_status);
+                setRadioValue('consult_status', completedStatus);
+                prevConsultStatus = completedStatus;
+                handleConsultStatusChange(completedStatus);
+                setInputValue('documentation', lastDetail.documentation || '');
+                setInputValue('diagnosis', lastDetail.diagnosis || '');
+                setInputValue('treatment_plan', lastDetail.treatment_plan || '');
+                setRadioValue('rx_issued', lastDetail.rx_issued ? '1' : '0');
+                if (lastDetail.action) {
+                    setRadioValue('action', String(lastDetail.action));
+                    handleActionChange(String(lastDetail.action));
+                }
+                setInputValue('remarks', lastDetail.remarks || '');
+                if (pairedFollowUp) {
+                    setRadioValue('is_blood_test_required', pairedFollowUp.is_blood_test_required ? '1' : '0');
+                    var fuType = pairedFollowUp.followup_type !== null ? String(pairedFollowUp.followup_type) : '0';
+                    setRadioValue('followup_type', fuType);
+                    var nextFu = pairedFollowUp.next_followup !== null ? String(pairedFollowUp.next_followup) : '0';
+                    setRadioValue('next_followup', nextFu);
+                    handleNextFollowUpChange(nextFu, false);
+                    if (pairedFollowUp.followup_date) {
+                        setInputValue('followup_date', toDateValue(pairedFollowUp.followup_date));
+                    }
+                    if (pairedFollowUp.mode_of_conversion !== null && pairedFollowUp.mode_of_conversion !== undefined) {
+                        setRadioValue('mode_of_conversion', String(pairedFollowUp.mode_of_conversion));
+                    }
                 }
             }
         }
@@ -1119,9 +1257,13 @@
             disableEligibilitySection();
         }
 
-        // Lock consultation section when consulted_by is set and belongs to a different doctor
+        // Lock consultation section when consulted_by is set and belongs to a different doctor.
+        // Skip the lock when the follow-up checkpoint is completed (followup_reminder = 1) because
+        // that signals the start of a new consultation cycle and any doctor should be able to fill in.
+        var followUpCheckpointDone = latestFollowUp && String(latestFollowUp.followup_reminder) === '1';
         if (latestDetail && latestDetail.consulted_by &&
-            parseInt(EDIT_CONFIG.currentStaffId, 10) !== latestDetail.consulted_by) {
+            parseInt(EDIT_CONFIG.currentStaffId, 10) !== latestDetail.consulted_by &&
+            !followUpCheckpointDone) {
             disableConsultationSection();
         }
 
@@ -1223,7 +1365,7 @@
             scheduled_status: toIntOrNull(getRadioValue('scheduled_status')),
             scheduled_call_date: getInputValue('scheduled_call_date') || null,
             updated_scheduled_date: getInputValue('updated_scheduled_date') || null,
-            handled_by: toIntOrNull(getSelectValue('handled_by')),
+            handled_by: toIntOrNull(getSelectValue('handled_by')) || originalHandledBy || null,
             mode_of_consultation: toIntOrNull(getRadioValue('mode_of_consultation')),
             final_remarks: getInputValue('refusal_remarks') || null
         };
@@ -1438,13 +1580,9 @@
 
             runSaveFlow(
                 function() {
-                    // Reload form data so doctorFollowUpId reflects the just-created follow-up.
-                    // Without this, a subsequent Save Changes would see doctorFollowUpId = null
-                    // and create a duplicate follow-up record instead of updating the existing one.
-                    loadConsultCallData();
-                    self.disabled = false;
-                    self.innerHTML = originalHtml;
+                    alert('Changes saved successfully.');
                     window.open('/odb/referral/create.php', '_blank');
+                    window.location.reload();
                 },
                 function() {
                     self.disabled = false;
