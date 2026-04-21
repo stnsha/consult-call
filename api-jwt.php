@@ -1223,7 +1223,7 @@ if (!defined('API_JWT_INCLUDED')) {
                 case 'all-consult-call':
                     $params = array();
                     $allowedParams = array(
-                        'patient_id', 'consent_call_status', 'scheduled_status',
+                        'id', 'patient_id', 'consent_call_status', 'scheduled_status',
                         'date_from', 'date_to', 'search', 'enrollment_type',
                         'process_status', 'followup_reminder', 'scheduled_from',
                         'scheduled_to', 'consulted_by', 'per_page', 'page'
@@ -1232,6 +1232,10 @@ if (!defined('API_JWT_INCLUDED')) {
                         if (isset($jsonData[$param]) && $jsonData[$param] !== '') {
                             $params[$param] = $jsonData[$param];
                         }
+                    }
+                    // detail_action avoids collision with the 'action' dispatch key in the request body
+                    if (isset($jsonData['detail_action']) && $jsonData['detail_action'] !== '') {
+                        $params['action'] = $jsonData['detail_action'];
                     }
                     $response = getAllConsultCall($staff_id, $params);
                     break;

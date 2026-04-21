@@ -1433,6 +1433,16 @@
             // Only Doctor (role 2) can save Consultation Details and Follow-Up fields
             var promises = [];
 
+            // Doctor (role 2): when action is No-show, Refer External, or End Process,
+            // explicitly close the consult_call process_status so the listing reflects it.
+            if (EDIT_CONFIG.currentStaffRole === 2 &&
+                (consultStatusForDetail === 2 || actionValue === 2 || actionValue === 3)) {
+                promises.push(apiCall('update-consult-call', {
+                    id: EDIT_CONFIG.consultCallId,
+                    data: { process_status: 3 }
+                }));
+            }
+
             // HQ (role 4) saves Follow-up Checkpoint to the existing follow-up record
             if (EDIT_CONFIG.currentStaffRole === 4 && isFollowUpCheckpointVisible && currentFollowUpId) {
                 promises.push(apiCall('update-follow-up', {

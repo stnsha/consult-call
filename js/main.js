@@ -177,7 +177,16 @@
         var params = {};
 
         var search = document.getElementById('searchInput').value.trim();
-        if (search) params.search = search;
+        if (search) {
+            // Matches: #CC123, CC123, #cc123, cc123 — sends the numeric part as a dedicated
+            // consult_calls.id filter so the backend does an exact primary key lookup.
+            var ccIdMatch = search.match(/^#?CC(\d+)$/i);
+            if (ccIdMatch) {
+                params.id = ccIdMatch[1];
+            } else {
+                params.search = search;
+            }
+        }
 
         var consent = document.getElementById('consentFilter').value;
         if (consent !== '') params.consent_call_status = consent;
@@ -205,6 +214,9 @@
 
         var consultedBy = document.getElementById('consultedByFilter').value;
         if (consultedBy !== '') params.consulted_by = consultedBy;
+
+        var actionFilter = document.getElementById('actionFilter').value;
+        if (actionFilter !== '') params.detail_action = actionFilter;
 
         params.per_page = perPage;
         params.page = currentPage;
@@ -258,7 +270,26 @@
         // Status IDs
         var consentId = record.consent_call_status;
         var enrollId  = record.enrollment_type;
-        var processId = latestDetail ? latestDetail.process_status : null;
+
+        // process_status is not returned by the listing API, so derive it from
+        // the fields that are available. Explicit fields take priority.
+        var processId = null;
+        if (record.process_status != null) {
+            processId = parseInt(record.process_status, 10);
+        } else if (latestDetail && latestDetail.process_status != null) {
+            processId = parseInt(latestDetail.process_status, 10);
+        } else {
+            var _cs  = parseInt(record.consent_call_status, 10);
+            var _act = latestDetail ? parseInt(latestDetail.action, 10) : null;
+            var _cst = latestDetail ? parseInt(latestDetail.consult_status, 10) : null;
+            if (_cs === 2 || _cs === 3) {
+                processId = 3; // Refused / On Medication
+            } else if (_act === 2 || _act === 3 || _cst === 2) {
+                processId = 3; // Refer External / End Process / No-show
+            } else if (latestDetail) {
+                processId = 1; // Active — detail exists with no closing condition
+            }
+        }
 
         var actionId     = latestDetail ? latestDetail.action : null;
         var consentLabel = LABELS.consent[consentId]    || '';
@@ -627,6 +658,7 @@
         document.getElementById('scheduledFrom').value = '';
         document.getElementById('scheduledTo').value = '';
         document.getElementById('consultedByFilter').value = '';
+        document.getElementById('actionFilter').value = '';
 
         var el = document.getElementById(field);
         if (el) {
@@ -651,6 +683,7 @@
         document.getElementById('scheduledFrom').value = '';
         document.getElementById('scheduledTo').value = '';
         document.getElementById('consultedByFilter').value = '';
+        document.getElementById('actionFilter').value = '';
         currentPage = 1;
         loadTableData();
     }
@@ -690,6 +723,7 @@
         document.getElementById('scheduledFrom').addEventListener('change', onFilterChange);
         document.getElementById('scheduledTo').addEventListener('change', onFilterChange);
         document.getElementById('consultedByFilter').addEventListener('change', onFilterChange);
+        document.getElementById('actionFilter').addEventListener('change', onFilterChange);
 
         document.getElementById('resetBtn').addEventListener('click', resetFilters);
 

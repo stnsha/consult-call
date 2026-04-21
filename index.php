@@ -157,7 +157,7 @@ if ($doctor_result) {
                     <div class="row g-3 align-items-end">
                         <div class="col-md-3">
                             <label for="searchInput" class="form-label">Search</label>
-                            <input type="text" class="form-control" id="searchInput" placeholder="Name, IC, phone or ID">
+                            <input type="text" class="form-control" id="searchInput" placeholder="Name, IC, phone or #CC123">
                         </div>
                         <div class="col-md-2">
                             <label for="consentFilter" class="form-label">Consent Status</label>
@@ -224,6 +224,17 @@ if ($doctor_result) {
                             </select>
                         </div>
                         <div class="col-md-2">
+                            <label for="actionFilter" class="form-label">Action</label>
+                            <select class="form-select" id="actionFilter">
+                                <option value="">All</option>
+                                <option value="1">Refer Internal</option>
+                                <option value="2">Refer External</option>
+                                <option value="3">End Process</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row g-3 align-items-end mt-1">
+                        <div class="col-md-2 ms-auto">
                             <button type="button" class="btn btn-secondary w-100" id="resetBtn" title="Reset Filters">
                                 <i class="bi bi-x-lg me-1"></i>Reset
                             </button>
