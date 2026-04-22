@@ -718,6 +718,11 @@ $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
                 </div>
             </div>
 
+            <!-- End Process + Active warning — shown by JS when doctor selects that combination -->
+            <div id="end-process-warning" class="text-danger small mt-3" style="display:none;">
+                Action is set to End Process but Process Status is Active. Please review before saving.
+            </div>
+
             <!-- Save Button -->
             <div class="d-flex justify-content-end gap-2 mt-4" id="form-actions">
                 <a href="consultcall/index.php" class="btn btn-outline-secondary">Cancel</a>

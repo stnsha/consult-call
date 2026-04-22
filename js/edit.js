@@ -593,14 +593,27 @@
     }
 
     /**
+     * Show or hide the End Process + Active warning message.
+     * Warning appears when action = End Process (3) and process_status = Active (1).
+     */
+    function checkEndProcessWarning() {
+        var warning = document.getElementById('end-process-warning');
+        if (!warning) return;
+        var action = toIntOrNull(getRadioValue('action'));
+        var ps = toIntOrNull(getRadioValue('process_status'));
+        warning.style.display = (action === 3 && ps === 1) ? '' : 'none';
+    }
+
+    /**
      * Update process_status radio state based on the selected action value.
-     * Refer External (2) and End Process (3) force Closed and disable the radio.
-     * Refer Internal (1) or no action leaves the radio enabled for doctor to choose.
+     * Refer External (2) and End Process (3) pre-select Closed (doctor can still change it).
+     * Refer Internal (1) or no action defaults to Active if nothing is selected.
      * @param {string} value Action radio value as string
      */
     function handleActionChange(value) {
         var forceClose = (value === '2' || value === '3');
         setProcessStatusRadio(forceClose ? '3' : null, false);
+        checkEndProcessWarning();
     }
 
     /**
@@ -953,6 +966,13 @@
         for (var p = 0; p < actionRadios.length; p++) {
             actionRadios[p].addEventListener('change', function() {
                 handleActionChange(this.value);
+            });
+        }
+
+        var processStatusRadios = document.querySelectorAll('input[name="process_status"]');
+        for (var ps = 0; ps < processStatusRadios.length; ps++) {
+            processStatusRadios[ps].addEventListener('change', function() {
+                checkEndProcessWarning();
             });
         }
 
@@ -1400,6 +1420,20 @@
         if (!validateForm()) {
             if (onFailure) onFailure();
             return;
+        }
+
+        // Block save if End Process is selected with Active process status
+        var warnAction = toIntOrNull(getRadioValue('action'));
+        var warnProcessStatus = toIntOrNull(getRadioValue('process_status'));
+        if (warnAction === 3 && warnProcessStatus === 1) {
+            var confirmed = window.confirm(
+                'Action is set to End Process but Process Status is still Active.\n\n' +
+                'Are you sure you want to save with this combination?'
+            );
+            if (!confirmed) {
+                if (onFailure) onFailure();
+                return;
+            }
         }
 
         var saveBtn = document.getElementById('saveBtn');
