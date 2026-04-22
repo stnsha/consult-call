@@ -35,6 +35,22 @@ if ((int)$auth_row['consult_call'] !== 1) {
 
 $action = isset($_GET['action']) ? $_GET['action'] : '';
 
+if ($action === 'getOutlets' && $_SERVER['REQUEST_METHOD'] === 'GET') {
+    $result = mysqli_query($conn, "SELECT id, code, comp_name FROM outlet WHERE recycle = '0' ORDER BY comp_name ASC");
+    $outlets = array();
+    if ($result) {
+        while ($row = mysqli_fetch_assoc($result)) {
+            $outlets[] = array(
+                'id'        => (int)$row['id'],
+                'code'      => $row['code'],
+                'comp_name' => $row['comp_name']
+            );
+        }
+    }
+    echo json_encode($outlets);
+    exit;
+}
+
 if ($action === 'getActiveStaff' && $_SERVER['REQUEST_METHOD'] === 'GET') {
     $page    = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
     $perPage = 15;
@@ -47,7 +63,7 @@ if ($action === 'getActiveStaff' && $_SERVER['REQUEST_METHOD'] === 'GET') {
         $total = (int)$count_row['total'];
     }
 
-    $query = "SELECT s.id, s.nama_staff, s.consult_call, s.status_semasa, d.depart_name
+    $query = "SELECT s.id, s.nama_staff, s.consult_call, s.status_semasa, s.outlet, d.depart_name
               FROM staff s
               LEFT JOIN staff_department d ON s.department = d.id
               WHERE s.consult_call > 0 AND s.recycle != 1
@@ -63,7 +79,8 @@ if ($action === 'getActiveStaff' && $_SERVER['REQUEST_METHOD'] === 'GET') {
                 'nama_staff'     => $row['nama_staff'],
                 'consult_call'   => (int)$row['consult_call'],
                 'status_semasa'  => $row['status_semasa'] ? $row['status_semasa'] : '-',
-                'department_name'=> $row['depart_name'] ? $row['depart_name'] : '-'
+                'department_name'=> $row['depart_name'] ? $row['depart_name'] : '-',
+                'outlet'         => $row['outlet'] ? $row['outlet'] : ''
             );
         }
     }
@@ -87,7 +104,7 @@ if ($action === 'searchStaff' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    $query = "SELECT s.id, s.nama_staff, s.consult_call, s.status_semasa, d.depart_name
+    $query = "SELECT s.id, s.nama_staff, s.consult_call, s.status_semasa, s.outlet, d.depart_name
               FROM staff s
               LEFT JOIN staff_department d ON s.department = d.id
               WHERE s.nama_staff LIKE '%$search_term%'
@@ -104,7 +121,8 @@ if ($action === 'searchStaff' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 'nama_staff'      => $row['nama_staff'],
                 'department_name' => $row['depart_name'] ? $row['depart_name'] : '-',
                 'status_semasa'   => $row['status_semasa'] ? $row['status_semasa'] : '-',
-                'consult_call'    => (int)$row['consult_call']
+                'consult_call'    => (int)$row['consult_call'],
+                'outlet'          => $row['outlet'] ? $row['outlet'] : ''
             );
         }
     }
@@ -114,7 +132,7 @@ if ($action === 'searchStaff' && $_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 if ($action === 'updateAccess' && $_SERVER['REQUEST_METHOD'] === 'POST') {
-    $target_id = isset($_POST['staff_id'])   ? (int)$_POST['staff_id']   : 0;
+    $target_id  = isset($_POST['staff_id'])   ? (int)$_POST['staff_id']   : 0;
     $permission = isset($_POST['permission']) ? (int)$_POST['permission'] : -1;
 
     $valid_permissions = array(0, 1, 2, 3, 4, 5);
@@ -124,7 +142,21 @@ if ($action === 'updateAccess' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    $update = "UPDATE staff SET consult_call = $permission WHERE id = $target_id AND recycle != 1";
+    $outlet_str = '';
+    if (isset($_POST['outlet_ids']) && $_POST['outlet_ids'] !== '') {
+        $raw_ids = explode(',', $_POST['outlet_ids']);
+        $clean_ids = array();
+        foreach ($raw_ids as $oid) {
+            $oid = (int)trim($oid);
+            if ($oid > 0) {
+                $clean_ids[] = $oid;
+            }
+        }
+        $outlet_str = implode(',', $clean_ids);
+    }
+
+    $outlet_str_escaped = mysqli_real_escape_string($conn, $outlet_str);
+    $update = "UPDATE staff SET consult_call = $permission, outlet = '$outlet_str_escaped' WHERE id = $target_id AND recycle != 1";
     if (mysqli_query($conn, $update)) {
         echo json_encode(array('success' => true, 'message' => 'Access updated successfully.'));
     } else {

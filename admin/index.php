@@ -1,3 +1,4 @@
+<?php ob_start(); ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -96,6 +97,36 @@
         .permission-list .form-check-input[type="radio"]:checked {
             background-color: #0d6efd !important;
             border-color: #0d6efd !important;
+        }
+        .select2-container--default .select2-selection--multiple {
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            min-height: 38px;
+            padding: 2px 4px;
+        }
+        .select2-container--default .select2-selection--multiple .select2-selection__rendered {
+            padding: 0 4px;
+        }
+        .select2-container--default .select2-selection--multiple .select2-selection__choice {
+            background-color: #e9ecef;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            padding: 1px 6px;
+            font-size: 12px;
+            font-family: 'Inter', sans-serif;
+            color: #212529;
+            margin: 3px 3px 3px 0;
+        }
+        .select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
+            color: #6c757d;
+            margin-right: 4px;
+        }
+        .select2-container--default .select2-selection--multiple .select2-selection__choice__remove:hover {
+            color: #dc3545;
+        }
+        .select2-container--default .select2-selection--multiple input.select2-search__field {
+            font-size: 13px;
+            font-family: 'Inter', sans-serif;
         }
     </style>
 </head>
@@ -218,6 +249,15 @@ $role_badges = array(
                         <?php endforeach; ?>
                     </div>
 
+                    <div class="mb-3" id="outlet-section" style="display:none;">
+                        <label class="form-label" style="font-size: 13px;">Outlet</label>
+                        <div id="outlet-spinner" style="display:none; padding: 6px 2px;">
+                            <span class="spinner-border spinner-border-sm text-secondary" role="status" aria-hidden="true"></span>
+                            <span style="font-size:12px; color:#6c757d; margin-left:6px;">Loading...</span>
+                        </div>
+                        <select id="outlet-select" multiple style="width:100%;"></select>
+                    </div>
+
                     <div class="d-flex justify-content-end" id="submit-section" style="display:none !important;">
                         <button type="button" class="btn btn-primary btn-sm" id="update-btn">Update Access</button>
                     </div>
@@ -240,6 +280,58 @@ $role_badges = array(
         'use strict';
 
         var selectedStaffId = null;
+        var allOutlets = [];
+        var outletsReady = false;
+
+        var outletSelect2Config = {
+            placeholder: 'Select outlet(s)...',
+            allowClear: true,
+            width: '100%',
+            templateResult: function(o) {
+                if (!o.id) return o.text;
+                return $('<span style="font-size:13px;font-family:Inter,sans-serif;">' + o.text + '</span>');
+            },
+            templateSelection: function(o) {
+                return $('<span style="font-size:12px;font-family:Inter,sans-serif;">' + (o.text || o.id) + '</span>');
+            }
+        };
+
+        function applyOutletSelect(selectedIds) {
+            var $sel = $('#outlet-select');
+            // Destroy any existing Select2 instance so we start clean
+            if ($sel.hasClass('select2-hidden-accessible')) {
+                $sel.select2('destroy');
+            }
+            // Set selected directly on <option> elements before Select2 reads the DOM
+            $sel.find('option').prop('selected', false);
+            $.each(selectedIds, function(i, id) {
+                $sel.find('option[value="' + id + '"]').prop('selected', true);
+            });
+            // Initialize Select2 — it reads current selected state from the DOM
+            $sel.select2(outletSelect2Config);
+        }
+
+        function loadOutlets() {
+            $('#outlet-spinner').show();
+            $.ajax({
+                url: BACKEND_URL + '?action=getOutlets',
+                type: 'GET',
+                dataType: 'json',
+                success: function(data) {
+                    allOutlets = data || [];
+                    var $sel = $('#outlet-select');
+                    $sel.empty();
+                    $.each(allOutlets, function(i, o) {
+                        $sel.append(new Option(o.code + ' - ' + o.comp_name, String(o.id), false, false));
+                    });
+                    outletsReady = true;
+                    $('#outlet-spinner').hide();
+                },
+                error: function() {
+                    $('#outlet-spinner').hide();
+                }
+            });
+        }
 
         // Initialize Select2 staff search
         $('#staff-search').select2({
@@ -282,6 +374,8 @@ $role_badges = array(
             selectedStaffId = null;
             $('#staff-info').hide();
             $('#permission-section').hide();
+            applyOutletSelect([]);
+            $('#outlet-section').hide();
             $('#submit-section').css('display', 'none');
         });
 
@@ -298,6 +392,18 @@ $role_badges = array(
 
             $('input[name="permission"][value="' + role + '"]').prop('checked', true);
             $('#permission-section').show();
+
+            var outletStr = String(staff.outlet || '');
+            var selectedIds = [];
+            if (outletStr !== '') {
+                $.each(outletStr.split(','), function(i, v) {
+                    var id = parseInt(v, 10);
+                    if (!isNaN(id) && id > 0) selectedIds.push(String(id));
+                });
+            }
+            $('#outlet-section').show();
+            applyOutletSelect(selectedIds);
+
             $('#submit-section').css('display', 'flex');
         }
 
@@ -319,7 +425,8 @@ $role_badges = array(
                 nama_staff: staffName,
                 department_name: staffDept,
                 status_semasa: $(this).data('staff-status') || '-',
-                consult_call: staffRole
+                consult_call: staffRole,
+                outlet: $(this).attr('data-staff-outlet') || ''
             });
 
             $('#access-form-area')[0] && $('#access-form-area')[0].scrollIntoView({ behavior: 'smooth' });
@@ -369,7 +476,8 @@ $role_badges = array(
                         ' data-staff-name="' + $('<span>').text(s.nama_staff).html() + '"' +
                         ' data-staff-dept="' + $('<span>').text(s.department_name).html() + '"' +
                         ' data-staff-status="' + $('<span>').text(s.status_semasa).html() + '"' +
-                        ' data-staff-role="' + role + '">Edit</button></td>' +
+                        ' data-staff-role="' + role + '"' +
+                        ' data-staff-outlet="' + $('<span>').text(s.outlet || '').html() + '">Edit</button></td>' +
                     '</tr>';
             });
             $('#active-staff-tbody').html(html);
@@ -408,8 +516,9 @@ $role_badges = array(
             }
         });
 
-        // Load table on page ready
+        // Load table and outlets on page ready
         loadActiveStaff(1);
+        loadOutlets();
 
         // Submit update
         $('#update-btn').on('click', function() {
@@ -424,11 +533,14 @@ $role_badges = array(
             var btn = $(this);
             btn.prop('disabled', true).text('Saving...');
 
+            var outletVal = $('#outlet-select').val();
+            var outletIds = (outletVal && outletVal.length > 0) ? outletVal.join(',') : '';
+
             $.ajax({
                 url: BACKEND_URL + '?action=updateAccess',
                 type: 'POST',
                 dataType: 'json',
-                data: { staff_id: selectedStaffId, permission: permission },
+                data: { staff_id: selectedStaffId, permission: permission, outlet_ids: outletIds },
                 success: function(response) {
                     if (response.success) {
                         showAlert(response.message, true);

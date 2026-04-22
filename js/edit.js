@@ -59,6 +59,7 @@
     // Consult status integer constants
     var CONSULT_PENDING = '0';
     var CONSULT_COMPLETED = '1';
+    var CONSULT_NO_SHOW = '2';
 
     // True when the current doctor has already claimed the active detail (consulted_by set)
     // but has not yet saved consult_status as completed. Used to skip the confirmation dialog
@@ -553,24 +554,53 @@
             if (dateContainer) {
                 dateContainer.style.display = 'none';
             }
-            // Hide action button when consult is not completed
             handleActionChange('');
+            // No Show defaults process_status to Closed
+            if (value === CONSULT_NO_SHOW) {
+                setProcessStatusRadio('3', false);
+            }
         }
     }
 
     /**
-     * Show/hide the Create MyReferral button based on the selected action value.
-     * Button is shown only when action = 1 (Refer Internal) or 2 (Refer External).
+     * Set the process_status radio to a given value and optionally disable both options.
+     * When value is null: enables the radios and defaults to Active (1) if nothing is selected.
+     * Used by handleActionChange and handleConsultStatusChange to reflect auto-close rules.
+     * @param {string|null} value Radio value to check ('1' or '3'), or null to enable/default
+     * @param {boolean} disable Whether to disable the radio inputs
+     */
+    function setProcessStatusRadio(value, disable) {
+        var radios = document.querySelectorAll('input[name="process_status"]');
+        if (!radios.length) return;
+        var i;
+        if (value !== null) {
+            for (i = 0; i < radios.length; i++) {
+                radios[i].checked = (radios[i].value === value);
+                radios[i].disabled = !!disable;
+            }
+        } else {
+            var anyChecked = false;
+            for (i = 0; i < radios.length; i++) {
+                radios[i].disabled = false;
+                if (radios[i].checked) { anyChecked = true; }
+            }
+            if (!anyChecked) {
+                for (i = 0; i < radios.length; i++) {
+                    if (radios[i].value === '1') { radios[i].checked = true; break; }
+                }
+            }
+        }
+    }
+
+    /**
+     * Update process_status radio state based on the selected action value.
+     * Refer External (2) and End Process (3) force Closed and disable the radio.
+     * Refer Internal (1) or no action leaves the radio enabled for doctor to choose.
      * @param {string} value Action radio value as string
      */
     function handleActionChange(value) {
-        var container = document.getElementById('myreferral-btn-container');
-        if (!container) return;
-        if (value === '1' || value === '2') {
-            container.style.display = '';
-        } else {
-            container.style.display = 'none';
-        }
+        var forceClose = (value === '2' || value === '3');
+        setProcessStatusRadio(forceClose ? '3' : null, false);
     }
 
     /**
@@ -1140,7 +1170,7 @@
         setInputValue('remarks', '');
         setRadioValue('followup_type', '0');
         setRadioValue('next_followup', '0');
-        var detailFieldsToDeselect = ['consult_status', 'rx_issued', 'is_blood_test_required', 'mode_of_conversion', 'action'];
+        var detailFieldsToDeselect = ['consult_status', 'rx_issued', 'is_blood_test_required', 'mode_of_conversion', 'action', 'process_status'];
         for (var dfi = 0; dfi < detailFieldsToDeselect.length; dfi++) {
             var dfRads = document.querySelectorAll('input[name="' + detailFieldsToDeselect[dfi] + '"]');
             for (var dfj = 0; dfj < dfRads.length; dfj++) { dfRads[dfj].checked = false; }
@@ -1215,6 +1245,11 @@
                     setRadioValue('action', String(lastDetail.action));
                     handleActionChange(String(lastDetail.action));
                 }
+                // Set process_status from saved data, preserving the doctor's explicit choice
+                // for Refer Internal. handleActionChange already locked the radio for action 2/3.
+                if (lastDetail.process_status !== undefined && lastDetail.process_status !== null) {
+                    setProcessStatusRadio(String(lastDetail.process_status), false);
+                }
                 setInputValue('remarks', lastDetail.remarks || '');
                 if (pairedFollowUp) {
                     setRadioValue('is_blood_test_required', pairedFollowUp.is_blood_test_required ? '1' : '0');
@@ -1257,13 +1292,14 @@
             disableEligibilitySection();
         }
 
-        // Lock consultation section when consulted_by is set and belongs to a different doctor.
-        // Skip the lock when the follow-up checkpoint is completed (followup_reminder = 1) because
-        // that signals the start of a new consultation cycle and any doctor should be able to fill in.
+        // Lock consultation section when the consultation is completed or when consulted_by belongs
+        // to a different doctor. In either case the lock is lifted once the follow-up checkpoint
+        // is done (followup_reminder = 1), which signals the start of a new consultation cycle.
         var followUpCheckpointDone = latestFollowUp && String(latestFollowUp.followup_reminder) === '1';
-        if (latestDetail && latestDetail.consulted_by &&
-            parseInt(EDIT_CONFIG.currentStaffId, 10) !== latestDetail.consulted_by &&
-            !followUpCheckpointDone) {
+        var consultationCompleted = latestDetail && String(latestDetail.consult_status) === '1';
+        var ownedByOtherDoctor = latestDetail && latestDetail.consulted_by &&
+            parseInt(EDIT_CONFIG.currentStaffId, 10) !== latestDetail.consulted_by;
+        if (!followUpCheckpointDone && (consultationCompleted || ownedByOtherDoctor)) {
             disableConsultationSection();
         }
 
@@ -1291,6 +1327,21 @@
             // Lock checkpoint section once the reminder has been marked completed
             if (reminderVal === '1') {
                 disableFollowUpCheckpointSection();
+            }
+        }
+
+        // Show MyReferral section when the latest saved detail requires a referral and none exists yet
+        var myReferralSection = document.getElementById('myreferral-section');
+        if (myReferralSection) {
+            var actionRequiresReferral = latestDetail && (latestDetail.action === 1 || latestDetail.action === 2);
+            var referralNotYetCreated = !latestFollowUp || !latestFollowUp.my_referral_id;
+            var showMyReferral = !!(actionRequiresReferral && referralNotYetCreated);
+            myReferralSection.style.display = showMyReferral ? '' : 'none';
+            if (showMyReferral && sessionStorage.getItem('scrollToMyReferral')) {
+                sessionStorage.removeItem('scrollToMyReferral');
+                setTimeout(function() {
+                    myReferralSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 150);
             }
         }
 
@@ -1392,8 +1443,7 @@
             treatment_plan: getInputValue('treatment_plan') || null,
             rx_issued: getRadioValue('rx_issued') === '1',
             action: actionValue,
-            // No Show (2), Refer External action (2), and End Process action (3) all close the process status
-            process_status: (consultStatusForDetail === 2 || actionValue === 2 || actionValue === 3) ? 3 : null,
+            process_status: toIntOrNull(getRadioValue('process_status')),
             remarks: getInputValue('remarks') || null
         };
 
@@ -1433,16 +1483,6 @@
             // Only Doctor (role 2) can save Consultation Details and Follow-Up fields
             var promises = [];
 
-            // Doctor (role 2): when action is No-show, Refer External, or End Process,
-            // explicitly close the consult_call process_status so the listing reflects it.
-            if (EDIT_CONFIG.currentStaffRole === 2 &&
-                (consultStatusForDetail === 2 || actionValue === 2 || actionValue === 3)) {
-                promises.push(apiCall('update-consult-call', {
-                    id: EDIT_CONFIG.consultCallId,
-                    data: { process_status: 3 }
-                }));
-            }
-
             // HQ (role 4) saves Follow-up Checkpoint to the existing follow-up record
             if (EDIT_CONFIG.currentStaffRole === 4 && isFollowUpCheckpointVisible && currentFollowUpId) {
                 promises.push(apiCall('update-follow-up', {
@@ -1477,10 +1517,12 @@
                 var hasDetail = detailData.consult_date || detailData.diagnosis ||
                     detailData.treatment_plan || detailData.consult_status !== null;
 
-                // Only create a follow-up when the consultation is completed (status 1),
-                // the action is not Refer External (2) or End Process (3), and the user has entered follow-up data
+                // Follow-up is only created when consultation is completed (status 1),
+                // action is Refer Internal (1), process_status is Active (1), and follow-up data is present.
+                // All other action/process_status combinations must not produce a follow-up record.
                 var hasFollowUp = detailData.consult_status === 1 &&
-                    actionValue !== 2 && actionValue !== 3 && (
+                    actionValue === 1 &&
+                    detailData.process_status === 1 && (
                         followUpData.followup_type !== null ||
                         followUpData.next_followup !== null ||
                         followUpData.followup_date
@@ -1572,33 +1614,9 @@
             e.preventDefault();
             runSaveFlow(function() {
                 alert('Changes saved successfully.');
+                sessionStorage.setItem('scrollToMyReferral', '1');
                 window.location.reload();
             });
-        });
-    }
-
-    function initMyReferralButton() {
-        var btn = document.getElementById('myreferral-create-btn');
-        if (!btn) return;
-
-        btn.addEventListener('click', function(e) {
-            e.preventDefault();
-            var self = this;
-            var originalHtml = self.innerHTML;
-            self.disabled = true;
-            self.textContent = 'Saving...';
-
-            runSaveFlow(
-                function() {
-                    alert('Changes saved successfully.');
-                    window.open('/odb/referral/create.php', '_blank');
-                    window.location.reload();
-                },
-                function() {
-                    self.disabled = false;
-                    self.innerHTML = originalHtml;
-                }
-            );
         });
     }
 
@@ -1608,7 +1626,6 @@
         initSectionCollapse();
         initConditionalFields();
         initFormSubmission();
-        initMyReferralButton();
         loadStatusMaps().then(function() {
             loadConsultCallData();
         });

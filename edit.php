@@ -694,11 +694,19 @@ $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
                             </div>
                         </div>
 
-                        <!-- MyReferral button — shown by JS when action = Refer Internal or Refer External -->
-                        <div class="col-md-12" id="myreferral-btn-container" style="display:none;">
-                            <a id="myreferral-create-btn" href="#" rel="noopener" class="btn btn-outline-primary">
-                                <i class="bi bi-plus-circle me-1"></i>Create MyReferral
-                            </a>
+                        <!-- Process Status (doctor-controlled; auto-locked to Closed by JS when action forces it) -->
+                        <div class="col-md-12 conditional-field" data-condition="consult_completed">
+                            <label class="form-label">Process Status<span style="color:red;"> *</span></label>
+                            <div class="radio-group">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="process_status" id="process_active" value="1" <?php echo $dD; ?>>
+                                    <label class="form-check-label" for="process_active">Active</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="process_status" id="process_closed" value="3" <?php echo $dD; ?>>
+                                    <label class="form-check-label" for="process_closed">Closed</label>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Remarks (visible for all consult statuses) -->
@@ -718,6 +726,19 @@ $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
                 </button>
             </div>
         </form>
+
+        <!-- MyReferral section — shown by JS on page load when saved action requires a referral and none exists yet -->
+        <div id="myreferral-section" class="bento-card mt-4" style="display:none;">
+            <div class="section-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">MyReferral</h6>
+            </div>
+            <div class="p-3">
+                <p class="text-muted mb-3">A referral is required for this action. Please create a MyReferral record to complete the process.</p>
+                <a id="myreferral-create-btn" href="/odb/referral/create.php" target="_blank" rel="noopener" class="btn btn-outline-primary">
+                    <i class="bi bi-plus-circle me-1"></i>Create MyReferral
+                </a>
+            </div>
+        </div>
     </div>
 
     <!-- PDF Modal -->

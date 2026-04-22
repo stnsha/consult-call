@@ -5,7 +5,7 @@
  * Status ID reference (from API status libraries):
  *   consent_call_status: 0=Pending, 1=Obtained, 2=Refused, 3=On Prescribed Medication
  *   enrollment_type:     1=Primary, 2=Follow Up
- *   process_status:      1=Active, 2=Escalated, 3=Closed
+ *   process_status:      1=Active, 3=Closed
  *   followup_reminder:   0=Pending, 1=Completed, 2=Rescheduled, 3=Cancelled
  *   scheduled_status:    0=Pending, 1=Confirmed, 2=Rescheduled, 3=Cancelled
  *   mode_of_consultation:0=Pending, 1=Phone, 2=Google Meet, 3=WhatsApp
@@ -28,7 +28,7 @@
     var BADGES = {
         consent:    { 0: 'bg-warning',  1: 'bg-success', 2: 'bg-danger', 3: 'bg-info' },
         enrollment: { 1: 'bg-primary',  2: 'bg-secondary' },
-        process:    { 1: 'bg-success',  2: 'bg-danger',   3: 'bg-secondary' },
+        process:    { 1: 'bg-success',  3: 'bg-secondary' },
         reminder:   { 0: 'bg-warning',  1: 'bg-success',  2: 'bg-info', 3: 'bg-danger' },
         action:     { 1: 'bg-primary',  2: 'bg-info',     3: 'bg-secondary' }
     };
