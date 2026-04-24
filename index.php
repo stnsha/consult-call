@@ -154,12 +154,16 @@ if ($doctor_result) {
         <div class="row mb-4">
             <div class="col-12">
                 <div class="bento-card">
+                    <!-- Search -->
                     <div class="row g-3 align-items-end">
-                        <div class="col-md-3">
+                        <div class="col-12">
                             <label for="searchInput" class="form-label">Search</label>
                             <input type="text" class="form-control" id="searchInput" placeholder="Name, IC, phone or #CC123">
                         </div>
-                        <div class="col-md-2">
+                    </div>
+                    <!-- Filter row 1: Consent Status | Process Status | Draft Status | Action -->
+                    <div class="row g-3 align-items-end mt-1">
+                        <div class="col-md-3">
                             <label for="consentFilter" class="form-label">Consent Status</label>
                             <select class="form-select" id="consentFilter">
                                 <option value="">All</option>
@@ -169,7 +173,7 @@ if ($doctor_result) {
                                 <option value="3">On Medication</option>
                             </select>
                         </div>
-                        <div class="col-md-2">
+                        <div class="col-md-3">
                             <label for="processFilter" class="form-label">Process Status</label>
                             <select class="form-select" id="processFilter">
                                 <option value="">All</option>
@@ -178,52 +182,16 @@ if ($doctor_result) {
                                 <option value="3">Closed</option>
                             </select>
                         </div>
-                        <div class="col-md-2">
-                            <label for="reminderFilter" class="form-label">Follow Up Reminder</label>
-                            <select class="form-select" id="reminderFilter">
+                        <div class="col-md-3">
+                            <label for="draftFilter" class="form-label">Draft Status</label>
+                            <select class="form-select" id="draftFilter">
                                 <option value="">All</option>
                                 <option value="0">Pending</option>
-                                <option value="1">Completed</option>
-                                <option value="2">Rescheduled</option>
-                                <option value="3">Cancelled</option>
+                                <option value="1">Draft</option>
+                                <option value="2">Submitted</option>
                             </select>
                         </div>
-                        <div class="col-md-2">
-                            <label for="enrollmentFilter" class="form-label">Enrollment Type</label>
-                            <select class="form-select" id="enrollmentFilter">
-                                <option value="">All</option>
-                                <option value="1">Primary</option>
-                                <option value="2">Follow-up</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="row g-3 align-items-end mt-1">
-                        <div class="col-md-2">
-                            <label for="dateFrom" class="form-label">Enrollment From</label>
-                            <input type="date" class="form-control" id="dateFrom">
-                        </div>
-                        <div class="col-md-2">
-                            <label for="dateTo" class="form-label">Enrollment To</label>
-                            <input type="date" class="form-control" id="dateTo">
-                        </div>
-                        <div class="col-md-2">
-                            <label for="scheduledFrom" class="form-label">Scheduled From</label>
-                            <input type="date" class="form-control" id="scheduledFrom">
-                        </div>
-                        <div class="col-md-2">
-                            <label for="scheduledTo" class="form-label">Scheduled To</label>
-                            <input type="date" class="form-control" id="scheduledTo">
-                        </div>
-                        <div class="col-md-2">
-                            <label for="consultedByFilter" class="form-label">Consulted By</label>
-                            <select class="form-select" id="consultedByFilter">
-                                <option value="">All</option>
-                                <?php foreach ($doctor_list as $doctor): ?>
-                                    <option value="<?php echo (int)$doctor['id']; ?>"><?php echo htmlspecialchars($doctor['nama_staff']); ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <div class="col-md-2">
+                        <div class="col-md-3">
                             <label for="actionFilter" class="form-label">Action</label>
                             <select class="form-select" id="actionFilter">
                                 <option value="">All</option>
@@ -233,9 +201,59 @@ if ($doctor_result) {
                             </select>
                         </div>
                     </div>
+                    <!-- Filter row 2: Follow Up Reminder | Enrollment Type | Enrollment From | Enrollment To -->
                     <div class="row g-3 align-items-end mt-1">
-                        <div class="col-md-2 ms-auto">
-                            <button type="button" class="btn btn-secondary w-100" id="resetBtn" title="Reset Filters">
+                        <div class="col-md-3">
+                            <label for="reminderFilter" class="form-label">Follow Up Reminder</label>
+                            <select class="form-select" id="reminderFilter">
+                                <option value="">All</option>
+                                <option value="0">Pending</option>
+                                <option value="1">Completed</option>
+                                <option value="2">Rescheduled</option>
+                                <option value="3">Cancelled</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="enrollmentFilter" class="form-label">Enrollment Type</label>
+                            <select class="form-select" id="enrollmentFilter">
+                                <option value="">All</option>
+                                <option value="1">Primary</option>
+                                <option value="2">Follow-up</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="dateFrom" class="form-label">Enrollment From</label>
+                            <input type="date" class="form-control" id="dateFrom">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="dateTo" class="form-label">Enrollment To</label>
+                            <input type="date" class="form-control" id="dateTo">
+                        </div>
+                    </div>
+                    <!-- Filter row 3: Scheduled From | Scheduled To | Consulted By | buttons -->
+                    <div class="row g-3 align-items-end mt-1">
+                        <div class="col-md-3">
+                            <label for="scheduledFrom" class="form-label">Scheduled From</label>
+                            <input type="date" class="form-control" id="scheduledFrom">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="scheduledTo" class="form-label">Scheduled To</label>
+                            <input type="date" class="form-control" id="scheduledTo">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="consultedByFilter" class="form-label">Consulted By</label>
+                            <select class="form-select" id="consultedByFilter">
+                                <option value="">All</option>
+                                <?php foreach ($doctor_list as $doctor): ?>
+                                    <option value="<?php echo (int)$doctor['id']; ?>"><?php echo htmlspecialchars($doctor['nama_staff']); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-3 d-flex gap-2 align-items-end">
+                            <button type="button" class="btn btn-success flex-fill" id="exportBtn" title="Export current filter results to Excel">
+                                <i class="bi bi-file-earmark-spreadsheet me-1"></i>Export to Excel
+                            </button>
+                            <button type="button" class="btn btn-secondary flex-fill" id="resetBtn" title="Reset Filters">
                                 <i class="bi bi-x-lg me-1"></i>Reset
                             </button>
                         </div>

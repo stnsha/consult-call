@@ -218,6 +218,9 @@
         var actionFilter = document.getElementById('actionFilter').value;
         if (actionFilter !== '') params.detail_action = actionFilter;
 
+        var draftFilter = document.getElementById('draftFilter').value;
+        if (draftFilter !== '') params.draft_status = draftFilter;
+
         params.per_page = perPage;
         params.page = currentPage;
 
@@ -266,32 +269,33 @@
 
         var details    = record.details   || [];
         var latestDetail = details.length > 0 ? details[details.length - 1] : null;
+        var detailIsDraft = !!(latestDetail && latestDetail.is_draft === 1);
 
         // Status IDs
         var consentId = record.consent_call_status;
         var enrollId  = record.enrollment_type;
 
-        // process_status is not returned by the listing API, so derive it from
-        // the fields that are available. Explicit fields take priority.
+        // process_status: drafted detail values are excluded — a draft has not been
+        // finalised so the record should not reflect the draft's process/action state.
         var processId = null;
         if (record.process_status != null) {
             processId = parseInt(record.process_status, 10);
-        } else if (latestDetail && latestDetail.process_status != null) {
+        } else if (!detailIsDraft && latestDetail && latestDetail.process_status != null) {
             processId = parseInt(latestDetail.process_status, 10);
         } else {
             var _cs  = parseInt(record.consent_call_status, 10);
-            var _act = latestDetail ? parseInt(latestDetail.action, 10) : null;
-            var _cst = latestDetail ? parseInt(latestDetail.consult_status, 10) : null;
+            var _act = (!detailIsDraft && latestDetail) ? parseInt(latestDetail.action, 10) : null;
+            var _cst = (!detailIsDraft && latestDetail) ? parseInt(latestDetail.consult_status, 10) : null;
             if (_cs === 2 || _cs === 3) {
-                processId = 3; // Refused / On Medication
+                processId = 3; // Refused / On Medication — consent-level close, not from draft
             } else if (_act === 2 || _act === 3 || _cst === 2) {
                 processId = 3; // Refer External / End Process / No-show
-            } else if (latestDetail) {
-                processId = 1; // Active — detail exists with no closing condition
+            } else if (!detailIsDraft && latestDetail) {
+                processId = 1; // Active — finalised detail exists with no closing condition
             }
         }
 
-        var actionId     = latestDetail ? latestDetail.action : null;
+        var actionId     = (!detailIsDraft && latestDetail) ? latestDetail.action : null;
         var consentLabel = LABELS.consent[consentId]    || '';
         var actionLabel  = actionId !== null ? (statusMaps.actions[String(actionId)] || '') : '';
         var processLabel = processId !== null ? (statusMaps.processStatuses[String(processId)] || '') : '';
@@ -303,9 +307,9 @@
         var enrollmentDate  = record.enrollment_date      ? formatDate(record.enrollment_date)      : '<span class="text-muted">-</span>';
         var scheduledDate   = record.scheduled_call_date  ? formatDate(record.scheduled_call_date)  : '<span class="text-muted">-</span>';
 
-        // Consulted by: resolve staff name from staffMap
+        // Consulted by: resolve staff name from staffMap; skip if detail is a draft
         var consultedByName = '<span class="text-muted">-</span>';
-        if (latestDetail && latestDetail.consulted_by && staffMap[latestDetail.consulted_by]) {
+        if (!detailIsDraft && latestDetail && latestDetail.consulted_by && staffMap[latestDetail.consulted_by]) {
             consultedByName = escapeHtml(staffMap[latestDetail.consulted_by].name || '');
         }
 
@@ -327,14 +331,16 @@
         }
         html += '</td>';
 
-        html += '<td><span class="badge ' + processBadge + '">' + escapeHtml(processLabel) + '</span></td>';
+        html += '<td>' + (processLabel ? '<span class="badge ' + processBadge + '">' + escapeHtml(processLabel) + '</span>' : '<span class="text-muted">-</span>') + '</td>';
         html += '<td><span class="badge ' + consentBadge + '">' + escapeHtml(consentLabel) + '</span></td>';
         html += '<td style="white-space:nowrap">' + enrollmentDate + '</td>';
         html += '<td style="white-space:nowrap">' + scheduledDate + '</td>';
         html += '<td>' + consultedByName + '</td>';
         html += '<td>';
-        html += '<a href="consultcall/edit.php?id=' + encodeURIComponent(record.id) + '&view_only=true" class="btn btn-sm btn-outline-primary me-1" title="View"><i class="bi bi-eye"></i></a>';
         html += '<a href="consultcall/edit.php?id=' + encodeURIComponent(record.id) + '" class="btn btn-sm btn-outline-secondary" title="Edit"><i class="bi bi-pencil"></i></a>';
+        if (detailIsDraft) {
+            html += '<br><span class="badge bg-warning text-dark mt-1">Draft</span>';
+        }
         html += '</td>';
         html += '</tr>';
         return html;
@@ -684,6 +690,7 @@
         document.getElementById('scheduledTo').value = '';
         document.getElementById('consultedByFilter').value = '';
         document.getElementById('actionFilter').value = '';
+        document.getElementById('draftFilter').value = '';
         currentPage = 1;
         loadTableData();
     }
@@ -707,6 +714,133 @@
         }, 400);
     }
 
+    function resetExportBtn(btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-file-earmark-spreadsheet me-1"></i>Export to Excel';
+    }
+
+    function exportToExcel() {
+        var btn = document.getElementById('exportBtn');
+        if (!btn || btn.disabled) return;
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Exporting...';
+
+        var params = getFilterParams();
+        params.per_page = 10000;
+        params.page = 1;
+
+        apiCall('all-consult-call', params).then(function(result) {
+            if (!result.success || !result.data) {
+                alert('Export failed: could not retrieve records.');
+                resetExportBtn(btn);
+                return;
+            }
+
+            var records = result.data.data || [];
+            if (records.length === 0) {
+                alert('No records match the current filters. Nothing to export.');
+                resetExportBtn(btn);
+                return;
+            }
+
+            var customerIds = [];
+            var outletIds = [];
+            var seenCustomers = {};
+            var seenOutlets = {};
+
+            for (var i = 0; i < records.length; i++) {
+                var cid = records[i].customer_id;
+                if (cid && !seenCustomers[cid]) {
+                    customerIds.push(cid);
+                    seenCustomers[cid] = true;
+                }
+                var oid = records[i].outlet_id;
+                if (oid && !seenOutlets[oid]) {
+                    outletIds.push(oid);
+                    seenOutlets[oid] = true;
+                }
+            }
+
+            var customerPromise = customerIds.length > 0
+                ? apiCall('get-customers', { customer_ids: customerIds })
+                : Promise.resolve({ success: true, data: {} });
+
+            var outletPromise = outletIds.length > 0
+                ? apiCall('get-outlets', { outlet_ids: outletIds })
+                : Promise.resolve({ success: true, data: {} });
+
+            Promise.all([customerPromise, outletPromise]).then(function(results) {
+                var customerMap = (results[0].success && results[0].data) ? results[0].data : {};
+                var outletMap   = (results[1].success && results[1].data) ? results[1].data : {};
+
+                function csvField(val) {
+                    var s = (val === null || val === undefined) ? '' : String(val);
+                    if (s.indexOf(',') !== -1 || s.indexOf('"') !== -1 ||
+                        s.indexOf('\r') !== -1 || s.indexOf('\n') !== -1) {
+                        s = '"' + s.replace(/"/g, '""') + '"';
+                    }
+                    return s;
+                }
+
+                var CRLF = '\r\n';
+                var rows = [];
+
+                rows.push([
+                    csvField('Consult Call ID'),
+                    csvField('Customer Name'),
+                    csvField('IC Number'),
+                    csvField('Phone No'),
+                    csvField('Outlet Code')
+                ].join(','));
+
+                for (var j = 0; j < records.length; j++) {
+                    var rec      = records[j];
+                    var customer = (rec.customer_id && customerMap[rec.customer_id]) ? customerMap[rec.customer_id] : {};
+                    var outlet   = (rec.outlet_id   && outletMap[rec.outlet_id])     ? outletMap[rec.outlet_id]     : {};
+                    rows.push([
+                        csvField(rec.id ? '#CC' + rec.id : ''),
+                        csvField(customer.name  || ''),
+                        csvField(customer.ic    || ''),
+                        csvField(customer.phone || ''),
+                        csvField(outlet.code    || '')
+                    ].join(','));
+                }
+
+                var csvContent = rows.join(CRLF);
+
+                var now      = new Date();
+                var pad      = function(n) { return n < 10 ? '0' + n : String(n); };
+                var datePart = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate());
+                var filename = 'consult-call-export-' + datePart + '.csv';
+
+                var BOM  = '﻿';
+                var blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+                var url  = URL.createObjectURL(blob);
+                var link = document.createElement('a');
+                link.setAttribute('href', url);
+                link.setAttribute('download', filename);
+                link.style.display = 'none';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+
+                resetExportBtn(btn);
+
+            }).catch(function(err) {
+                console.error('Export error (lookup phase):', err);
+                alert('Export failed while looking up customer/outlet details.');
+                resetExportBtn(btn);
+            });
+
+        }).catch(function(err) {
+            console.error('Export error (fetch phase):', err);
+            alert('Export failed while fetching records.');
+            resetExportBtn(btn);
+        });
+    }
+
     /**
      * Initialize all event listeners and load initial data
      */
@@ -724,8 +858,10 @@
         document.getElementById('scheduledTo').addEventListener('change', onFilterChange);
         document.getElementById('consultedByFilter').addEventListener('change', onFilterChange);
         document.getElementById('actionFilter').addEventListener('change', onFilterChange);
+        document.getElementById('draftFilter').addEventListener('change', onFilterChange);
 
         document.getElementById('resetBtn').addEventListener('click', resetFilters);
+        document.getElementById('exportBtn').addEventListener('click', exportToExcel);
 
         var filterRows = document.querySelectorAll('.card-filter-row');
         for (var f = 0; f < filterRows.length; f++) {

@@ -726,6 +726,11 @@ $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
             <!-- Save Button -->
             <div class="d-flex justify-content-end gap-2 mt-4" id="form-actions">
                 <a href="consultcall/index.php" class="btn btn-outline-secondary">Cancel</a>
+                <?php if ($currentStaffRole === 1 || $currentStaffRole === 2): ?>
+                <button type="button" class="btn btn-outline-warning" id="draftBtn">
+                    <i class="bi bi-pencil-square me-1"></i>Save as Draft
+                </button>
+                <?php endif; ?>
                 <button type="submit" class="btn btn-primary" id="saveBtn">
                     <i class="bi bi-check-lg me-1"></i>Save Changes
                 </button>

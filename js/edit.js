@@ -1306,17 +1306,27 @@
 
         toggleFollowUpCheckpointSection(!!hasActiveFollowUp);
 
-        // Lock eligibility section once the consultation has been completed
+        // Lock eligibility section once the consultation has been completed (not a draft)
         var latestDetail = details.length > 0 ? details[details.length - 1] : null;
-        if (latestDetail && String(latestDetail.consult_status) === '1') {
+        var detailIsDraft = !!(latestDetail && latestDetail.is_draft === 1);
+
+        // Hide Save as Draft once the doctor has submitted (is_draft = 2)
+        if (latestDetail && latestDetail.is_draft === 2) {
+            var draftBtnEl = document.getElementById('draftBtn');
+            if (draftBtnEl) {
+                draftBtnEl.style.display = 'none';
+            }
+        }
+
+        if (!detailIsDraft && latestDetail && String(latestDetail.consult_status) === '1') {
             disableEligibilitySection();
         }
 
-        // Lock consultation section when the consultation is completed or when consulted_by belongs
-        // to a different doctor. In either case the lock is lifted once the follow-up checkpoint
-        // is done (followup_reminder = 1), which signals the start of a new consultation cycle.
+        // Lock consultation section when completed (not a draft) or owned by a different doctor.
+        // Drafts bypass the completion lock but still respect the doctor ownership lock so
+        // only the doctor who saved the draft can continue editing it.
         var followUpCheckpointDone = latestFollowUp && String(latestFollowUp.followup_reminder) === '1';
-        var consultationCompleted = latestDetail && String(latestDetail.consult_status) === '1';
+        var consultationCompleted = !detailIsDraft && latestDetail && String(latestDetail.consult_status) === '1';
         var ownedByOtherDoctor = latestDetail && latestDetail.consulted_by &&
             parseInt(EDIT_CONFIG.currentStaffId, 10) !== latestDetail.consulted_by;
         if (!followUpCheckpointDone && (consultationCompleted || ownedByOtherDoctor)) {
@@ -1390,6 +1400,11 @@
         if (saveBtn) {
             saveBtn.style.display = 'none';
         }
+
+        var draftBtn = document.getElementById('draftBtn');
+        if (draftBtn) {
+            draftBtn.style.display = 'none';
+        }
     }
 
     /**
@@ -1410,11 +1425,13 @@
      * @param {function} onSuccess Called with followUpId on success
      * @param {function} [onFailure] Called with no args on failure or validation error
      */
-    function runSaveFlow(onSuccess, onFailure) {
+    function runSaveFlow(onSuccess, onFailure, options) {
         if (EDIT_CONFIG.viewOnly) {
             if (onFailure) onFailure();
             return;
         }
+
+        var isDraft = !!(options && options.isDraft);
 
         clearAllErrors();
         if (!validateForm()) {
@@ -1436,11 +1453,13 @@
             }
         }
 
-        var saveBtn = document.getElementById('saveBtn');
-        var originalText = saveBtn ? saveBtn.innerHTML : '';
-        if (saveBtn) {
-            saveBtn.disabled = true;
-            saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>Saving...';
+        var activeBtnId = (options && options.btnId) ? options.btnId : 'saveBtn';
+        var activeBtn = document.getElementById(activeBtnId);
+        var originalText = activeBtn ? activeBtn.innerHTML : '';
+        if (activeBtn) {
+            activeBtn.disabled = true;
+            activeBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>' +
+                (isDraft ? 'Saving draft...' : 'Saving...');
         }
 
         // Consult call level data (matches API 2.5 Update fields)
@@ -1481,6 +1500,8 @@
             remarks: getInputValue('remarks') || null
         };
 
+        detailData.is_draft = isDraft ? 1 : 2;
+
         // Follow-up level data (matches API 4.1 Create Follow-Up fields)
         var followUpData = {
             followup_type: toIntOrNull(getRadioValue('followup_type')),
@@ -1507,7 +1528,7 @@
 
         consultCallPromise.then(function(result) {
             if (!result.success) {
-                if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = originalText; }
+                if (activeBtn) { activeBtn.disabled = false; activeBtn.innerHTML = originalText; }
                 alert('Failed to save consult call: ' + (result.message || 'Unknown error'));
                 if (onFailure) onFailure();
                 // Throw to skip the next .then() so success path is not reached
@@ -1554,7 +1575,8 @@
                 // Follow-up is only created when consultation is completed (status 1),
                 // action is Refer Internal (1), process_status is Active (1), and follow-up data is present.
                 // All other action/process_status combinations must not produce a follow-up record.
-                var hasFollowUp = detailData.consult_status === 1 &&
+                var hasFollowUp = !isDraft &&
+                    detailData.consult_status === 1 &&
                     actionValue === 1 &&
                     detailData.process_status === 1 && (
                         followUpData.followup_type !== null ||
@@ -1603,7 +1625,7 @@
             results = results || [];
             for (var i = 0; i < results.length; i++) {
                 if (!results[i].success) {
-                    if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = originalText; }
+                    if (activeBtn) { activeBtn.disabled = false; activeBtn.innerHTML = originalText; }
                     alert('Failed to save: ' + (results[i].message || 'Unknown error'));
                     if (onFailure) onFailure();
                     return;
@@ -1622,14 +1644,14 @@
                 }
             }
 
-            if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = originalText; }
+            if (activeBtn) { activeBtn.disabled = false; activeBtn.innerHTML = originalText; }
             if (onSuccess) onSuccess(followUpId);
         }).catch(function(err) {
             // '__handled__' errors have already shown an alert; skip re-alerting
             if (err && err.message === '__handled__') {
                 return;
             }
-            if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = originalText; }
+            if (activeBtn) { activeBtn.disabled = false; activeBtn.innerHTML = originalText; }
             alert('Error saving changes. Please try again.');
             if (onFailure) onFailure();
             console.error('Save error:', err);
@@ -1652,6 +1674,16 @@
                 window.location.reload();
             });
         });
+
+        var draftBtn = document.getElementById('draftBtn');
+        if (draftBtn) {
+            draftBtn.addEventListener('click', function() {
+                runSaveFlow(function() {
+                    alert('Saved as draft. You can continue editing.');
+                    window.location.reload();
+                }, null, { isDraft: true, btnId: 'draftBtn' });
+            });
+        }
     }
 
     // -- Initialization --
