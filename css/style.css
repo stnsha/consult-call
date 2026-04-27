@@ -604,3 +604,58 @@ button {
     border-bottom: 1px solid #e9ecef;
     margin-bottom: 12px !important;
 }
+
+/* Sortable Column Headers */
+.consultcall-container .sortable-col {
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.consultcall-container .sortable-col:hover {
+    background-color: rgba(0, 0, 0, 0.04);
+}
+
+.consultcall-container .sort-icon {
+    display: inline-flex;
+    flex-direction: column;
+    margin-left: 5px;
+    vertical-align: middle;
+    line-height: 1;
+    gap: 0;
+}
+
+.consultcall-container .sort-icon::before,
+.consultcall-container .sort-icon::after {
+    content: '';
+    display: block;
+    width: 0;
+    height: 0;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+}
+
+.consultcall-container .sort-icon::before {
+    border-bottom: 5px solid #495057;
+    margin-bottom: 2px;
+}
+
+.consultcall-container .sort-icon::after {
+    border-top: 5px solid #495057;
+}
+
+.consultcall-container .sort-icon.active-asc::before {
+    border-bottom-color: #0d6efd;
+}
+
+.consultcall-container .sort-icon.active-asc::after {
+    border-top-color: #adb5bd;
+}
+
+.consultcall-container .sort-icon.active-desc::before {
+    border-bottom-color: #adb5bd;
+}
+
+.consultcall-container .sort-icon.active-desc::after {
+    border-top-color: #0d6efd;
+}

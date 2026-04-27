@@ -17,6 +17,8 @@
     var currentPage = 1;
     var perPage = 10;
     var searchTimeout = null;
+    var sortBy  = null;
+    var sortDir = 'asc';
 
     // Integer ID to label maps for fields not loaded from API
     var LABELS = {
@@ -224,7 +226,44 @@
         params.per_page = perPage;
         params.page = currentPage;
 
+        if (sortBy) {
+            params.sort_by  = sortBy;
+            params.sort_dir = sortDir;
+        }
+
         return params;
+    }
+
+    function updateSortIndicators() {
+        var headers = document.querySelectorAll('th[data-sort-col]');
+        for (var i = 0; i < headers.length; i++) {
+            var col = headers[i].getAttribute('data-sort-col');
+            var iconSpan = headers[i].querySelector('.sort-icon');
+            if (!iconSpan) continue;
+            if (col === sortBy) {
+                iconSpan.className = sortDir === 'desc' ? 'sort-icon active-desc' : 'sort-icon active-asc';
+            } else {
+                iconSpan.className = 'sort-icon';
+            }
+        }
+    }
+
+    function initSortableHeaders() {
+        var headers = document.querySelectorAll('th[data-sort-col]');
+        for (var i = 0; i < headers.length; i++) {
+            headers[i].addEventListener('click', function() {
+                var col = this.getAttribute('data-sort-col');
+                if (col === sortBy) {
+                    sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+                } else {
+                    sortBy  = col;
+                    sortDir = 'asc';
+                }
+                currentPage = 1;
+                updateSortIndicators();
+                loadTableData();
+            });
+        }
     }
 
     /**
@@ -691,7 +730,10 @@
         document.getElementById('consultedByFilter').value = '';
         document.getElementById('actionFilter').value = '';
         document.getElementById('draftFilter').value = '';
+        sortBy  = null;
+        sortDir = 'asc';
         currentPage = 1;
+        updateSortIndicators();
         loadTableData();
     }
 
@@ -874,6 +916,7 @@
             loadTableData();
         });
 
+        initSortableHeaders();
         loadFollowupBanner();
         loadSummary();
         loadStatusMaps().then(function() {

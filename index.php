@@ -271,12 +271,12 @@ if ($doctor_result) {
                             <thead>
                                 <tr>
                                     <th>#</th>
-                                    <th>Consult Call ID</th>
+                                    <th class="sortable-col" data-sort-col="id">Consult Call ID <span class="sort-icon"></span></th>
                                     <th>Patient Details</th>
-                                    <th>Process Status</th>
-                                    <th>Consent Status</th>
-                                    <th>Enrollment Date</th>
-                                    <th>Scheduled Date</th>
+                                    <th class="sortable-col" data-sort-col="process_status">Process Status <span class="sort-icon"></span></th>
+                                    <th class="sortable-col" data-sort-col="consent_call_status">Consent Status <span class="sort-icon"></span></th>
+                                    <th class="sortable-col" data-sort-col="enrollment_date">Enrollment Date <span class="sort-icon"></span></th>
+                                    <th class="sortable-col" data-sort-col="scheduled_call_date">Scheduled Date <span class="sort-icon"></span></th>
                                     <th>Consulted By</th>
                                     <th>Actions</th>
                                 </tr>
