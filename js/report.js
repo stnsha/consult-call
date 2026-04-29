@@ -85,6 +85,9 @@
     // Active Chart.js instances keyed by canvas ID, used for cleanup on re-render
     var chartInstances = {};
 
+    // Enrollment Over Time grouping: day | week | month | year
+    var activeGrouping = 'week';
+
     // ---------------------------------------------------------------------------
     // API
     // ---------------------------------------------------------------------------
@@ -311,6 +314,87 @@
         });
     }
 
+    // ---------------------------------------------------------------------------
+    // Enrollment Over Time chart
+    // ---------------------------------------------------------------------------
+
+    function getDateKey(dateStr, grouping) {
+        if (!dateStr) return null;
+        var d = new Date(dateStr);
+        if (isNaN(d.getTime())) return null;
+        var y = d.getFullYear();
+        var m = String(d.getMonth() + 1); if (m.length < 2) m = '0' + m;
+        var day = String(d.getDate()); if (day.length < 2) day = '0' + day;
+
+        if (grouping === 'day')   return y + '-' + m + '-' + day;
+        if (grouping === 'month') return y + '-' + m;
+        if (grouping === 'year')  return String(y);
+
+        // week: simple YYYY-WNN based on day-of-year
+        var startOfYear = new Date(y, 0, 1);
+        var weekNum = Math.ceil((((d - startOfYear) / 86400000) + startOfYear.getDay() + 1) / 7);
+        var wk = String(weekNum); if (wk.length < 2) wk = '0' + wk;
+        return y + '-W' + wk;
+    }
+
+    function groupByPeriod(records, grouping) {
+        var counts = {};
+        for (var i = 0; i < records.length; i++) {
+            var key = getDateKey(records[i].enrollment_date, grouping);
+            if (!key) continue;
+            counts[key] = (counts[key] || 0) + 1;
+        }
+        var keys = Object.keys(counts).sort();
+        var values = [];
+        for (var j = 0; j < keys.length; j++) values.push(counts[keys[j]]);
+        return { labels: keys, counts: values };
+    }
+
+    function renderEnrollmentTrend(grouping) {
+        var container = document.getElementById('chart-trend-container');
+        var emptyMsg  = document.getElementById('chart-trend-empty');
+        var canvas    = document.getElementById('chart-trend');
+
+        if (!container || !canvas) return;
+
+        var grouped = groupByPeriod(allRecords, grouping);
+
+        if (grouped.labels.length === 0) {
+            container.style.display = 'none';
+            if (emptyMsg) emptyMsg.style.display = 'block';
+            return;
+        }
+        container.style.display = '';
+        if (emptyMsg) emptyMsg.style.display = 'none';
+
+        destroyChart('chart-trend');
+
+        var ctx = canvas.getContext('2d');
+        chartInstances['chart-trend'] = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: grouped.labels,
+                datasets: [{
+                    label: 'Enrollments',
+                    data: grouped.counts,
+                    backgroundColor: 'rgba(13,110,253,0.7)',
+                    borderColor: '#0d6efd',
+                    borderWidth: 1,
+                    borderRadius: 3
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { ticks: { font: { size: 11, family: 'Inter, sans-serif' }, color: '#6c757d' } },
+                    y: { beginAtZero: true, ticks: { precision: 0, font: { size: 11, family: 'Inter, sans-serif' }, color: '#6c757d' } }
+                }
+            }
+        });
+    }
+
     /**
      * Render the outlet enrollment horizontal bar chart.
      * Computes counts from allRecords.outlet_id, resolves outlet names from outletMap,
@@ -441,6 +525,9 @@
             badgeCount.textContent = total;
             badge.style.display = 'inline-block';
         }
+
+        // Enrollment over time bar chart
+        renderEnrollmentTrend(activeGrouping);
 
         // Outlet enrollment bar chart
         renderOutletChart();
@@ -655,6 +742,21 @@
         document.getElementById('applyBtn').addEventListener('click', loadReport);
         document.getElementById('resetBtn').addEventListener('click', resetFilters);
         document.getElementById('exportBtn').addEventListener('click', exportCSV);
+
+        var trendToggle = document.getElementById('enrollment-trend-toggle');
+        if (trendToggle) {
+            trendToggle.addEventListener('click', function(e) {
+                var btn = e.target.closest('[data-grouping]');
+                if (!btn) return;
+                activeGrouping = btn.getAttribute('data-grouping');
+                var btns = trendToggle.querySelectorAll('button');
+                for (var i = 0; i < btns.length; i++) {
+                    btns[i].classList.toggle('active', btns[i] === btn);
+                }
+                renderEnrollmentTrend(activeGrouping);
+            });
+        }
+
         loadReport();
     });
 

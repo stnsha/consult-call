@@ -40,20 +40,20 @@ if ($doctor_result) {
 ?>
 
 <body>
+    <?php include('navbar.php'); ?>
     <div class="header" style="position: relative;">
         <b class="rtop"><b class="r1"></b><b class="r2"></b><b class="r3"></b><b class="r4"></b></b>
-        <h1 class="headerH1"><img src='common/img/consultcall.png' width='20px'> ConsultCall Dashboard</h1>
+        <h1 class="headerH1"><img src='common/img/consultcall.png' width='20px'> ConsultCall</h1>
         <b class="rbottom"><b class="r4"></b><b class="r3"></b><b class="r2"></b><b class="r1"></b></b>
     </div>
-    <?php include('navbar.php'); ?>
     <div class="consultcall-container mb-3">
 
-        <!-- <div class="row mb-4">
+        <div class="row mb-4">
             <div class="col-12">
-                <h1 class="mb-1 fw-bold" style="font-size: 18px; font-weight: 500; text-align: left;">ConsultCall Dashboard</h1>
+                <h1 class="mb-1 fw-bold" style="font-size: 18px; font-weight: 500; text-align: left;">Dashboard</h1>
                 <p class="text-muted mb-0" style="font-size: 13px; text-align: left;">Track and manage telehealth patient consultations</p>
             </div>
-        </div> -->
+        </div>
 
         <!-- Row 1: Overview Cards -->
         <div class="row g-4 mb-4">

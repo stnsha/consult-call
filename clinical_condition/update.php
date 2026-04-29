@@ -49,14 +49,14 @@ if (!$condition_id) {
     <div class="consultcall-container mb-3">
 
         <div class="row mb-4">
-            <div class="col-12 d-flex align-items-center gap-3">
-                <a href="consultcall/clinical_condition/index.php" class="btn btn-outline-secondary btn-sm">
-                    <i class="bi bi-arrow-left"></i> Back
-                </a>
-                <div>
-                    <h1 class="mb-0 fw-bold" style="font-size: 18px;">Update Clinical Condition</h1>
-                    <p class="text-muted mb-0" style="font-size: 13px;">Condition ID: <span id="display-id">...</span></p>
+            <div class="col-12">
+                <div style="text-align: left;">
+                    <a href="consultcall/clinical_condition/index.php" class="btn btn-outline-secondary btn-sm mb-3">
+                        <i class="bi bi-arrow-left"></i> Back
+                    </a>
                 </div>
+                <h1 class="mb-1 fw-bold" style="font-size: 18px; text-align: left;">Update Clinical Condition</h1>
+                <p class="text-muted mb-0" style="font-size: 13px; text-align: left;">Condition ID: <span id="display-id">...</span></p>
             </div>
         </div>
 
@@ -77,14 +77,14 @@ if (!$condition_id) {
 
                         <div class="mb-3">
                             <label class="form-label" style="font-size: 13px; font-weight: 500;">Evaluator</label>
-                            <div class="readonly-field" id="display-evaluator" style="font-size: 13px;">-</div>
-                            <div class="form-text" style="font-size: 11px;">System field — not editable.</div>
+                            <div id="display-evaluator" style="font-size: 13px; text-align: left;">-</div>
+                            <div class="form-text" style="font-size: 11px; text-align: left;">(system field - not editable)</div>
                         </div>
 
                         <div class="mb-3">
                             <label class="form-label" style="font-size: 13px; font-weight: 500;">Criteria Count</label>
-                            <div class="readonly-field" id="display-criteria-count" style="font-size: 13px;">-</div>
-                            <div class="form-text" style="font-size: 11px;">System field — not editable.</div>
+                            <div id="display-criteria-count" style="font-size: 13px; text-align: left;">-</div>
+                            <div class="form-text" style="font-size: 11px; text-align: left;">(system field - not editable)</div>
                         </div>
 
                         <div class="mb-3">

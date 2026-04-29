@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -37,16 +38,24 @@ if ($doctor_result) {
     }
 }
 ?>
+
 <body>
-    
+    <?php include('navbar.php'); ?>
     <div class="header" style="position: relative;">
         <b class="rtop"><b class="r1"></b><b class="r2"></b><b class="r3"></b><b class="r4"></b></b>
-        <h1 class="headerH1"><img src='common/img/consultcall.png' width='20px'> ConsultCall Report</h1>
+        <h1 class="headerH1"><img src='common/img/consultcall.png' width='20px'> ConsultCall</h1>
         <b class="rbottom"><b class="r4"></b><b class="r3"></b><b class="r2"></b><b class="r1"></b></b>
     </div>
-    <?php include('navbar.php'); ?>
     <div class="consultcall-container mb-3">
 
+        <div class="row mb-4">
+            <div class="col-12">
+                <h1 class="mb-1 fw-bold" style="font-size: 18px; font-weight: 500; text-align: left;">Report</h1>
+                <p class="text-muted mb-0" style="font-size: 13px; text-align: left;">
+                    View and analyze telehealth consultation data and activity
+                </p>
+            </div>
+        </div>
 
         <!-- Filter Bar -->
         <div class="row mb-4">
@@ -93,7 +102,7 @@ if ($doctor_result) {
                             <select class="form-select" id="consultedByFilter">
                                 <option value="">All</option>
                                 <?php foreach ($doctor_list as $doctor): ?>
-                                <option value="<?php echo (int)$doctor['id']; ?>"><?php echo htmlspecialchars($doctor['nama_staff']); ?></option>
+                                    <option value="<?php echo (int)$doctor['id']; ?>"><?php echo htmlspecialchars($doctor['nama_staff']); ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
@@ -170,22 +179,6 @@ if ($doctor_result) {
         <!-- Report Content -->
         <div id="reportContent" style="display: none;">
 
-            <!-- Outlet Enrollment (full width) -->
-            <div class="row g-4 mb-4">
-                <div class="col-12">
-                    <div class="bento-card report-chart-card">
-                        <h6 class="card-subtitle text-muted mb-3">Enrollment by Outlet</h6>
-                        <div id="chart-outlets-container" style="position: relative; height: 300px;">
-                            <canvas id="chart-outlets"></canvas>
-                        </div>
-                        <div id="chart-outlets-empty" class="text-center text-muted py-4 small" style="display: none;">
-                            No outlet data available
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-
             <!-- Row 1: Enrollment Type | Consent Status | Scheduled Status -->
             <div class="row g-4 mb-4">
                 <div class="col-md-4">
@@ -241,20 +234,61 @@ if ($doctor_result) {
                     </div>
                 </div>
             </div>
+            <!-- Enrollment Over Time -->
+            <div class="row g-4 mb-4">
+                <div class="col-12">
+                    <div class="bento-card report-chart-card">
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <h6 class="card-subtitle text-muted mb-0">Enrollment Over Time</h6>
+                            <div class="btn-group btn-group-sm" id="enrollment-trend-toggle" role="group">
+                                <button type="button" class="btn btn-outline-primary" data-grouping="day">Day</button>
+                                <button type="button" class="btn btn-outline-primary active" data-grouping="week">Week</button>
+                                <button type="button" class="btn btn-outline-primary" data-grouping="month">Month</button>
+                                <button type="button" class="btn btn-outline-primary" data-grouping="year">Year</button>
+                            </div>
+                        </div>
+                        <div id="chart-trend-container" style="position: relative; height: 260px;">
+                            <canvas id="chart-trend"></canvas>
+                        </div>
+                        <div id="chart-trend-empty" class="text-center text-muted py-4 small" style="display: none;">
+                            No enrollment data available for the selected period.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Outlet Enrollment (full width) -->
+            <div class="row g-4 mb-4">
+                <div class="col-12">
+                    <div class="bento-card report-chart-card">
+                        <h6 class="card-subtitle text-muted mb-3">Enrollment by Outlet</h6>
+                        <div id="chart-outlets-container" style="position: relative; height: 300px;">
+                            <canvas id="chart-outlets"></canvas>
+                        </div>
+                        <div id="chart-outlets-empty" class="text-center text-muted py-4 small" style="display: none;">
+                            No outlet data available
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+
 
         </div><!-- /#reportContent -->
 
     </div><!-- /.consultcall-container -->
 
     <script>
-    var REPORT_CONFIG = {
-        staffId: <?php echo json_encode(isset($id_user) ? $id_user : ''); ?>,
-        permission: <?php echo json_encode($consult_call_permission); ?>,
-        apiUrl: 'consultcall/api-jwt.php'
-    };
+        var REPORT_CONFIG = {
+            staffId: <?php echo json_encode(isset($id_user) ? $id_user : ''); ?>,
+            permission: <?php echo json_encode($consult_call_permission); ?>,
+            apiUrl: 'consultcall/api-jwt.php'
+        };
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="consultcall/js/report.js?v=<?php echo time(); ?>"></script>
 </body>
+
 </html>
