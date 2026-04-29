@@ -981,6 +981,84 @@ function getStatusLibrary($type, $staff_id)
 }
 
 /**
+ * Get all clinical conditions from the Laravel API
+ * @param int $staff_id Staff ID for authentication
+ * @return array Clinical conditions data
+ */
+function getClinicalConditions($staff_id)
+{
+    $result = getApiDataWithJWT('clinical-conditions', null, 'GET', $staff_id);
+    $httpCode = $result['httpCode'];
+    $decoded = json_decode($result['response'], true);
+
+    if ($httpCode == 200) {
+        return array(
+            'success' => true,
+            'data' => isset($decoded['data']) ? $decoded['data'] : array()
+        );
+    } else {
+        return array(
+            'success' => false,
+            'message' => isset($decoded['message']) ? $decoded['message'] : 'Failed to retrieve clinical conditions'
+        );
+    }
+}
+
+/**
+ * Update a clinical condition description and risk tier
+ * @param int $id Clinical condition ID
+ * @param array $data Fields: description, risk_tier
+ * @param int $staff_id Staff ID for authentication
+ * @return array Update result
+ */
+function updateClinicalCondition($id, $data, $staff_id)
+{
+    $result = getApiDataWithJWT('clinical-conditions/' . (int)$id, $data, 'PUT', $staff_id);
+    $httpCode = $result['httpCode'];
+    $decoded = json_decode($result['response'], true);
+
+    if ($httpCode == 200) {
+        return array(
+            'success' => true,
+            'data' => isset($decoded['data']) ? $decoded['data'] : null,
+            'message' => isset($decoded['message']) ? $decoded['message'] : 'Clinical condition updated successfully'
+        );
+    } else {
+        return array(
+            'success' => false,
+            'message' => isset($decoded['message']) ? $decoded['message'] : 'Failed to update clinical condition',
+            'errors' => isset($decoded['errors']) ? $decoded['errors'] : null
+        );
+    }
+}
+
+/**
+ * Toggle the is_active status of a clinical condition
+ * @param int $id Clinical condition ID
+ * @param int $staff_id Staff ID for authentication
+ * @return array Toggle result with new is_active state
+ */
+function toggleClinicalCondition($id, $staff_id)
+{
+    $result = getApiDataWithJWT('clinical-conditions/' . (int)$id . '/toggle', null, 'PATCH', $staff_id);
+    $httpCode = $result['httpCode'];
+    $decoded = json_decode($result['response'], true);
+
+    if ($httpCode == 200) {
+        return array(
+            'success' => true,
+            'data' => isset($decoded['data']) ? $decoded['data'] : null,
+            'message' => isset($decoded['message']) ? $decoded['message'] : 'Clinical condition toggled successfully'
+        );
+    } else {
+        return array(
+            'success' => false,
+            'message' => isset($decoded['message']) ? $decoded['message'] : 'Failed to toggle clinical condition'
+        );
+    }
+}
+
+/**
  * Get a single customer from ODB customer table by ID
  * @param int $customer_id Customer ID
  * @return array Customer data or error
@@ -1350,6 +1428,26 @@ if (!defined('API_JWT_INCLUDED')) {
                         $response = deleteConsultCallFollowUp($jsonData['consult_call_id'], $jsonData['follow_up_id'], $staff_id);
                     } else {
                         $response = array('success' => false, 'message' => 'Missing consult call ID or follow-up ID');
+                    }
+                    break;
+
+                case 'get-clinical-conditions':
+                    $response = getClinicalConditions($staff_id);
+                    break;
+
+                case 'update-clinical-condition':
+                    if (isset($jsonData['id']) && isset($jsonData['data'])) {
+                        $response = updateClinicalCondition($jsonData['id'], $jsonData['data'], $staff_id);
+                    } else {
+                        $response = array('success' => false, 'message' => 'Missing clinical condition ID or data');
+                    }
+                    break;
+
+                case 'toggle-clinical-condition':
+                    if (isset($jsonData['id'])) {
+                        $response = toggleClinicalCondition($jsonData['id'], $staff_id);
+                    } else {
+                        $response = array('success' => false, 'message' => 'Missing clinical condition ID');
                     }
                     break;
 
