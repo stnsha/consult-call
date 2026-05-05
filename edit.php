@@ -723,6 +723,11 @@ $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
                 Action is set to End Process but Process Status is Active. Please review before saving.
             </div>
 
+            <!-- Closed process status without End Process action — hard block shown by JS -->
+            <div id="closed-no-end-process-warning" class="alert alert-danger mt-3" style="display:none;" role="alert">
+                <strong>Cannot save:</strong> Process Status is set to <strong>Closed</strong> but the selected Action is not <strong>End Process</strong>. Please select "End Process" as the Action, or change the Process Status to Active before saving.
+            </div>
+
             <!-- Save Button -->
             <div class="d-flex justify-content-end gap-2 mt-4" id="form-actions">
                 <a href="consultcall/index.php" class="btn btn-outline-secondary">Cancel</a>

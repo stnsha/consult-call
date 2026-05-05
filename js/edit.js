@@ -604,6 +604,14 @@
         warning.style.display = (action === 3 && ps === 1) ? '' : 'none';
     }
 
+    function checkClosedProcessWarning() {
+        var warning = document.getElementById('closed-no-end-process-warning');
+        if (!warning) return;
+        var action = toIntOrNull(getRadioValue('action'));
+        var ps = toIntOrNull(getRadioValue('process_status'));
+        warning.style.display = (ps === 3 && action !== null && action !== 2 && action !== 3) ? '' : 'none';
+    }
+
     /**
      * Update process_status radio state based on the selected action value.
      * Refer External (2) and End Process (3) pre-select Closed (doctor can still change it).
@@ -614,6 +622,7 @@
         var forceClose = (value === '2' || value === '3');
         setProcessStatusRadio(forceClose ? '3' : null, false);
         checkEndProcessWarning();
+        checkClosedProcessWarning();
     }
 
     /**
@@ -973,6 +982,7 @@
         for (var ps = 0; ps < processStatusRadios.length; ps++) {
             processStatusRadios[ps].addEventListener('change', function() {
                 checkEndProcessWarning();
+                checkClosedProcessWarning();
             });
         }
 
@@ -1382,6 +1392,8 @@
         if (EDIT_CONFIG.viewOnly) {
             disableAllFormFields();
         }
+
+        checkClosedProcessWarning();
     }
 
     /**
@@ -1451,6 +1463,18 @@
                 if (onFailure) onFailure();
                 return;
             }
+        }
+
+        // Hard block: Closed process status is only valid with End Process action.
+        var blockAction = toIntOrNull(getRadioValue('action'));
+        var blockProcessStatus = toIntOrNull(getRadioValue('process_status'));
+        if (blockProcessStatus === 3 && blockAction !== 2 && blockAction !== 3) {
+            alert(
+                'Cannot save: Process Status is set to Closed but Action is not "End Process".\n\n' +
+                'Please select "End Process" as the Action, or change the Process Status to Active.'
+            );
+            if (onFailure) onFailure();
+            return;
         }
 
         var activeBtnId = (options && options.btnId) ? options.btnId : 'saveBtn';
