@@ -723,9 +723,24 @@ $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
                 Action is set to End Process but Process Status is Active. Please review before saving.
             </div>
 
-            <!-- Closed process status without End Process action — hard block shown by JS -->
+            <!-- Closed process status without End Process action — block shown by JS, requires acknowledgment -->
             <div id="closed-no-end-process-warning" class="alert alert-danger mt-3" style="display:none;" role="alert">
                 <strong>Cannot save:</strong> Process Status is set to <strong>Closed</strong> but the selected Action is not <strong>End Process</strong>. Please select "End Process" as the Action, or change the Process Status to Active before saving.
+            </div>
+
+            <!-- Acknowledgment panel — shown when Action = Refer Internal and Process Status = Closed -->
+            <div id="closed-status-acknowledge" class="mt-2" style="display:none; text-align:right;">
+                <div class="alert alert-warning d-inline-block mb-0 py-2 px-3" style="text-align:left;">
+                    <div class="form-check mb-0">
+                        <input class="form-check-input" type="checkbox" id="acknowledge_closed_status" name="acknowledge_closed_status">
+                        <label class="form-check-label fw-semibold" for="acknowledge_closed_status">
+                            I am aware that Process Status is set to Closed despite Action being Refer Internal.
+                        </label>
+                    </div>
+                    <div id="ack-checkbox-error" class="text-danger small mt-1" style="display:none;">
+                        Please check this box to confirm before saving.
+                    </div>
+                </div>
             </div>
 
             <!-- Save Button -->

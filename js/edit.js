@@ -555,9 +555,9 @@
                 dateContainer.style.display = 'none';
             }
             handleActionChange('');
-            // No Show defaults process_status to Closed
+            // No Show defaults process_status to Closed and locks it — backend always forces Closed for No Show.
             if (value === CONSULT_NO_SHOW) {
-                setProcessStatusRadio('3', false);
+                setProcessStatusRadio('3', true);
             }
         }
     }
@@ -606,10 +606,19 @@
 
     function checkClosedProcessWarning() {
         var warning = document.getElementById('closed-no-end-process-warning');
-        if (!warning) return;
+        var ackPanel = document.getElementById('closed-status-acknowledge');
+        var ackCheckbox = document.getElementById('acknowledge_closed_status');
         var action = toIntOrNull(getRadioValue('action'));
         var ps = toIntOrNull(getRadioValue('process_status'));
-        warning.style.display = (ps === 3 && action !== null && action !== 2 && action !== 3) ? '' : 'none';
+        var consultStatus = toIntOrNull(getRadioValue('consult_status'));
+        // Only show warning for the deliberate Refer Internal + Closed combination.
+        // No Show forcing Closed is expected backend behaviour and does not need acknowledgment.
+        var show = (ps === 3 && action === 1 && consultStatus !== 2);
+        var ackError = document.getElementById('ack-checkbox-error');
+        if (warning) warning.style.display = show ? '' : 'none';
+        if (ackPanel) ackPanel.style.display = show ? 'block' : 'none';
+        if (!show && ackCheckbox) ackCheckbox.checked = false;
+        if (!show && ackError) ackError.style.display = 'none';
     }
 
     /**
@@ -619,8 +628,21 @@
      * @param {string} value Action radio value as string
      */
     function handleActionChange(value) {
-        var forceClose = (value === '2' || value === '3');
-        setProcessStatusRadio(forceClose ? '3' : null, false);
+        // No Show always locks process_status to Closed regardless of action selected.
+        // The backend enforces the same rule; overriding to Active here creates a UI/data mismatch.
+        if (getRadioValue('consult_status') === CONSULT_NO_SHOW) {
+            setProcessStatusRadio('3', true);
+            checkEndProcessWarning();
+            checkClosedProcessWarning();
+            return;
+        }
+        if (value === '2' || value === '3') {
+            setProcessStatusRadio('3', false);
+        } else if (value === '1') {
+            setProcessStatusRadio('1', false);
+        } else {
+            setProcessStatusRadio(null, false);
+        }
         checkEndProcessWarning();
         checkClosedProcessWarning();
     }
@@ -986,6 +1008,16 @@
             });
         }
 
+        var ackCheckboxEl = document.getElementById('acknowledge_closed_status');
+        if (ackCheckboxEl) {
+            ackCheckboxEl.addEventListener('change', function() {
+                if (this.checked) {
+                    var ackErr = document.getElementById('ack-checkbox-error');
+                    if (ackErr) ackErr.style.display = 'none';
+                }
+            });
+        }
+
         var followupReminderRadios = document.querySelectorAll('input[name="followup_reminder"]');
         for (var q = 0; q < followupReminderRadios.length; q++) {
             followupReminderRadios[q].addEventListener('change', function() {
@@ -1259,8 +1291,11 @@
             // saved without a follow-up, such as EndProcess). Once a follow-up exists the
             // UPDATE mode guard on currentDetailId is enough to prevent duplicates, and
             // pre-populating would leave stale form data visible after the save completes.
+            // Exception: drafts (is_draft === 1) may have a paired draft follow-up — allow
+            // pre-population so the doctor sees their saved progress after a draft reload.
             // Skip pre-population when the follow-up checkpoint is done (new cycle expected).
-            if (lastIsCompleted && lastIsByCurrentDoctor && !followUpCheckpointDone && !pairedFollowUp) {
+            var isDraftDetail = lastDetail.is_draft === 1;
+            if (lastIsCompleted && lastIsByCurrentDoctor && !followUpCheckpointDone && (!pairedFollowUp || isDraftDetail)) {
                 setInputValue('consult_date', toDateValue(lastDetail.consult_date));
                 setSelectValue('consulted_by', String(lastDetail.consulted_by));
                 var completedStatus = String(lastDetail.consult_status);
@@ -1465,16 +1500,30 @@
             }
         }
 
-        // Hard block: Closed process status is only valid with End Process action.
+        // Block save if Process Status is Closed with Refer Internal action specifically.
+        // Requires the acknowledgment checkbox AND a non-empty Remarks field before proceeding.
+        // Draft saves bypass this check — only final Save Changes is gated.
+        // No Show (consult_status 2) forces Closed by backend design — no acknowledgment needed.
         var blockAction = toIntOrNull(getRadioValue('action'));
         var blockProcessStatus = toIntOrNull(getRadioValue('process_status'));
-        if (blockProcessStatus === 3 && blockAction !== 2 && blockAction !== 3) {
-            alert(
-                'Cannot save: Process Status is set to Closed but Action is not "End Process".\n\n' +
-                'Please select "End Process" as the Action, or change the Process Status to Active.'
-            );
-            if (onFailure) onFailure();
-            return;
+        var blockConsultStatus = toIntOrNull(getRadioValue('consult_status'));
+        if (!isDraft && blockProcessStatus === 3 && blockAction === 1 && blockConsultStatus !== 2) {
+            var ackCheckbox = document.getElementById('acknowledge_closed_status');
+            var ackError = document.getElementById('ack-checkbox-error');
+            var remarksVal = getInputValue('remarks').trim();
+            var hasError = !ackCheckbox || !ackCheckbox.checked || !remarksVal;
+            if (hasError) {
+                if (ackCheckbox && !ackCheckbox.checked && ackError) {
+                    ackError.style.display = '';
+                }
+                if (!remarksVal) {
+                    showFieldError('remarks', 'Remarks are required when Process Status is Closed with Refer Internal action.');
+                }
+                var scrollTarget = document.getElementById('closed-no-end-process-warning');
+                if (scrollTarget) scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                if (onFailure) onFailure();
+                return;
+            }
         }
 
         var activeBtnId = (options && options.btnId) ? options.btnId : 'saveBtn';
@@ -1599,14 +1648,21 @@
                 // Follow-up is only created when consultation is completed (status 1),
                 // action is Refer Internal (1), process_status is Active (1), and follow-up data is present.
                 // All other action/process_status combinations must not produce a follow-up record.
-                var hasFollowUp = !isDraft &&
+                // Exception: draft saves may create/update a follow-up to persist blood test required
+                // and mode of conversion, which are follow-up fields not present on the detail record.
+                var draftHasFollowUpData = isDraft && (
+                    getRadioValue('is_blood_test_required') !== '' ||
+                    getRadioValue('mode_of_conversion') !== ''
+                );
+                var hasFollowUp = draftHasFollowUpData || (!isDraft &&
                     detailData.consult_status === 1 &&
                     actionValue === 1 &&
                     detailData.process_status === 1 && (
                         followUpData.followup_type !== null ||
                         followUpData.next_followup !== null ||
                         followUpData.followup_date
-                    );
+                    )
+                );
 
                 if (hasDetail) {
                     if (currentDetailId) {
