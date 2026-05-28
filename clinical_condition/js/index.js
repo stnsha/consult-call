@@ -15,6 +15,21 @@
         3: 'bg-danger'
     };
 
+    var allConditions = [];
+    var currentPage = 1;
+    var perPage = 15;
+
+    function formatDate(dateStr) {
+        if (!dateStr) return '-';
+        var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        var parts = dateStr.substr(0, 10).split('-');
+        if (parts.length !== 3) return dateStr;
+        var d = parseInt(parts[2], 10);
+        var m = parseInt(parts[1], 10) - 1;
+        var y = parts[0];
+        return d + ' ' + months[m] + ' ' + y;
+    }
+
     function escapeHtml(str) {
         var div = document.createElement('div');
         div.appendChild(document.createTextNode(String(str === null || str === undefined ? '' : str)));
@@ -68,12 +83,15 @@
             var statusLabel = isActive ? 'Active' : 'Inactive';
             var toggleLabel = isActive ? 'Set Inactive' : 'Set Active';
             var toggleClass = isActive ? 'btn-outline-danger' : 'btn-outline-success';
+            var rowNum = (currentPage - 1) * perPage + i + 1;
 
             html += '<tr id="row-' + escapeHtml(row.id) + '">';
-            html += '<td class="text-muted">' + (i + 1) + '</td>';
+            html += '<td class="text-muted">' + rowNum + '</td>';
             html += '<td>' + escapeHtml(row.description) + '</td>';
             html += '<td><span class="badge ' + tierBadge + '">' + escapeHtml(tierLabel) + '</span></td>';
             html += '<td><span class="badge ' + statusBadge + '">' + statusLabel + '</span></td>';
+
+            html += '<td>' + formatDate(row.active_from) + '</td>';
 
             var disabled = CC_CONFIG.isSuperAdmin ? '' : ' disabled';
             html += '<td>';
@@ -94,6 +112,79 @@
         tbody.innerHTML = html;
     }
 
+    function handlePageClick(e) {
+        e.preventDefault();
+        var page = this.getAttribute('data-page');
+        var total = allConditions.length;
+        var totalPages = Math.max(1, Math.ceil(total / perPage));
+        if (page === 'prev') {
+            if (currentPage > 1) currentPage--;
+        } else if (page === 'next') {
+            if (currentPage < totalPages) currentPage++;
+        } else {
+            currentPage = parseInt(page, 10);
+        }
+        renderPage();
+    }
+
+    function renderPagination(totalPages, total) {
+        var paginationInfo = document.getElementById('paginationInfo');
+        var paginationControls = document.getElementById('paginationControls');
+        if (!paginationInfo || !paginationControls) return;
+
+        if (totalPages < 1) totalPages = 1;
+        var startRow = total === 0 ? 0 : (currentPage - 1) * perPage + 1;
+        var endRow = Math.min(currentPage * perPage, total);
+        paginationInfo.textContent = 'Showing ' + startRow + ' to ' + endRow + ' of ' + total + ' entries';
+
+        var html = '';
+
+        html += '<li class="page-item ' + (currentPage === 1 ? 'disabled' : '') + '">';
+        html += '<a class="page-link" href="#" data-page="prev">Previous</a></li>';
+
+        var startPage = Math.max(1, currentPage - 2);
+        var endPage = Math.min(totalPages, currentPage + 2);
+
+        if (startPage > 1) {
+            html += '<li class="page-item"><a class="page-link" href="#" data-page="1">1</a></li>';
+            if (startPage > 2) {
+                html += '<li class="page-item disabled"><span class="page-link">...</span></li>';
+            }
+        }
+
+        for (var p = startPage; p <= endPage; p++) {
+            html += '<li class="page-item ' + (p === currentPage ? 'active' : '') + '">';
+            html += '<a class="page-link" href="#" data-page="' + p + '">' + p + '</a></li>';
+        }
+
+        if (endPage < totalPages) {
+            if (endPage < totalPages - 1) {
+                html += '<li class="page-item disabled"><span class="page-link">...</span></li>';
+            }
+            html += '<li class="page-item"><a class="page-link" href="#" data-page="' + totalPages + '">' + totalPages + '</a></li>';
+        }
+
+        html += '<li class="page-item ' + (currentPage === totalPages ? 'disabled' : '') + '">';
+        html += '<a class="page-link" href="#" data-page="next">Next</a></li>';
+
+        paginationControls.innerHTML = html;
+
+        var pageLinks = paginationControls.getElementsByTagName('a');
+        for (var k = 0; k < pageLinks.length; k++) {
+            pageLinks[k].addEventListener('click', handlePageClick);
+        }
+    }
+
+    function renderPage() {
+        var total = allConditions.length;
+        var totalPages = Math.max(1, Math.ceil(total / perPage));
+        if (currentPage > totalPages) currentPage = totalPages;
+        var start = (currentPage - 1) * perPage;
+        var slice = allConditions.slice(start, start + perPage);
+        renderTable(slice);
+        renderPagination(totalPages, total);
+    }
+
     function loadConditions() {
         var tbody = document.getElementById('conditions-tbody');
         if (tbody) {
@@ -102,7 +193,8 @@
 
         apiCall('get-clinical-conditions', {}).then(function (result) {
             if (result.success) {
-                renderTable(result.data);
+                allConditions = result.data || [];
+                renderPage();
             } else {
                 showAlert(result.message || 'Failed to load clinical conditions.');
                 if (tbody) {

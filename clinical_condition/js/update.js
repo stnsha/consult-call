@@ -45,6 +45,9 @@
         var fieldRisk = document.getElementById('field-risk-tier');
         if (fieldRisk) fieldRisk.value = String(condition.risk_tier !== undefined ? condition.risk_tier : 0);
 
+        var fieldActiveFrom = document.getElementById('field-active-from');
+        if (fieldActiveFrom) fieldActiveFrom.value = condition.active_from ? condition.active_from.substr(0, 10) : '';
+
         document.getElementById('form-loading').style.display = 'none';
         document.getElementById('update-form').style.display = 'block';
     }
@@ -83,8 +86,10 @@
 
             var descField = document.getElementById('field-description');
             var riskField = document.getElementById('field-risk-tier');
+            var activeFromField = document.getElementById('field-active-from');
             var description = descField ? descField.value.trim() : '';
             var riskTier = riskField ? parseInt(riskField.value, 10) : 0;
+            var activeFrom = activeFromField && activeFromField.value ? activeFromField.value : null;
 
             if (!description) {
                 showAlert('Description is required.', false);
@@ -101,7 +106,8 @@
                 id: CC_CONFIG.conditionId,
                 data: {
                     description: description,
-                    risk_tier: riskTier
+                    risk_tier: riskTier,
+                    active_from: activeFrom
                 }
             }).then(function (result) {
                 if (result.success) {

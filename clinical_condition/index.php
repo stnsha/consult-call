@@ -67,6 +67,7 @@ if ($_cc_is_local && isset($_SESSION['dev_role_override'])) {
                             <th>Description</th>
                             <th style="width: 100px;">Risk Tier</th>
                             <th style="width: 90px;">Status</th>
+                            <th style="width: 110px;">Active From</th>
                             <th style="width: 160px;">Actions</th>
                         </tr>
                     </thead>
@@ -76,6 +77,13 @@ if ($_cc_is_local && isset($_SESSION['dev_role_override'])) {
                         </tr>
                     </tbody>
                 </table>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
+                <span id="paginationInfo" style="font-size: 13px;">Showing 0 to 0 of 0 entries</span>
+                <nav>
+                    <ul class="pagination pagination-sm mb-0" id="paginationControls"></ul>
+                </nav>
             </div>
         </div>
 
@@ -87,7 +95,7 @@ if ($_cc_is_local && isset($_SESSION['dev_role_override'])) {
         permission: <?php echo json_encode($consult_call_permission); ?>,
         apiUrl: 'consultcall/api-jwt.php',
         isSuperAdmin: <?php echo $consult_call_permission === 1 ? 'true' : 'false'; ?>,
-        colSpan: 5
+        colSpan: 6
     };
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>

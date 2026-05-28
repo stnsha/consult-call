@@ -60,6 +60,7 @@
     var CONSULT_PENDING = '0';
     var CONSULT_COMPLETED = '1';
     var CONSULT_NO_SHOW = '2';
+    var CONSULT_CANCELLED = '3';
 
     // True when the current doctor has already claimed the active detail (consulted_by set)
     // but has not yet saved consult_status as completed. Used to skip the confirmation dialog
@@ -444,6 +445,14 @@
                     valid = false;
                 } else { clearFieldError('action'); }
             }
+
+            if (consultStatus === CONSULT_NO_SHOW || consultStatus === CONSULT_CANCELLED) {
+                var terminalRemarks = getInputValue('remarks');
+                if (!terminalRemarks || !terminalRemarks.trim()) {
+                    showFieldError('remarks', 'Remarks are required for No-show or Cancelled.');
+                    valid = false;
+                } else { clearFieldError('remarks'); }
+            }
         }
 
         return valid;
@@ -497,6 +506,24 @@
             } else {
                 rescheduleFields[i].classList.remove('visible');
             }
+        }
+        // Cascade: appointment cancelled → consent becomes Refused, consult_status becomes Cancelled.
+        // Do NOT call handleConsentChange('2') — that hides consent_obtained fields (Scheduled
+        // Status, Handled By, Mode of Consult) which must stay visible as context for the
+        // cancelled appointment. Instead, explicitly keep those fields visible and only add
+        // the Refusal Remarks field.
+        if (value === '3') {
+            setRadioValue('consent_status', '2');
+            var coFields = document.querySelectorAll('[data-condition="consent_obtained"]');
+            for (var ci = 0; ci < coFields.length; ci++) {
+                coFields[ci].classList.add('visible');
+            }
+            var crFields = document.querySelectorAll('[data-condition="consent_refused"]');
+            for (var cr = 0; cr < crFields.length; cr++) {
+                crFields[cr].classList.add('visible');
+            }
+            setRadioValue('consult_status', CONSULT_CANCELLED);
+            handleConsultStatusChange(CONSULT_CANCELLED);
         }
     }
 
@@ -555,9 +582,13 @@
                 dateContainer.style.display = 'none';
             }
             handleActionChange('');
-            // No Show defaults process_status to Closed and locks it — backend always forces Closed for No Show.
-            if (value === CONSULT_NO_SHOW) {
+            // No Show and Cancelled default process_status to Closed and lock it.
+            // Cancelled also updates consent radio to Refused for visual feedback.
+            if (value === CONSULT_NO_SHOW || value === CONSULT_CANCELLED) {
                 setProcessStatusRadio('3', true);
+                if (value === CONSULT_CANCELLED) {
+                    setRadioValue('consent_status', '2');
+                }
             }
         }
     }
@@ -612,8 +643,8 @@
         var ps = toIntOrNull(getRadioValue('process_status'));
         var consultStatus = toIntOrNull(getRadioValue('consult_status'));
         // Only show warning for the deliberate Refer Internal + Closed combination.
-        // No Show forcing Closed is expected backend behaviour and does not need acknowledgment.
-        var show = (ps === 3 && action === 1 && consultStatus !== 2);
+        // No Show and Cancelled forcing Closed is expected backend behaviour and does not need acknowledgment.
+        var show = (ps === 3 && action === 1 && consultStatus !== 2 && consultStatus !== 3);
         var ackError = document.getElementById('ack-checkbox-error');
         if (warning) warning.style.display = show ? '' : 'none';
         if (ackPanel) ackPanel.style.display = show ? 'block' : 'none';
@@ -1176,8 +1207,13 @@
         setRadioValue('consent_status', consentStatus);
         handleConsentChange(consentStatus);
 
-        // Consultation Details section is only visible when consent was already saved as Obtained
-        toggleConsultationSection(String(data.consent_call_status) === CONSENT_OBTAINED);
+        // Also show consultation section when the latest detail is past Pending (doctor has acted),
+        // so the section remains visible after consent is set to Refused on cancellation.
+        // Use data.details directly — the local `details` variable is not declared until later.
+        var rawDetails = data.details || [];
+        var latestDetailForSection = rawDetails.length > 0 ? rawDetails[rawDetails.length - 1] : null;
+        var detailHasAction = !!(latestDetailForSection && String(latestDetailForSection.consult_status) !== '0');
+        toggleConsultationSection(String(data.consent_call_status) === CONSENT_OBTAINED || detailHasAction);
 
         // Consent obtained fields
         if (data.consent_call_date) {
@@ -1333,6 +1369,18 @@
             }
         }
 
+        // Re-apply No Show or Cancelled after the reset block cleared the detail radios.
+        // The reset block unselects all detail radios; terminal statuses must be restored here
+        // since they are never populated by the doctor-specific pre-population path above.
+        if (details.length > 0) {
+            var lastDetailStatus = String(details[details.length - 1].consult_status);
+            if (lastDetailStatus === CONSULT_NO_SHOW || lastDetailStatus === CONSULT_CANCELLED) {
+                setRadioValue('consult_status', lastDetailStatus);
+                prevConsultStatus = lastDetailStatus;
+                handleConsultStatusChange(lastDetailStatus);
+            }
+        }
+
         // Auto-select current staff as Consulted By for Doctor role (role 2)
         if (EDIT_CONFIG.currentStaffRole === 2 && EDIT_CONFIG.currentStaffId) {
             setSelectValue('consulted_by', String(EDIT_CONFIG.currentStaffId));
@@ -1371,10 +1419,13 @@
         // Drafts bypass the completion lock but still respect the doctor ownership lock so
         // only the doctor who saved the draft can continue editing it.
         var followUpCheckpointDone = latestFollowUp && String(latestFollowUp.followup_reminder) === '1';
-        var consultationCompleted = !detailIsDraft && latestDetail && String(latestDetail.consult_status) === '1';
+        var terminalConsultStatus = !detailIsDraft && latestDetail && (
+            String(latestDetail.consult_status) === '1' ||
+            String(latestDetail.consult_status) === CONSULT_CANCELLED
+        );
         var ownedByOtherDoctor = latestDetail && latestDetail.consulted_by &&
             parseInt(EDIT_CONFIG.currentStaffId, 10) !== latestDetail.consulted_by;
-        if (!followUpCheckpointDone && (consultationCompleted || ownedByOtherDoctor)) {
+        if (!followUpCheckpointDone && (terminalConsultStatus || ownedByOtherDoctor)) {
             disableConsultationSection();
         }
 
@@ -1507,7 +1558,7 @@
         var blockAction = toIntOrNull(getRadioValue('action'));
         var blockProcessStatus = toIntOrNull(getRadioValue('process_status'));
         var blockConsultStatus = toIntOrNull(getRadioValue('consult_status'));
-        if (!isDraft && blockProcessStatus === 3 && blockAction === 1 && blockConsultStatus !== 2) {
+        if (!isDraft && blockProcessStatus === 3 && blockAction === 1 && blockConsultStatus !== 2 && blockConsultStatus !== 3) {
             var ackCheckbox = document.getElementById('acknowledge_closed_status');
             var ackError = document.getElementById('ack-checkbox-error');
             var remarksVal = getInputValue('remarks').trim();
@@ -1624,20 +1675,32 @@
                 }));
             }
 
-            // HQ (role 4): when consent is Refused (2) or On Prescribed Medication (3), automatically close the process status
-            if (EDIT_CONFIG.currentStaffRole === 4 && (consultCallData.consent_call_status === 2 || consultCallData.consent_call_status === 3)) {
-                var closeDetailData = { process_status: 3 };
-                if (currentDetailId) {
-                    promises.push(apiCall('update-detail', {
-                        consult_call_id: EDIT_CONFIG.consultCallId,
-                        detail_id: currentDetailId,
-                        data: closeDetailData
-                    }));
-                } else {
-                    promises.push(apiCall('create-detail', {
-                        consult_call_id: EDIT_CONFIG.consultCallId,
-                        data: closeDetailData
-                    }));
+            // HQ (role 4): automatically update the detail when consent is refused/on-medication
+            // or when the scheduled appointment is cancelled.
+            if (EDIT_CONFIG.currentStaffRole === 4) {
+                var hqDetailData = null;
+                if (consultCallData.consent_call_status === 2 || consultCallData.consent_call_status === 3) {
+                    hqDetailData = hqDetailData || {};
+                    hqDetailData.process_status = 3;
+                }
+                if (consultCallData.scheduled_status === 3) {
+                    hqDetailData = hqDetailData || {};
+                    hqDetailData.consult_status = 3;
+                    // process_status will be forced to Closed by the backend's statusForcesClose rule
+                }
+                if (hqDetailData) {
+                    if (currentDetailId) {
+                        promises.push(apiCall('update-detail', {
+                            consult_call_id: EDIT_CONFIG.consultCallId,
+                            detail_id: currentDetailId,
+                            data: hqDetailData
+                        }));
+                    } else {
+                        promises.push(apiCall('create-detail', {
+                            consult_call_id: EDIT_CONFIG.consultCallId,
+                            data: hqDetailData
+                        }));
+                    }
                 }
             }
 

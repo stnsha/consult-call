@@ -93,7 +93,7 @@ if (!$condition_id) {
                                 maxlength="500" required style="font-size: 13px;">
                         </div>
 
-                        <div class="mb-4">
+                        <div class="mb-3">
                             <label for="field-risk-tier" class="form-label" style="font-size: 13px; font-weight: 500;">Risk Tier <span class="text-danger">*</span></label>
                             <select class="form-select" id="field-risk-tier" name="risk_tier" style="font-size: 13px;">
                                 <option value="0">0 — Healthy</option>
@@ -101,6 +101,12 @@ if (!$condition_id) {
                                 <option value="2">2 — Medium</option>
                                 <option value="3">3 — High</option>
                             </select>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="field-active-from" class="form-label" style="font-size: 13px; font-weight: 500;">Active From</label>
+                            <input type="date" class="form-control" id="field-active-from" name="active_from" style="font-size: 13px;">
+                            <div class="form-text" style="font-size: 11px; text-align: left;">Leave blank if the condition is effective immediately.</div>
                         </div>
 
                         <div class="d-flex justify-content-end gap-2">
