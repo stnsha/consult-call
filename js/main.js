@@ -825,6 +825,8 @@
                     return s;
                 }
 
+                var RISK_TIER_LABELS = { 0: 'No Risk', 1: 'Low', 2: 'Medium', 3: 'High' };
+
                 var CRLF = '\r\n';
                 var rows = [];
 
@@ -833,19 +835,40 @@
                     csvField('Customer Name'),
                     csvField('IC Number'),
                     csvField('Phone No'),
-                    csvField('Outlet Code')
+                    csvField('Outlet Code'),
+                    csvField('Clinical Condition'),
+                    csvField('Risk Tier')
                 ].join(','));
 
                 for (var j = 0; j < records.length; j++) {
                     var rec      = records[j];
                     var customer = (rec.customer_id && customerMap[rec.customer_id]) ? customerMap[rec.customer_id] : {};
                     var outlet   = (rec.outlet_id   && outletMap[rec.outlet_id])     ? outletMap[rec.outlet_id]     : {};
+
+                    var clinicalConditionName = '';
+                    var riskTierLabel = '';
+                    var details = rec.details || [];
+                    for (var d = details.length - 1; d >= 0; d--) {
+                        if (details[d].is_draft !== 1) {
+                            var cc = details[d].clinical_condition;
+                            if (cc) {
+                                clinicalConditionName = cc.description || '';
+                                riskTierLabel = (cc.risk_tier !== null && cc.risk_tier !== undefined)
+                                    ? (RISK_TIER_LABELS[cc.risk_tier] || String(cc.risk_tier))
+                                    : '';
+                            }
+                            break;
+                        }
+                    }
+
                     rows.push([
                         csvField(rec.id ? '#CC' + rec.id : ''),
                         csvField(customer.name  || ''),
                         csvField(customer.ic    || ''),
                         csvField(customer.phone || ''),
-                        csvField(outlet.code    || '')
+                        csvField(outlet.code    || ''),
+                        csvField(clinicalConditionName),
+                        csvField(riskTierLabel)
                     ].join(','));
                 }
 
