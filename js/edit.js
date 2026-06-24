@@ -1369,6 +1369,26 @@
             }
         }
 
+        // When the doctor is resuming a consultation that already has a paired non-draft
+        // follow-up (doctorFollowUpId set, checkpoint not done), re-populate the follow-up
+        // fields from the saved record. Without this, the reset block clears all follow-up
+        // fields to defaults on every page reload, causing a silent overwrite of previously
+        // saved values when the doctor saves again without re-selecting them.
+        if (doctorFollowUpId && pairedFollowUp) {
+            var fuRepopType = pairedFollowUp.followup_type !== null ? String(pairedFollowUp.followup_type) : '0';
+            setRadioValue('followup_type', fuRepopType);
+            setRadioValue('is_blood_test_required', pairedFollowUp.is_blood_test_required ? '1' : '0');
+            var fuRepopNext = pairedFollowUp.next_followup !== null ? String(pairedFollowUp.next_followup) : '0';
+            setRadioValue('next_followup', fuRepopNext);
+            handleNextFollowUpChange(fuRepopNext, false);
+            if (pairedFollowUp.followup_date) {
+                setInputValue('followup_date', toDateValue(pairedFollowUp.followup_date));
+            }
+            if (pairedFollowUp.mode_of_conversion !== null && pairedFollowUp.mode_of_conversion !== undefined) {
+                setRadioValue('mode_of_conversion', String(pairedFollowUp.mode_of_conversion));
+            }
+        }
+
         // Re-apply No Show or Cancelled after the reset block cleared the detail radios.
         // The reset block unselects all detail radios; terminal statuses must be restored here
         // since they are never populated by the doctor-specific pre-population path above.
@@ -1631,7 +1651,7 @@
             followup_type: toIntOrNull(getRadioValue('followup_type')),
             next_followup: toIntOrNull(getRadioValue('next_followup')),
             followup_date: getInputValue('followup_date') || null,
-            is_blood_test_required: getRadioValue('is_blood_test_required') === '1',
+            is_blood_test_required: toIntOrNull(getRadioValue('is_blood_test_required')),
             mode_of_conversion: toIntOrNull(getRadioValue('mode_of_conversion'))
         };
 
