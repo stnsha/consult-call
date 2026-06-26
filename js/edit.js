@@ -1302,12 +1302,16 @@
             // When HQ has marked the follow-up checkpoint as completed (followup_reminder = 1),
             // the previous consultation cycle is closed. The doctor must start a fresh record.
             var followUpCheckpointDone = pairedFollowUp && String(pairedFollowUp.followup_reminder) === '1';
+            // A rescheduled follow-up (reminder = 2) opens a new consultation cycle just like
+            // a completed checkpoint. Force CREATE mode so the doctor's save produces a new
+            // detail and follow-up record rather than overwriting the previous completed ones.
+            var pairedFollowUpIsRescheduled = pairedFollowUp && String(pairedFollowUp.followup_reminder) === '2';
             // Track ID for update when: detail is pending, OR detail is completed by this doctor.
             // Completed-by-same-doctor keeps UPDATE mode so a re-save edits the record rather
             // than creating a duplicate. Only a pending record from a new re-enrollment cycle
             // (created by the eligibility service) should enter CREATE mode.
-            // When followUpCheckpointDone is true, always enter CREATE mode for the new cycle.
-            if ((!lastIsCompleted || lastIsByCurrentDoctor) && !followUpCheckpointDone) {
+            // When followUpCheckpointDone or pairedFollowUpIsRescheduled, always enter CREATE mode.
+            if ((!lastIsCompleted || lastIsByCurrentDoctor) && !followUpCheckpointDone && !pairedFollowUpIsRescheduled) {
                 currentDetailId = lastDetail.id || null;
                 if (pairedFollowUp) {
                     doctorFollowUpId = pairedFollowUp.id || null;
@@ -1438,14 +1442,17 @@
         // Lock consultation section when completed (not a draft) or owned by a different doctor.
         // Drafts bypass the completion lock but still respect the doctor ownership lock so
         // only the doctor who saved the draft can continue editing it.
+        // A rescheduled follow-up (reminder = 2) also bypasses the lock — the patient is
+        // returning for a new appointment and the doctor must enter fresh consultation details.
         var followUpCheckpointDone = latestFollowUp && String(latestFollowUp.followup_reminder) === '1';
+        var followUpIsRescheduled = latestFollowUp && String(latestFollowUp.followup_reminder) === '2';
         var terminalConsultStatus = !detailIsDraft && latestDetail && (
             String(latestDetail.consult_status) === '1' ||
             String(latestDetail.consult_status) === CONSULT_CANCELLED
         );
         var ownedByOtherDoctor = latestDetail && latestDetail.consulted_by &&
             parseInt(EDIT_CONFIG.currentStaffId, 10) !== latestDetail.consulted_by;
-        if (!followUpCheckpointDone && (terminalConsultStatus || ownedByOtherDoctor)) {
+        if (!followUpCheckpointDone && !followUpIsRescheduled && (terminalConsultStatus || ownedByOtherDoctor)) {
             disableConsultationSection();
         }
 
