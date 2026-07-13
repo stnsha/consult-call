@@ -26,7 +26,8 @@ if (!$isLocal) {
     exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+$_dsr_requestMethod = isset($_SERVER['REQUEST_METHOD']) ? $_SERVER['REQUEST_METHOD'] : '';
+if ($_dsr_requestMethod !== 'POST') {
     http_response_code(405);
     echo 'Method not allowed.';
     exit;

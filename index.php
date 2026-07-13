@@ -245,7 +245,7 @@ if ($doctor_result) {
                             <select class="form-select" id="consultedByFilter">
                                 <option value="">All</option>
                                 <?php foreach ($doctor_list as $doctor): ?>
-                                    <option value="<?php echo (int)$doctor['id']; ?>"><?php echo htmlspecialchars($doctor['nama_staff']); ?></option>
+                                    <option value="<?php echo (int)$doctor['id']; ?>"><?php echo htmlspecialchars($doctor['nama_staff'] ?? ''); ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </div>

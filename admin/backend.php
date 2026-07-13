@@ -34,8 +34,9 @@ if ((int)$auth_row['consult_call'] !== 1) {
 }
 
 $action = isset($_GET['action']) ? $_GET['action'] : '';
+$_request_method = isset($_SERVER['REQUEST_METHOD']) ? $_SERVER['REQUEST_METHOD'] : '';
 
-if ($action === 'getOutlets' && $_SERVER['REQUEST_METHOD'] === 'GET') {
+if ($action === 'getOutlets' && $_request_method === 'GET') {
     $result = mysqli_query($conn, "SELECT id, code, comp_name FROM outlet WHERE recycle = '0' ORDER BY comp_name ASC");
     $outlets = array();
     if ($result) {
@@ -51,7 +52,7 @@ if ($action === 'getOutlets' && $_SERVER['REQUEST_METHOD'] === 'GET') {
     exit;
 }
 
-if ($action === 'getActiveStaff' && $_SERVER['REQUEST_METHOD'] === 'GET') {
+if ($action === 'getActiveStaff' && $_request_method === 'GET') {
     $page    = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
     $perPage = 15;
     $offset  = ($page - 1) * $perPage;
@@ -96,7 +97,7 @@ if ($action === 'getActiveStaff' && $_SERVER['REQUEST_METHOD'] === 'GET') {
     exit;
 }
 
-if ($action === 'searchStaff' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($action === 'searchStaff' && $_request_method === 'POST') {
     $search_term = isset($_POST['search_term']) ? mysqli_real_escape_string($conn, trim($_POST['search_term'])) : '';
 
     if ($search_term === '') {
@@ -131,7 +132,7 @@ if ($action === 'searchStaff' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
-if ($action === 'updateAccess' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($action === 'updateAccess' && $_request_method === 'POST') {
     $target_id  = isset($_POST['staff_id'])   ? (int)$_POST['staff_id']   : 0;
     $permission = isset($_POST['permission']) ? (int)$_POST['permission'] : -1;
 

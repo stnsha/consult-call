@@ -29,7 +29,7 @@ if ($_navbar_isLocal) {
 ?>
 <div style="background:#12122a;color:#d0d0f0;padding:5px 14px;font-size:11px;font-family:monospace;display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-bottom:1px solid #333;">
     <span style="color:#888;letter-spacing:.05em;">DEV ROLE</span>
-    <strong style="color:#f0c040;">[<?php echo htmlspecialchars($_navbar_activeRoleLabel); ?>]</strong>
+    <strong style="color:#f0c040;">[<?php echo htmlspecialchars($_navbar_activeRoleLabel ?? ''); ?>]</strong>
     <?php foreach ($_navbar_roleLabels as $_r => $_label): ?>
         <form method="POST" action="/odb/consultcall/dev-switch-role.php" style="display:inline;margin:0;">
             <input type="hidden" name="role" value="<?php echo $_r; ?>">
@@ -49,8 +49,9 @@ if ($_navbar_isLocal) {
 
 <?php
 // Get current page to highlight active nav item
-$current_page = basename($_SERVER['PHP_SELF']);
-$current_dir = basename(dirname($_SERVER['PHP_SELF']));
+$_navbar_phpSelf = isset($_SERVER['PHP_SELF']) ? $_SERVER['PHP_SELF'] : '';
+$current_page = basename($_navbar_phpSelf);
+$current_dir = basename(dirname($_navbar_phpSelf));
 
 // Determine active class for each nav item
 $dashboard_active  = ($current_page == 'index.php'  && $current_dir == 'consultcall')         ? 'active' : '';

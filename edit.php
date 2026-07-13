@@ -1,4 +1,8 @@
-<?php session_start(); ?>
+<?php
+if (session_id() == '') {
+    session_start();
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -428,7 +432,7 @@ $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
                                 <?php foreach ($hqStaffList as $staff): ?>
                                 <option value="<?php echo htmlspecialchars($staff['id']); ?>"
                                     <?php echo ($currentStaffRole === 4 && $staff['id'] == $currentStaffId) ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($staff['name']); ?>
+                                    <?php echo htmlspecialchars($staff['name'] ?? ''); ?>
                                 </option>
                                 <?php endforeach; ?>
                             </select>
@@ -534,7 +538,7 @@ $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
                             <select class="form-select" name="consulted_by" id="consulted_by" <?php echo $dD; ?>>
                                 <option value="">Select Staff</option>
                                 <?php foreach ($staffList as $staff): ?>
-                                <option value="<?php echo htmlspecialchars($staff['id']); ?>"><?php echo htmlspecialchars($staff['name']); ?></option>
+                                <option value="<?php echo htmlspecialchars($staff['id']); ?>"><?php echo htmlspecialchars($staff['name'] ?? ''); ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </div>

@@ -24,13 +24,14 @@ $staff_id = null;
 $department = null;
 $status_semasa = null;
 $outlet = null;
+$consult_call = null;
 
 if (isset($_SESSION["myusername"])) {
     $username = $_SESSION["myusername"];
     $query = "select * from staff where username = '$username' and recycle!=1";
     $result = $conn->query($query);
 
-    if ($result->num_rows > 0) {
+    if ($result && $result->num_rows > 0) {
         while ($rows = $result->fetch_assoc()) {
             $staff_id = stripslashes($rows['id']);
             $department = stripslashes($rows['department']);
@@ -1083,9 +1084,13 @@ function getCustomerById($customer_id)
 
     $age = null;
     if ($row['birth_date'] && $row['birth_date'] !== '0000-00-00') {
-        $birthDate = new DateTime($row['birth_date']);
-        $today = new DateTime();
-        $age = $today->diff($birthDate)->y;
+        try {
+            $birthDate = new DateTime($row['birth_date']);
+            $today = new DateTime();
+            $age = $today->diff($birthDate)->y;
+        } catch (Exception $e) {
+            $age = null;
+        }
     }
 
     return array(
@@ -1136,9 +1141,13 @@ function getCustomersByIds($customer_ids)
     while ($row = mysqli_fetch_assoc($result)) {
         $age = null;
         if ($row['birth_date'] && $row['birth_date'] !== '0000-00-00') {
-            $birthDate = new DateTime($row['birth_date']);
-            $today = new DateTime();
-            $age = $today->diff($birthDate)->y;
+            try {
+                $birthDate = new DateTime($row['birth_date']);
+                $today = new DateTime();
+                $age = $today->diff($birthDate)->y;
+            } catch (Exception $e) {
+                $age = null;
+            }
         }
 
         $customers[$row['id']] = array(
@@ -1260,7 +1269,8 @@ if (!defined('API_JWT_INCLUDED')) {
     // Check for action in query parameter or JSON body
     $action = isset($_GET['action']) ? $_GET['action'] : (isset($jsonData['action']) ? $jsonData['action'] : null);
 
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $requestMethod = isset($_SERVER['REQUEST_METHOD']) ? $_SERVER['REQUEST_METHOD'] : '';
+    if ($requestMethod === 'POST') {
         if ($action) {
             switch ($action) {
                 case 'verify-token':
