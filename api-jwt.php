@@ -107,7 +107,6 @@ function logJWTOperation($operation, $message, $data = null, $level = 'INFO')
  */
 function getEnvironment()
 {
-    // Check if running on localhost (PHP 5.3 compatible)
     $serverName = isset($_SERVER['SERVER_NAME']) ? $_SERVER['SERVER_NAME'] : '';
     $httpHost = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : '';
 

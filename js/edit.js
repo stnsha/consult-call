@@ -4,7 +4,7 @@
  *
  * API field name reference:
  *   Consult Call: consent_call_status (0/1/2), consent_call_date, enrollment_type (1/2),
- *     scheduled_status (0-3), scheduled_call_date, handled_by, mode_of_consultation (0-3),
+ *     scheduled_status (0-3), scheduled_call_date, handled_by,
  *     closure_date, final_remarks
  *   Detail: diagnosis, treatment_plan, rx_issued (bool), action (1-3),
  *     consult_status (0-3), process_status (1-3), consulted_by, consult_date, remarks
@@ -328,12 +328,6 @@
                     showFieldError('handled_by', 'Please select the person handling this call.');
                     valid = false;
                 } else { clearFieldError('handled_by'); }
-
-                var modeConsult = getRadioValue('mode_of_consultation');
-                if (!modeConsult) {
-                    showFieldError('mode_of_consultation', 'Please select a mode of consultation.');
-                    valid = false;
-                } else { clearFieldError('mode_of_consultation'); }
             }
 
             if (consentStatus === '2') {
@@ -509,9 +503,8 @@
         }
         // Cascade: appointment cancelled → consent becomes Refused, consult_status becomes Cancelled.
         // Do NOT call handleConsentChange('2') — that hides consent_obtained fields (Scheduled
-        // Status, Handled By, Mode of Consult) which must stay visible as context for the
-        // cancelled appointment. Instead, explicitly keep those fields visible and only add
-        // the Refusal Remarks field.
+        // Status, Handled By) which must stay visible as context for the cancelled appointment.
+        // Instead, explicitly keep those fields visible and only add the Refusal Remarks field.
         if (value === '3') {
             setRadioValue('consent_status', '2');
             var coFields = document.querySelectorAll('[data-condition="consent_obtained"]');
@@ -1238,10 +1231,6 @@
         if (!data.handled_by && EDIT_CONFIG.currentStaffRole === 4 && EDIT_CONFIG.currentStaffId) {
             setSelectValue('handled_by', String(EDIT_CONFIG.currentStaffId));
         }
-        if (data.mode_of_consultation !== undefined && data.mode_of_consultation !== null) {
-            setRadioValue('mode_of_consultation', String(data.mode_of_consultation));
-        }
-
         // Consent refused fields
         if (data.final_remarks) {
             setInputValue('refusal_remarks', data.final_remarks);
@@ -1580,7 +1569,7 @@
 
         // Block save if Process Status is Closed with Refer Internal action specifically.
         // Requires the acknowledgment checkbox AND a non-empty Remarks field before proceeding.
-        // Draft saves bypass this check — only final Save Changes is gated.
+        // Draft saves bypass this check — only final Submit Changes is gated.
         // No Show (consult_status 2) forces Closed by backend design — no acknowledgment needed.
         var blockAction = toIntOrNull(getRadioValue('action'));
         var blockProcessStatus = toIntOrNull(getRadioValue('process_status'));
@@ -1621,7 +1610,6 @@
             scheduled_call_date: getInputValue('scheduled_call_date') || null,
             updated_scheduled_date: getInputValue('updated_scheduled_date') || null,
             handled_by: toIntOrNull(getSelectValue('handled_by')) || originalHandledBy || null,
-            mode_of_consultation: toIntOrNull(getRadioValue('mode_of_consultation')),
             final_remarks: getInputValue('refusal_remarks') || null
         };
 

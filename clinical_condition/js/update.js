@@ -119,14 +119,14 @@
                     showAlert(result.message || 'Failed to update clinical condition.', false);
                     if (saveBtn) {
                         saveBtn.disabled = false;
-                        saveBtn.textContent = 'Save Changes';
+                        saveBtn.textContent = 'Submit Changes';
                     }
                 }
             }).catch(function () {
                 showAlert('Network error. Please try again.', false);
                 if (saveBtn) {
                     saveBtn.disabled = false;
-                    saveBtn.textContent = 'Save Changes';
+                    saveBtn.textContent = 'Submit Changes';
                 }
             });
         });

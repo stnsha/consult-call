@@ -29,6 +29,21 @@ if ($cc_result && mysqli_num_rows($cc_result) > 0) {
     $consult_call_permission = isset($cc_row['consult_call']) ? (int)$cc_row['consult_call'] : 0;
 }
 
+// Apply dev role override on localhost (mirrors api-jwt.php behaviour)
+$_idx_server_name = isset($_SERVER['SERVER_NAME']) ? $_SERVER['SERVER_NAME'] : '';
+$_idx_http_host   = isset($_SERVER['HTTP_HOST'])   ? $_SERVER['HTTP_HOST']   : '';
+$_idx_is_local    = in_array($_idx_server_name, array('localhost', '127.0.0.1'))
+    || strpos($_idx_http_host, 'localhost') !== false
+    || strpos($_idx_http_host, '127.0.0.1') !== false;
+if ($_idx_is_local && isset($_SESSION['dev_role_override'])) {
+    $consult_call_permission = (int)$_SESSION['dev_role_override'];
+}
+
+if ($consult_call_permission === 0) {
+    header('Location: /odb/consultcall/unauthorized.php');
+    exit;
+}
+
 $doctor_list = array();
 $doctor_query = "SELECT id, nama_staff FROM staff WHERE consult_call = 2 AND recycle != 1 ORDER BY nama_staff";
 $doctor_result = mysqli_query($conn, $doctor_query);

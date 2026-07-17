@@ -136,7 +136,7 @@ if ($action === 'updateAccess' && $_request_method === 'POST') {
     $target_id  = isset($_POST['staff_id'])   ? (int)$_POST['staff_id']   : 0;
     $permission = isset($_POST['permission']) ? (int)$_POST['permission'] : -1;
 
-    $valid_permissions = array(0, 1, 2, 3, 4, 5);
+    $valid_permissions = array(0, 1, 2, 3, 4, 5, 6);
 
     if ($target_id <= 0 || !in_array($permission, $valid_permissions)) {
         echo json_encode(array('success' => false, 'message' => 'Invalid input.'));

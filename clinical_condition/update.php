@@ -28,6 +28,16 @@ if ($cc_result && mysqli_num_rows($cc_result) > 0) {
     $consult_call_permission = isset($cc_row['consult_call']) ? (int)$cc_row['consult_call'] : 0;
 }
 
+// Apply dev role override on localhost (mirrors api-jwt.php behaviour)
+$_ccu_server_name = isset($_SERVER['SERVER_NAME']) ? $_SERVER['SERVER_NAME'] : '';
+$_ccu_http_host   = isset($_SERVER['HTTP_HOST'])   ? $_SERVER['HTTP_HOST']   : '';
+$_ccu_is_local    = in_array($_ccu_server_name, array('localhost', '127.0.0.1'))
+    || strpos($_ccu_http_host, 'localhost') !== false
+    || strpos($_ccu_http_host, '127.0.0.1') !== false;
+if ($_ccu_is_local && isset($_SESSION['dev_role_override'])) {
+    $consult_call_permission = (int)$_SESSION['dev_role_override'];
+}
+
 if ($consult_call_permission !== 1) {
     header('Location: /odb/consultcall/clinical_condition/index.php');
     exit;
@@ -111,7 +121,7 @@ if (!$condition_id) {
 
                         <div class="d-flex justify-content-end gap-2">
                             <a href="consultcall/clinical_condition/index.php" class="btn btn-outline-secondary btn-sm">Cancel</a>
-                            <button type="submit" class="btn btn-primary btn-sm" id="save-btn">Save Changes</button>
+                            <button type="submit" class="btn btn-primary btn-sm" id="save-btn">Submit Changes</button>
                         </div>
 
                     </form>

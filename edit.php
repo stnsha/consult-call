@@ -267,6 +267,11 @@ if ($_ep_isLocal && isset($_SESSION['dev_role_override'])) {
     $currentStaffRole = (int)$_SESSION['dev_role_override'];
 }
 
+if ($currentStaffRole === 0) {
+    header('Location: /odb/consultcall/unauthorized.php');
+    exit;
+}
+
 // Eligibility section controls are disabled for non-HQ roles
 $eD = ($currentStaffRole !== 4) ? 'disabled' : '';
 
@@ -436,24 +441,6 @@ $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
                                 </option>
                                 <?php endforeach; ?>
                             </select>
-                        </div>
-
-                        <div class="col-md-6 conditional-field" data-condition="consent_obtained">
-                            <label class="form-label">Mode of Consult<span style="color:red;"> *</span></label>
-                            <div class="radio-group">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="mode_of_consultation" id="mode_phone" value="1" <?php echo $eD; ?>>
-                                    <label class="form-check-label" for="mode_phone">Phone</label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="mode_of_consultation" id="mode_google_meet" value="2" <?php echo $eD; ?>>
-                                    <label class="form-check-label" for="mode_google_meet">Google Meet</label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="mode_of_consultation" id="mode_whatsapp" value="3" <?php echo $eD; ?>>
-                                    <label class="form-check-label" for="mode_whatsapp">WhatsApp</label>
-                                </div>
-                            </div>
                         </div>
 
                         <!-- Conditional field when consent = refused -->
@@ -750,13 +737,13 @@ $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
             <!-- Save Button -->
             <div class="d-flex justify-content-end gap-2 mt-4" id="form-actions">
                 <a href="consultcall/index.php" class="btn btn-outline-secondary">Cancel</a>
-                <?php if ($currentStaffRole === 1 || $currentStaffRole === 2): ?>
+                <?php if ($currentStaffRole === 1 || $currentStaffRole === 2 || $currentStaffRole === 6): ?>
                 <button type="button" class="btn btn-outline-warning" id="draftBtn">
                     <i class="bi bi-pencil-square me-1"></i>Save as Draft
                 </button>
                 <?php endif; ?>
                 <button type="submit" class="btn btn-primary" id="saveBtn">
-                    <i class="bi bi-check-lg me-1"></i>Save Changes
+                    <i class="bi bi-check-lg me-1"></i>Submit Changes
                 </button>
             </div>
         </form>

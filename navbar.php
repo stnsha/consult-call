@@ -19,6 +19,7 @@ if ($_navbar_isLocal) {
         3 => 'Pharmacy',
         4 => 'HQ',
         5 => 'Outlet',
+        6 => 'Admin',
     );
 
     $_navbar_activeRole      = isset($_SESSION['dev_role_override']) ? (int)$_SESSION['dev_role_override'] : null;

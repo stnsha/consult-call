@@ -143,6 +143,16 @@ if ($cc_result && mysqli_num_rows($cc_result) > 0) {
     $consult_call_permission = isset($cc_row['consult_call']) ? (int)$cc_row['consult_call'] : 0;
 }
 
+// Apply dev role override on localhost (mirrors api-jwt.php behaviour)
+$_adm_server_name = isset($_SERVER['SERVER_NAME']) ? $_SERVER['SERVER_NAME'] : '';
+$_adm_http_host   = isset($_SERVER['HTTP_HOST'])   ? $_SERVER['HTTP_HOST']   : '';
+$_adm_is_local    = in_array($_adm_server_name, array('localhost', '127.0.0.1'))
+    || strpos($_adm_http_host, 'localhost') !== false
+    || strpos($_adm_http_host, '127.0.0.1') !== false;
+if ($_adm_is_local && isset($_SESSION['dev_role_override'])) {
+    $consult_call_permission = (int)$_SESSION['dev_role_override'];
+}
+
 if ($consult_call_permission !== 1) {
     header('Location: /odb/consultcall/index.php');
     exit;
@@ -155,6 +165,7 @@ $role_labels = array(
     3 => 'Pharmacy',
     4 => 'HQ',
     5 => 'Outlet',
+    6 => 'Admin',
 );
 
 $role_badges = array(
@@ -164,6 +175,7 @@ $role_badges = array(
     3 => 'bg-info text-dark',
     4 => 'bg-warning text-dark',
     5 => 'bg-success',
+    6 => 'bg-dark',
 );
 
 ?>

@@ -37,6 +37,11 @@ $_cc_is_local    = in_array($_cc_server_name, array('localhost', '127.0.0.1'))
 if ($_cc_is_local && isset($_SESSION['dev_role_override'])) {
     $consult_call_permission = (int)$_SESSION['dev_role_override'];
 }
+
+if ($consult_call_permission === 0) {
+    header('Location: /odb/consultcall/unauthorized.php');
+    exit;
+}
 ?>
 <body>
     <?php include('../navbar.php'); ?>
