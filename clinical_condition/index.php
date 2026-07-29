@@ -42,6 +42,10 @@ if ($consult_call_permission === 0) {
     header('Location: /odb/consultcall/unauthorized.php');
     exit;
 }
+
+$can_toggle_condition_status = ($consult_call_permission === 1)
+    || ($consult_call_permission === 6)
+    || ((int)$id_user === 5138);
 ?>
 <body>
     <?php include('../navbar.php'); ?>
@@ -100,7 +104,7 @@ if ($consult_call_permission === 0) {
         permission: <?php echo json_encode($consult_call_permission); ?>,
         apiUrl: 'consultcall/api-jwt.php',
         isSuperAdmin: <?php echo $consult_call_permission === 1 ? 'true' : 'false'; ?>,
-        canToggleStatus: <?php echo ($consult_call_permission === 1 || $consult_call_permission === 2) ? 'true' : 'false'; ?>,
+        canToggleStatus: <?php echo $can_toggle_condition_status ? 'true' : 'false'; ?>,
         colSpan: 6
     };
     </script>
