@@ -93,7 +93,7 @@
 
             html += '<td>' + formatDate(row.active_from) + '</td>';
 
-            var disabled = CC_CONFIG.isSuperAdmin ? '' : ' disabled';
+            var disabled = CC_CONFIG.canToggleStatus ? '' : ' disabled';
             html += '<td>';
             html += '<a href="' + (CC_CONFIG.isSuperAdmin ? 'consultcall/clinical_condition/update.php?id=' + escapeHtml(row.id) : '#') + '" '
                   + 'class="btn btn-sm btn-outline-primary me-1' + (CC_CONFIG.isSuperAdmin ? '' : ' disabled') + '" '
@@ -233,7 +233,7 @@
 
     document.addEventListener('click', function (e) {
         if (e.target && e.target.classList.contains('toggle-btn')) {
-            if (!CC_CONFIG.isSuperAdmin) return;
+            if (!CC_CONFIG.canToggleStatus) return;
 
             var id = e.target.getAttribute('data-id');
             var isSettingInactive = e.target.classList.contains('btn-outline-danger');

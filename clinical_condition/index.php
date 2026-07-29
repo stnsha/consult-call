@@ -100,6 +100,7 @@ if ($consult_call_permission === 0) {
         permission: <?php echo json_encode($consult_call_permission); ?>,
         apiUrl: 'consultcall/api-jwt.php',
         isSuperAdmin: <?php echo $consult_call_permission === 1 ? 'true' : 'false'; ?>,
+        canToggleStatus: <?php echo ($consult_call_permission === 1 || $consult_call_permission === 2) ? 'true' : 'false'; ?>,
         colSpan: 6
     };
     </script>
