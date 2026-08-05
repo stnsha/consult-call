@@ -68,10 +68,23 @@ $can_toggle_condition_status = ($consult_call_permission === 1)
                 <span id="table-alert-msg"></span>
             </div>
 
+            <?php if ($can_toggle_condition_status): ?>
+            <div id="bulk-actions-bar" class="alert alert-secondary d-none align-items-center justify-content-between mb-3 py-2" role="alert" style="font-size: 13px;">
+                <span id="bulk-actions-count">0 selected</span>
+                <div>
+                    <button type="button" id="bulk-set-active-btn" class="btn btn-sm btn-outline-success me-1">Set Active</button>
+                    <button type="button" id="bulk-set-inactive-btn" class="btn btn-sm btn-outline-danger">Set Inactive</button>
+                </div>
+            </div>
+            <?php endif; ?>
+
             <div class="table-responsive">
                 <table class="table table-hover mb-0" style="font-size: 13px;">
                     <thead>
                         <tr>
+                            <?php if ($can_toggle_condition_status): ?>
+                            <th style="width: 30px;"><input type="checkbox" id="select-all-checkbox" title="Select all on this page"></th>
+                            <?php endif; ?>
                             <th style="width: 40px;">#</th>
                             <th>Description</th>
                             <th style="width: 100px;">Risk Tier</th>
@@ -82,7 +95,7 @@ $can_toggle_condition_status = ($consult_call_permission === 1)
                     </thead>
                     <tbody id="conditions-tbody">
                         <tr>
-                            <td colspan="5" class="text-center text-muted py-4">Loading...</td>
+                            <td colspan="7" class="text-center text-muted py-4">Loading...</td>
                         </tr>
                     </tbody>
                 </table>
@@ -105,7 +118,7 @@ $can_toggle_condition_status = ($consult_call_permission === 1)
         apiUrl: 'consultcall/api-jwt.php',
         isSuperAdmin: <?php echo $consult_call_permission === 1 ? 'true' : 'false'; ?>,
         canToggleStatus: <?php echo $can_toggle_condition_status ? 'true' : 'false'; ?>,
-        colSpan: 6
+        colSpan: <?php echo $can_toggle_condition_status ? 7 : 6; ?>
     };
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>

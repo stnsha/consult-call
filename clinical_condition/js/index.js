@@ -18,6 +18,7 @@
     var allConditions = [];
     var currentPage = 1;
     var perPage = 15;
+    var selectedIds = {};
 
     function formatDate(dateStr) {
         if (!dateStr) return '-';
@@ -86,6 +87,10 @@
             var rowNum = (currentPage - 1) * perPage + i + 1;
 
             html += '<tr id="row-' + escapeHtml(row.id) + '">';
+            if (CC_CONFIG.canToggleStatus) {
+                var checked = selectedIds[row.id] ? ' checked' : '';
+                html += '<td><input type="checkbox" class="row-checkbox" data-id="' + escapeHtml(row.id) + '"' + checked + '></td>';
+            }
             html += '<td class="text-muted">' + rowNum + '</td>';
             html += '<td>' + escapeHtml(row.description) + '</td>';
             html += '<td><span class="badge ' + tierBadge + '">' + escapeHtml(tierLabel) + '</span></td>';
@@ -183,6 +188,103 @@
         var slice = allConditions.slice(start, start + perPage);
         renderTable(slice);
         renderPagination(totalPages, total);
+        updateBulkUI();
+    }
+
+    function updateSelectAllCheckbox() {
+        var selectAll = document.getElementById('select-all-checkbox');
+        if (!selectAll) return;
+        var boxes = document.querySelectorAll('.row-checkbox');
+        if (boxes.length === 0) {
+            selectAll.checked = false;
+            selectAll.indeterminate = false;
+            return;
+        }
+        var checkedCount = 0;
+        for (var i = 0; i < boxes.length; i++) {
+            if (boxes[i].checked) checkedCount++;
+        }
+        selectAll.checked = checkedCount === boxes.length;
+        selectAll.indeterminate = checkedCount > 0 && checkedCount < boxes.length;
+    }
+
+    function updateBulkUI() {
+        if (!CC_CONFIG.canToggleStatus) return;
+        updateSelectAllCheckbox();
+        var bar = document.getElementById('bulk-actions-bar');
+        var countEl = document.getElementById('bulk-actions-count');
+        if (!bar || !countEl) return;
+        var count = Object.keys(selectedIds).length;
+        countEl.textContent = count + ' selected';
+
+        var activeBtn = document.getElementById('bulk-set-active-btn');
+        var inactiveBtn = document.getElementById('bulk-set-inactive-btn');
+        if (activeBtn) activeBtn.disabled = false;
+        if (inactiveBtn) inactiveBtn.disabled = false;
+        if (count > 0) {
+            bar.classList.remove('d-none');
+            bar.classList.add('d-flex');
+        } else {
+            bar.classList.add('d-none');
+            bar.classList.remove('d-flex');
+        }
+    }
+
+    function bulkSetStatus(targetActive) {
+        var ids = Object.keys(selectedIds);
+        if (ids.length === 0) return;
+
+        var idsNeedingChange = [];
+        for (var i = 0; i < ids.length; i++) {
+            var condition = null;
+            for (var j = 0; j < allConditions.length; j++) {
+                if (String(allConditions[j].id) === String(ids[i])) {
+                    condition = allConditions[j];
+                    break;
+                }
+            }
+            var isActive = condition && (condition.is_active === true || condition.is_active === 1 || condition.is_active === '1');
+            if (!condition || isActive !== targetActive) {
+                idsNeedingChange.push(ids[i]);
+            }
+        }
+
+        if (idsNeedingChange.length === 0) {
+            selectedIds = {};
+            renderPage();
+            return;
+        }
+
+        if (!targetActive) {
+            var confirmed = window.confirm('Are you sure you want to set ' + idsNeedingChange.length + ' condition(s) as inactive? They will no longer be evaluated for consult call eligibility.');
+            if (!confirmed) return;
+        }
+
+        var activeBtn = document.getElementById('bulk-set-active-btn');
+        var inactiveBtn = document.getElementById('bulk-set-inactive-btn');
+        if (activeBtn) activeBtn.disabled = true;
+        if (inactiveBtn) inactiveBtn.disabled = true;
+
+        var promises = [];
+        for (var k = 0; k < idsNeedingChange.length; k++) {
+            promises.push(apiCall('toggle-clinical-condition', { id: idsNeedingChange[k] }));
+        }
+
+        Promise.all(promises).then(function (results) {
+            var failed = 0;
+            for (var i = 0; i < results.length; i++) {
+                if (!results[i] || !results[i].success) failed++;
+            }
+            if (failed > 0) {
+                showAlert(failed + ' condition(s) failed to update.');
+            }
+            selectedIds = {};
+            loadConditions();
+        }).catch(function () {
+            showAlert('Network error. Please try again.');
+            if (activeBtn) activeBtn.disabled = false;
+            if (inactiveBtn) inactiveBtn.disabled = false;
+        });
     }
 
     function loadConditions() {
@@ -190,6 +292,8 @@
         if (tbody) {
             tbody.innerHTML = '<tr><td colspan="' + CC_CONFIG.colSpan + '" class="text-center text-muted py-4">Loading...</td></tr>';
         }
+
+        selectedIds = {};
 
         apiCall('get-clinical-conditions', {}).then(function (result) {
             if (result.success) {
@@ -231,7 +335,44 @@
         });
     }
 
+    document.addEventListener('change', function (e) {
+        if (!e.target) return;
+
+        if (e.target.id === 'select-all-checkbox') {
+            var boxes = document.querySelectorAll('.row-checkbox');
+            for (var i = 0; i < boxes.length; i++) {
+                boxes[i].checked = e.target.checked;
+                if (e.target.checked) {
+                    selectedIds[boxes[i].getAttribute('data-id')] = true;
+                } else {
+                    delete selectedIds[boxes[i].getAttribute('data-id')];
+                }
+            }
+            updateBulkUI();
+            return;
+        }
+
+        if (e.target.classList.contains('row-checkbox')) {
+            var id = e.target.getAttribute('data-id');
+            if (e.target.checked) {
+                selectedIds[id] = true;
+            } else {
+                delete selectedIds[id];
+            }
+            updateBulkUI();
+        }
+    });
+
     document.addEventListener('click', function (e) {
+        if (e.target && e.target.id === 'bulk-set-active-btn') {
+            bulkSetStatus(true);
+            return;
+        }
+        if (e.target && e.target.id === 'bulk-set-inactive-btn') {
+            bulkSetStatus(false);
+            return;
+        }
+
         if (e.target && e.target.classList.contains('toggle-btn')) {
             if (!CC_CONFIG.canToggleStatus) return;
 
