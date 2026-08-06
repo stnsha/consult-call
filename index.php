@@ -65,90 +65,8 @@ if ($doctor_result) {
 
         <div class="row mb-4">
             <div class="col-12">
-                <h1 class="mb-1 fw-bold" style="font-size: 18px; font-weight: 500; text-align: left;">Dashboard</h1>
+                <h1 class="mb-1 fw-bold" style="font-size: 18px; font-weight: 500; text-align: left;">Consultations</h1>
                 <p class="text-muted mb-0" style="font-size: 13px; text-align: left;">Track and manage telehealth patient consultations</p>
-            </div>
-        </div>
-
-        <!-- Row 1: Overview Cards -->
-        <div class="row g-4 mb-4">
-            <!-- Total Patients Card -->
-            <div class="col-md-4">
-                <div class="bento-card h-100">
-                    <div class="d-flex align-items-center mb-3">
-                        <div class="card-icon bg-primary bg-opacity-10 text-primary">
-                            <i class="bi bi-people"></i>
-                        </div>
-                        <div class="ms-3 text-start">
-                            <h6 class="card-subtitle text-muted mb-1">Total Patients</h6>
-                            <h2 class="card-value mb-0"><span id="summary-total">--</span></h2>
-                        </div>
-                    </div>
-                    <div class="d-flex justify-content-between w-100 card-filter-row" data-filter-field="enrollmentFilter" data-filter-value="1">
-                        <span class="status-label">Primary</span>
-                        <span class="status-value" id="summary-enrollment-primary">--</span>
-                    </div>
-                    <div class="d-flex justify-content-between w-100 card-filter-row" data-filter-field="enrollmentFilter" data-filter-value="2">
-                        <span class="status-label">Follow-up</span>
-                        <span class="status-value" id="summary-enrollment-followup">--</span>
-                    </div>
-                </div>
-            </div>
-            <!-- Consent Status Card -->
-            <div class="col-md-4">
-                <div class="bento-card h-100">
-                    <div class="d-flex align-items-center mb-3">
-                        <div class="card-icon bg-success bg-opacity-10 text-success">
-                            <i class="bi bi-clipboard-check"></i>
-                        </div>
-                        <div class="ms-3 text-start">
-                            <h6 class="card-subtitle text-muted mb-1">Consent Status</h6>
-                            <h2 class="card-value mb-0"><span id="summary-consent-total">--</span></h2>
-                        </div>
-                    </div>
-                    <div class="d-flex justify-content-between w-100 card-filter-row" data-filter-field="consentFilter" data-filter-value="0">
-                        <span class="status-label">Pending</span>
-                        <span class="status-value" id="summary-consent-pending">--</span>
-                    </div>
-                    <div class="d-flex justify-content-between w-100 card-filter-row" data-filter-field="consentFilter" data-filter-value="1">
-                        <span class="status-label">Obtained</span>
-                        <span class="status-value" id="summary-consent-obtained">--</span>
-                    </div>
-                    <div class="d-flex justify-content-between w-100 card-filter-row" data-filter-field="consentFilter" data-filter-value="2">
-                        <span class="status-label">Refused</span>
-                        <span class="status-value" id="summary-consent-refused">--</span>
-                    </div>
-                    <div class="d-flex justify-content-between w-100 card-filter-row" data-filter-field="consentFilter" data-filter-value="3">
-                        <span class="status-label">On Medication</span>
-                        <span class="status-value" id="summary-consent-on-medication">--</span>
-                    </div>
-                </div>
-            </div>
-            <!-- Process Status Card -->
-            <div class="col-md-4">
-                <div class="bento-card h-100">
-                    <div class="d-flex align-items-center mb-3">
-                        <div class="card-icon bg-info bg-opacity-10 text-info">
-                            <i class="bi bi-gear"></i>
-                        </div>
-                        <div class="ms-3 text-start">
-                            <h6 class="card-subtitle text-muted mb-1">Process Status</h6>
-                            <h2 class="card-value mb-0"><span id="summary-process-total">--</span></h2>
-                        </div>
-                    </div>
-                    <div class="d-flex justify-content-between w-100 card-filter-row" data-filter-field="processFilter" data-filter-value="1">
-                        <span class="status-label">Active</span>
-                        <span class="status-value" id="summary-process-active">--</span>
-                    </div>
-                    <div class="d-flex justify-content-between w-100 card-filter-row" data-filter-field="processFilter" data-filter-value="3">
-                        <span class="status-label">Closed</span>
-                        <span class="status-value" id="summary-process-closed">--</span>
-                    </div>
-                    <div class="d-flex justify-content-between w-100 card-filter-row" data-filter-field="processFilter" data-filter-value="2">
-                        <span class="status-label">Escalated</span>
-                        <span class="status-value" id="summary-process-escalated">--</span>
-                    </div>
-                </div>
             </div>
         </div>
 
@@ -285,20 +203,21 @@ if ($doctor_result) {
                         <table class="table table-hover mb-0" id="patientsTable">
                             <thead>
                                 <tr>
-                                    <th>#</th>
                                     <th class="sortable-col" data-sort-col="id">Consult Call ID <span class="sort-icon"></span></th>
                                     <th>Patient Details</th>
-                                    <th class="sortable-col" data-sort-col="process_status">Process Status <span class="sort-icon"></span></th>
                                     <th class="sortable-col" data-sort-col="consent_call_status">Consent Status <span class="sort-icon"></span></th>
+                                    <th>Blood Test Report Date</th>
                                     <th class="sortable-col" data-sort-col="enrollment_date">Enrollment Date <span class="sort-icon"></span></th>
+                                    <th>Add On</th>
                                     <th class="sortable-col" data-sort-col="scheduled_call_date">Scheduled Date <span class="sort-icon"></span></th>
                                     <th>Consulted By</th>
-                                    <th>Actions</th>
+                                    <th class="sortable-col" data-sort-col="process_status">Process Status <span class="sort-icon"></span></th>
+                                    <th>Action</th>
                                 </tr>
                             </thead>
                             <tbody id="patientsTableBody">
                                 <tr>
-                                    <td colspan="10" class="text-center py-4">
+                                    <td colspan="9" class="text-center py-4">
                                         <div class="spinner-border spinner-border-sm text-primary" role="status">
                                             <span class="visually-hidden">Loading...</span>
                                         </div>

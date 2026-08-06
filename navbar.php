@@ -69,10 +69,10 @@ $admin_active      = ($current_page == 'index.php'  && $current_dir == 'admin') 
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav">
                 <li class="nav-item">
-                    <a class="nav-link <?php echo $dashboard_active; ?>" href="consultcall/index.php">Dashboard</a>
+                    <a class="nav-link <?php echo $report_active; ?>" href="consultcall/report.php">Dashboard</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link <?php echo $report_active; ?>" href="consultcall/report.php">Report</a>
+                    <a class="nav-link <?php echo $dashboard_active; ?>" href="consultcall/index.php">Consultations</a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link <?php echo $cc_active; ?>" href="consultcall/clinical_condition/index.php">Clinical Conditions</a>

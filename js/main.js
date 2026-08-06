@@ -118,59 +118,6 @@
     }
 
     /**
-     * Set text content of an element by ID, with fallback
-     * @param {string} id Element ID
-     * @param {*} value Value to display
-     */
-    function setText(id, value) {
-        var el = document.getElementById(id);
-        if (el) {
-            el.textContent = (value !== undefined && value !== null) ? value : '0';
-        }
-    }
-
-    /**
-     * Load summary data from API and update all summary card elements.
-     * Summary response uses string keys for sub-groups (e.g. "primary", "follow_up").
-     */
-    function loadSummary() {
-        apiCall('get-summary').then(function(result) {
-            if (!result.success || !result.data) return;
-            var d = result.data;
-
-            var enroll = d.enrollment_type || {};
-            setText('summary-total', d.total || 0);
-            setText('summary-enrollment-primary', enroll.primary || 0);
-            setText('summary-enrollment-followup', enroll.follow_up || 0);
-
-            var consent = d.consent_call_status || {};
-            var consentTotal = (consent.pending || 0) + (consent.obtained || 0) + (consent.refused || 0) + (consent.on_medication || 0);
-            setText('summary-consent-total', consentTotal);
-            setText('summary-consent-pending', consent.pending || 0);
-            setText('summary-consent-obtained', consent.obtained || 0);
-            setText('summary-consent-refused', consent.refused || 0);
-            setText('summary-consent-on-medication', consent.on_medication || 0);
-
-            var process = d.process_status || {};
-            var processTotal = (process.active || 0) + (process.escalated || 0) + (process.closed || 0);
-            setText('summary-process-total', processTotal);
-            setText('summary-process-active', process.active || 0);
-            setText('summary-process-closed', process.closed || 0);
-            setText('summary-process-escalated', process.escalated || 0);
-
-            var followup = d.followup_reminder || {};
-            var followupTotal = (followup.pending || 0) + (followup.completed || 0) + (followup.rescheduled || 0) + (followup.cancelled || 0);
-            setText('summary-followup-total', followupTotal);
-            setText('summary-followup-pending', followup.pending || 0);
-            setText('summary-followup-completed', followup.completed || 0);
-            setText('summary-followup-rescheduled', followup.rescheduled || 0);
-            setText('summary-followup-cancelled', followup.cancelled || 0);
-        }).catch(function(err) {
-            console.error('Failed to load summary:', err);
-        });
-    }
-
-    /**
      * Build filter parameters from the current state of filter DOM elements.
      * Filter values are already integers from the select options.
      * @returns {object} Filter parameters for the API call
@@ -289,17 +236,15 @@
 
     /**
      * Render a single table row from a consult call record.
-     * Columns: # | CC ID | Patient Details | Process Status | Consent Status |
-     *          Enrollment Date | Scheduled Date | Consulted By | Actions
+     * Columns: CC ID | Patient Details | Consent Status | Blood Test Report Date |
+     *          Enrollment Date | Add On | Scheduled Date | Consulted By | Process Status | Action
      * @param {object} record Consult call record from API
-     * @param {number} index Zero-based index within current page
      * @param {object} customerMap Map of customer_id to customer data from ODB
      * @param {object} outletMap Map of outlet_id to outlet data from ODB
      * @param {object} staffMap Map of staff_id to staff data from ODB
      * @returns {string} HTML string for the table row
      */
-    function renderRow(record, index, customerMap, outletMap, staffMap) {
-        var rowNum = (currentPage - 1) * perPage + index + 1;
+    function renderRow(record, customerMap, outletMap, staffMap) {
         var customer = (record.customer_id && customerMap[record.customer_id]) ? customerMap[record.customer_id] : {};
         var name  = escapeHtml(customer.name  || '');
         var icno  = escapeHtml(customer.ic    || '');
@@ -346,6 +291,15 @@
         var enrollmentDate  = record.enrollment_date      ? formatDate(record.enrollment_date)      : '<span class="text-muted">-</span>';
         var scheduledDate   = record.scheduled_call_date  ? formatDate(record.scheduled_call_date)  : '<span class="text-muted">-</span>';
 
+        // Blood test report date: from the latest consultation detail's linked test result
+        var testResult = latestDetail ? latestDetail.test_result : null;
+        var bloodTestDate = (testResult && testResult.collected_date)
+            ? formatDate(testResult.collected_date)
+            : '<span class="text-muted">-</span>';
+
+        // Add On: placeholder pending backend field
+        var addOnDisplay = '<span class="text-muted">-</span>';
+
         // Consulted by: resolve staff name from staffMap; skip if detail is a draft
         var consultedByName = '<span class="text-muted">-</span>';
         if (!detailIsDraft && latestDetail && latestDetail.consulted_by && staffMap[latestDetail.consulted_by]) {
@@ -355,7 +309,6 @@
         var ccIdDisplay = escapeHtml('#CC' + record.id);
 
         var html = '<tr>';
-        html += '<td>' + rowNum + '</td>';
         html += '<td><code>' + ccIdDisplay + '</code>'
             + (actionLabel ? '<br><span class="badge ' + actionBadge + ' mt-1">' + escapeHtml(actionLabel) + '</span>' : '')
             + '</td>';
@@ -370,11 +323,13 @@
         }
         html += '</td>';
 
-        html += '<td>' + (processLabel ? '<span class="badge ' + processBadge + '">' + escapeHtml(processLabel) + '</span>' : '<span class="text-muted">-</span>') + '</td>';
         html += '<td><span class="badge ' + consentBadge + '">' + escapeHtml(consentLabel) + '</span></td>';
+        html += '<td style="white-space:nowrap">' + bloodTestDate + '</td>';
         html += '<td style="white-space:nowrap">' + enrollmentDate + '</td>';
+        html += '<td>' + addOnDisplay + '</td>';
         html += '<td style="white-space:nowrap">' + scheduledDate + '</td>';
         html += '<td>' + consultedByName + '</td>';
+        html += '<td>' + (processLabel ? '<span class="badge ' + processBadge + '">' + escapeHtml(processLabel) + '</span>' : '<span class="text-muted">-</span>') + '</td>';
         html += '<td>';
         html += '<a href="consultcall/edit.php?id=' + encodeURIComponent(record.id) + '" class="btn btn-sm btn-outline-secondary" title="Edit"><i class="bi bi-pencil"></i></a>';
         if (detailIsDraft) {
@@ -549,7 +504,7 @@
         var tbody = document.getElementById('patientsTableBody');
         var html = '';
         for (var i = 0; i < records.length; i++) {
-            html += renderRow(records[i], i, customerMap, outletMap, staffMap);
+            html += renderRow(records[i], customerMap, outletMap, staffMap);
         }
         tbody.innerHTML = html;
 
@@ -683,35 +638,6 @@
                 });
             })
             .catch(function() { renderBannerEmpty(); });
-    }
-
-    /**
-     * Handle a card summary row click: clear all dropdowns, apply the clicked filter, reload.
-     * @param {Event} e Click event
-     */
-    function handleCardFilterClick(e) {
-        var field = this.getAttribute('data-filter-field');
-        var value = this.getAttribute('data-filter-value');
-
-        document.getElementById('searchInput').value = '';
-        document.getElementById('consentFilter').value = '';
-        document.getElementById('processFilter').value = '';
-        document.getElementById('reminderFilter').value = '';
-        document.getElementById('enrollmentFilter').value = '';
-        document.getElementById('dateFrom').value = '';
-        document.getElementById('dateTo').value = '';
-        document.getElementById('scheduledFrom').value = '';
-        document.getElementById('scheduledTo').value = '';
-        document.getElementById('consultedByFilter').value = '';
-        document.getElementById('actionFilter').value = '';
-
-        var el = document.getElementById(field);
-        if (el) {
-            el.value = value;
-        }
-
-        currentPage = 1;
-        loadTableData();
     }
 
     /**
@@ -928,11 +854,6 @@
         document.getElementById('resetBtn').addEventListener('click', resetFilters);
         document.getElementById('exportBtn').addEventListener('click', exportToExcel);
 
-        var filterRows = document.querySelectorAll('.card-filter-row');
-        for (var f = 0; f < filterRows.length; f++) {
-            filterRows[f].addEventListener('click', handleCardFilterClick);
-        }
-
         document.getElementById('rowsPerPage').addEventListener('change', function() {
             perPage = parseInt(this.value, 10);
             currentPage = 1;
@@ -941,7 +862,6 @@
 
         initSortableHeaders();
         loadFollowupBanner();
-        loadSummary();
         loadStatusMaps().then(function() {
             loadTableData();
         });

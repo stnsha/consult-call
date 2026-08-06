@@ -285,6 +285,7 @@ h1, h2, h3, h4, h5, h6 {
     letter-spacing: 0.5px;
     background-color: #f8f9fa;
     text-align: left;
+    white-space: nowrap;
 }
 
 .table td {
@@ -477,6 +478,20 @@ h1, h2, h3, h4, h5, h6 {
 /* Hide row on filter */
 .table tbody tr.hidden {
     display: none;
+}
+
+/* Compact sizing so the 9-column patients table fits without horizontal scroll */
+#patientsTable th,
+#patientsTable td {
+    padding: 0.6rem 0.5rem;
+}
+
+#patientsTable th {
+    font-size: 10px;
+}
+
+#patientsTable .patient-details {
+    min-width: 160px;
 }
 
 /* Patient Details Cell */
