@@ -786,6 +786,16 @@
             // Base info is always shown (blood test report, risk tier, clinical condition)
             html += renderAccordionBaseInfo(d);
 
+            // Edit is only offered once the consultation is completed
+            if (isCompleted) {
+                html += '<div class="d-flex justify-content-end mb-2">';
+                html += '<button type="button" class="btn btn-sm btn-outline-primary" id="history-edit-btn-' + p + '" onclick="editHistoryEntry(' + p + ')">';
+                html += '<i class="bi bi-pencil me-1"></i>Edit</button>';
+                html += '</div>';
+            }
+
+            html += '<div id="history-view-' + p + '">';
+
             // Consultation section: only render when at least one consultation field has data
             var hasConsultData = !!(d.consult_date || d.consulted_by || d.diagnosis || d.treatment_plan || d.remarks);
             if (hasConsultData) {
@@ -822,14 +832,27 @@
                     var actionCell = '<div class="mb-2"><div class="history-label">Action</div>'
                         + '<div class="history-value">' + escapeHtml(actionLabel || '') + '</div>';
                     if (fu.my_referral_id) {
+                        actionCell += '<div class="d-flex gap-1 mt-1">';
                         actionCell += '<a href="/odb/referral/view.php?id=' + encodeURIComponent(fu.my_referral_id) + '"'
-                            + ' target="_blank" class="btn btn-sm btn-outline-primary mt-1">View MyReferral</a>';
+                            + ' target="_blank" class="btn btn-sm btn-outline-primary">View MyReferral</a>';
+                        actionCell += '<button type="button" class="btn btn-sm btn-outline-danger" onclick="unlinkMyReferral(' + fu.id + ')">Unlink</button>';
+                        actionCell += '</div>';
                     }
                     actionCell += '</div>';
                     html += '<div class="col-6">' + actionCell + '</div>';
 
                     html += '</div>'; // row
                 }
+            }
+
+            html += '</div>'; // history-view
+
+            // Inline edit form: built once, hidden until the Edit button is clicked
+            if (isCompleted) {
+                html += '<div id="history-edit-' + p + '" data-detail-id="' + escapeHtml(d.id) + '"';
+                html += ' data-follow-up-id="' + (fu && fu.id ? escapeHtml(fu.id) : '') + '" style="display:none;">';
+                html += renderHistoryEditForm(p, d, fu);
+                html += '</div>';
             }
 
             html += '</div>'; // accordion-body
@@ -883,6 +906,239 @@
             + '<div class="history-value">' + escapeHtml(value || '') + '</div>'
             + '</div>';
     }
+
+    // -- Consultation History inline edit --
+
+    // Clone the main form's Consulted By options so the inline editor lists the same staff,
+    // pre-selecting selectedValue (the entry's current consulted_by)
+    function getConsultedByOptionsHtml(selectedValue) {
+        var select = document.getElementById('consulted_by');
+        if (!select) return '<option value="">Select Staff</option>';
+
+        var html = '';
+        for (var i = 0; i < select.options.length; i++) {
+            var opt = select.options[i];
+            var isSelected = (selectedValue !== null && selectedValue !== undefined && String(selectedValue) === opt.value);
+            html += '<option value="' + escapeHtml(opt.value) + '"' + (isSelected ? ' selected' : '') + '>' + escapeHtml(opt.text) + '</option>';
+        }
+        return html;
+    }
+
+    // Build a Bootstrap radio-group for a history edit form field, name-scoped by row index
+    function historyRadioGroup(field, idx, options, selectedValue) {
+        var html = '<div class="radio-group">';
+        for (var i = 0; i < options.length; i++) {
+            var id = 'hist_' + field + '_' + idx + '_' + options[i].value;
+            var checked = (selectedValue !== null && selectedValue !== undefined && String(selectedValue) === String(options[i].value)) ? 'checked' : '';
+            html += '<div class="form-check">';
+            html += '<input class="form-check-input" type="radio" name="hist_' + field + '_' + idx + '" id="' + id + '" value="' + options[i].value + '" ' + checked + '>';
+            html += '<label class="form-check-label" for="' + id + '">' + escapeHtml(options[i].label) + '</label>';
+            html += '</div>';
+        }
+        html += '</div>';
+        return html;
+    }
+
+    function getHistInputValue(idx, field) {
+        var el = document.getElementById('hist_' + field + '_' + idx);
+        return el ? el.value : '';
+    }
+
+    function getHistRadioValue(idx, field) {
+        var checked = document.querySelector('input[name="hist_' + field + '_' + idx + '"]:checked');
+        return checked ? checked.value : '';
+    }
+
+    /**
+     * Build the inline edit form for one Consultation History accordion entry.
+     * Detail fields are always editable; follow-up fields only appear when a
+     * follow-up record (fu) already exists for this entry.
+     * @param {number} idx Row index, used to scope field ids/names
+     * @param {object} d Consultation detail record
+     * @param {object|null} fu Paired follow-up record, or null
+     * @returns {string} HTML for the edit form
+     */
+    function renderHistoryEditForm(idx, d, fu) {
+        var html = '<hr class="my-2">';
+        html += '<div class="row g-3">';
+
+        html += '<div class="col-md-4"><label class="form-label">Consult Date</label>'
+            + '<input type="date" class="form-control form-control-sm" id="hist_consult_date_' + idx + '" value="' + escapeHtml(toDateValue(d.consult_date)) + '"></div>';
+
+        html += '<div class="col-md-4"><label class="form-label">Consulted By</label>'
+            + '<select class="form-select form-select-sm" id="hist_consulted_by_' + idx + '">' + getConsultedByOptionsHtml(d.consulted_by) + '</select></div>';
+
+        html += '<div class="col-md-4"><label class="form-label">Consult Status</label>'
+            + historyRadioGroup('consult_status', idx, [
+                { value: '0', label: 'Pending' }, { value: '1', label: 'Completed' },
+                { value: '2', label: 'No-show' }, { value: '3', label: 'Cancelled' }
+            ], d.consult_status) + '</div>';
+
+        html += '<div class="col-md-12"><label class="form-label">Documentation</label>'
+            + '<textarea class="form-control form-control-sm" id="hist_documentation_' + idx + '" rows="3">' + escapeHtml(d.documentation || '') + '</textarea></div>';
+
+        html += '<div class="col-md-12"><label class="form-label">Diagnosis</label>'
+            + '<textarea class="form-control form-control-sm" id="hist_diagnosis_' + idx + '" rows="4">' + escapeHtml(d.diagnosis || '') + '</textarea></div>';
+
+        html += '<div class="col-md-12"><label class="form-label">Treatment Plan</label>'
+            + '<textarea class="form-control form-control-sm" id="hist_treatment_plan_' + idx + '" rows="4">' + escapeHtml(d.treatment_plan || '') + '</textarea></div>';
+
+        html += '<div class="col-md-6"><label class="form-label">Rx Issued</label>'
+            + historyRadioGroup('rx_issued', idx, [{ value: '1', label: 'Yes' }, { value: '0', label: 'No' }], d.rx_issued ? '1' : '0') + '</div>';
+
+        html += '<div class="col-md-6"><label class="form-label">Action</label>'
+            + historyRadioGroup('action', idx, [
+                { value: '1', label: 'Refer Internal' }, { value: '2', label: 'Refer External' }, { value: '3', label: 'End Process' }
+            ], d.action) + '</div>';
+
+        html += '<div class="col-md-6"><label class="form-label">Process Status</label>'
+            + historyRadioGroup('process_status', idx, [{ value: '1', label: 'Active' }, { value: '3', label: 'Closed' }], d.process_status) + '</div>';
+
+        html += '<div class="col-md-12"><label class="form-label">Remarks</label>'
+            + '<textarea class="form-control form-control-sm" id="hist_remarks_' + idx + '" rows="2">' + escapeHtml(d.remarks || '') + '</textarea></div>';
+
+        if (fu) {
+            html += '<div class="col-12"><hr class="my-2"><strong>Follow-up</strong></div>';
+
+            html += '<div class="col-md-6"><label class="form-label">Blood Test Required</label>'
+                + historyRadioGroup('is_blood_test_required', idx, [{ value: '1', label: 'Yes' }, { value: '0', label: 'No' }], fu.is_blood_test_required ? '1' : '0') + '</div>';
+
+            html += '<div class="col-md-6"><label class="form-label">Follow Up Type</label>'
+                + historyRadioGroup('followup_type', idx, [
+                    { value: '0', label: 'No' }, { value: '1', label: 'Blood Test + Review' }, { value: '2', label: 'Review Only' }
+                ], fu.followup_type) + '</div>';
+
+            html += '<div class="col-md-6"><label class="form-label">Next Follow Up</label>'
+                + historyRadioGroup('next_followup', idx, [
+                    { value: '0', label: 'None' }, { value: '1', label: '1 Month' }, { value: '2', label: '3 Months' }, { value: '3', label: '6 Months' }
+                ], fu.next_followup) + '</div>';
+
+            html += '<div class="col-md-6"><label class="form-label">Next Follow Up Date</label>'
+                + '<input type="date" class="form-control form-control-sm" id="hist_followup_date_' + idx + '" value="' + escapeHtml(toDateValue(fu.followup_date)) + '"></div>';
+
+            html += '<div class="col-md-6"><label class="form-label">Mode of Conversion</label>'
+                + historyRadioGroup('mode_of_conversion', idx, [
+                    { value: '0', label: 'None' }, { value: '1', label: 'Outlet' }, { value: '2', label: 'Clinic' }
+                ], fu.mode_of_conversion) + '</div>';
+        }
+
+        html += '</div>'; // row
+
+        html += '<div class="d-flex justify-content-end align-items-center gap-2 mt-3">';
+        html += '<div class="text-danger small me-auto" id="hist_error_' + idx + '" style="display:none;"></div>';
+        html += '<button type="button" class="btn btn-sm btn-outline-secondary" onclick="cancelHistoryEdit(' + idx + ')">Cancel</button>';
+        html += '<button type="button" class="btn btn-sm btn-primary" id="history-save-btn-' + idx + '" onclick="saveHistoryEdit(' + idx + ')">Save</button>';
+        html += '</div>';
+
+        return html;
+    }
+
+    window.editHistoryEntry = function(idx) {
+        var viewEl = document.getElementById('history-view-' + idx);
+        var editEl = document.getElementById('history-edit-' + idx);
+        var btn = document.getElementById('history-edit-btn-' + idx);
+        if (viewEl) viewEl.style.display = 'none';
+        if (editEl) editEl.style.display = '';
+        if (btn) btn.style.display = 'none';
+    };
+
+    window.cancelHistoryEdit = function(idx) {
+        var viewEl = document.getElementById('history-view-' + idx);
+        var editEl = document.getElementById('history-edit-' + idx);
+        var btn = document.getElementById('history-edit-btn-' + idx);
+        if (viewEl) viewEl.style.display = '';
+        if (editEl) editEl.style.display = 'none';
+        if (btn) btn.style.display = '';
+    };
+
+    window.saveHistoryEdit = function(idx) {
+        var editContainer = document.getElementById('history-edit-' + idx);
+        if (!editContainer) return;
+
+        var detailId = editContainer.getAttribute('data-detail-id');
+        var followUpId = editContainer.getAttribute('data-follow-up-id');
+
+        var errorEl = document.getElementById('hist_error_' + idx);
+        if (errorEl) { errorEl.style.display = 'none'; errorEl.textContent = ''; }
+
+        var detailData = {
+            consult_date: getHistInputValue(idx, 'consult_date') || null,
+            consulted_by: toIntOrNull(getHistInputValue(idx, 'consulted_by')),
+            consult_status: toIntOrNull(getHistRadioValue(idx, 'consult_status')),
+            documentation: getHistInputValue(idx, 'documentation') || null,
+            diagnosis: getHistInputValue(idx, 'diagnosis') || null,
+            treatment_plan: getHistInputValue(idx, 'treatment_plan') || null,
+            rx_issued: getHistRadioValue(idx, 'rx_issued') === '1',
+            action: toIntOrNull(getHistRadioValue(idx, 'action')),
+            process_status: toIntOrNull(getHistRadioValue(idx, 'process_status')),
+            remarks: getHistInputValue(idx, 'remarks') || null
+        };
+
+        var promises = [apiCall('update-detail', {
+            consult_call_id: EDIT_CONFIG.consultCallId,
+            detail_id: detailId,
+            data: detailData
+        })];
+
+        if (followUpId) {
+            var followUpData = {
+                is_blood_test_required: toIntOrNull(getHistRadioValue(idx, 'is_blood_test_required')),
+                followup_type: toIntOrNull(getHistRadioValue(idx, 'followup_type')),
+                next_followup: toIntOrNull(getHistRadioValue(idx, 'next_followup')),
+                followup_date: getHistInputValue(idx, 'followup_date') || null,
+                mode_of_conversion: toIntOrNull(getHistRadioValue(idx, 'mode_of_conversion'))
+            };
+            promises.push(apiCall('update-follow-up', {
+                consult_call_id: EDIT_CONFIG.consultCallId,
+                follow_up_id: followUpId,
+                data: followUpData
+            }));
+        }
+
+        var saveBtn = document.getElementById('history-save-btn-' + idx);
+        var originalText = saveBtn ? saveBtn.innerHTML : '';
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>Saving...';
+        }
+
+        Promise.all(promises).then(function(results) {
+            for (var i = 0; i < results.length; i++) {
+                if (!results[i].success) {
+                    if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = originalText; }
+                    if (errorEl) { errorEl.textContent = results[i].message || 'Failed to save changes.'; errorEl.style.display = ''; }
+                    return;
+                }
+            }
+            // Reload the full record so the accordion reflects the saved changes
+            loadConsultCallData();
+        }).catch(function(err) {
+            if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = originalText; }
+            if (errorEl) { errorEl.textContent = 'Error saving changes.'; errorEl.style.display = ''; }
+            console.error('Failed to save history edit:', err);
+        });
+    };
+
+    // Clear the linked MyReferral record from a follow-up (sets my_referral_id back to null)
+    window.unlinkMyReferral = function(followUpId) {
+        var confirmed = window.confirm('Unlink this MyReferral record? This does not delete the referral itself, only removes the link here.');
+        if (!confirmed) return;
+
+        apiCall('update-follow-up', {
+            consult_call_id: EDIT_CONFIG.consultCallId,
+            follow_up_id: followUpId,
+            data: { my_referral_id: null }
+        }).then(function(result) {
+            if (!result.success) {
+                alert('Failed to unlink MyReferral: ' + (result.message || 'Unknown error'));
+                return;
+            }
+            loadConsultCallData();
+        }).catch(function(err) {
+            alert('Error unlinking MyReferral.');
+            console.error('Failed to unlink MyReferral:', err);
+        });
+    };
 
     function toggleConsultationSection(visible) {
         var section = document.getElementById('consultation-section');
