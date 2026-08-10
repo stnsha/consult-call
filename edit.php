@@ -215,6 +215,7 @@ include('../common/index_adv.php');
 
 $consult_call_id = isset($_GET['id']) ? $_GET['id'] : '';
 $view_only = isset($_GET['view_only']) ? $_GET['view_only'] : '';
+$global_view = isset($_GET['global_view']) && $_GET['global_view'] === 'true';
 
 $staffList = array();
 $sq = "SELECT id, nama_staff FROM staff WHERE recycle != 1 ORDER BY nama_staff";
@@ -267,9 +268,20 @@ if ($_ep_isLocal && isset($_SESSION['dev_role_override'])) {
     $currentStaffRole = (int)$_SESSION['dev_role_override'];
 }
 
-if ($currentStaffRole === 0) {
+// Access control = staff with an assigned consult_call role (1-6). Role 0 has no
+// access control role at all, so it is only let in via the global_view link from
+// blood_test/campaign.php, restricted to a read-only patient summary.
+$isAccessControlUser = ($currentStaffRole !== 0);
+$isGlobalViewOnly = ($global_view && !$isAccessControlUser);
+
+if ($currentStaffRole === 0 && !$global_view) {
     header('Location: /odb/consultcall/unauthorized.php');
     exit;
+}
+
+// Global view visitors get a forced read-only page regardless of the view_only param
+if ($isGlobalViewOnly) {
+    $view_only = 'true';
 }
 
 // Eligibility section controls are disabled for non-HQ roles
@@ -358,6 +370,7 @@ $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
                 </div>
             </div>
 
+            <?php if (!$isGlobalViewOnly): ?>
             <!-- Section 3: ConsultCall Eligibility -->
             <div class="bento-card section-card">
                 <div class="section-header" data-section="eligibility">
@@ -451,8 +464,10 @@ $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
                     </div>
                 </div>
             </div>
+            <?php endif; // !$isGlobalViewOnly ?>
 
             <!-- Follow-up Checkpoint (shown by JS when doctor opted for follow-up) -->
+            <?php if (!$isGlobalViewOnly): ?>
             <div class="bento-card section-card" id="followup-checkpoint-section" style="display:none;">
                 <div class="section-header" data-section="followup-checkpoint">
                     <h5><i class="bi bi-calendar2-check me-2"></i>Follow-up Checkpoint
@@ -498,7 +513,9 @@ $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
                     </div>
                 </div>
             </div>
+            <?php endif; // !$isGlobalViewOnly ?>
 
+            <?php if (!$isGlobalViewOnly): ?>
             <!-- Section 3: Consultation Details (hidden by default, shown when consent = obtained) -->
             <div class="bento-card section-card" id="consultation-section" style="display:none;">
                 <div class="section-header" data-section="consultation">
@@ -708,6 +725,7 @@ $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
                     </div>
                 </div>
             </div>
+            <?php endif; // !$isGlobalViewOnly ?>
 
             <!-- End Process + Active warning — shown by JS when doctor selects that combination -->
             <div id="end-process-warning" class="text-danger small mt-3" style="display:none;">
@@ -748,6 +766,7 @@ $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
             </div>
         </form>
 
+        <?php if (!$isGlobalViewOnly): ?>
         <!-- MyReferral section — shown by JS on page load when saved action requires a referral and none exists yet -->
         <div id="myreferral-section" class="bento-card mt-4" style="display:none;">
             <div class="section-header d-flex justify-content-between align-items-center">
@@ -760,6 +779,7 @@ $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
                 </a>
             </div>
         </div>
+        <?php endif; // !$isGlobalViewOnly ?>
     </div>
 
     <!-- PDF Modal -->
@@ -796,6 +816,7 @@ $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
     var EDIT_CONFIG = {
         consultCallId: <?php echo json_encode($consult_call_id); ?>,
         viewOnly: <?php echo json_encode($view_only === 'true'); ?>,
+        globalView: <?php echo json_encode($isGlobalViewOnly); ?>,
         staffId: <?php echo json_encode(isset($id_user) ? $id_user : ''); ?>,
         currentStaffId: <?php echo json_encode($currentStaffId); ?>,
         currentStaffRole: <?php echo json_encode($currentStaffRole); ?>,
