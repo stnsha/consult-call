@@ -370,7 +370,27 @@ $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
                 </div>
             </div>
 
-            <?php if (!$isGlobalViewOnly): ?>
+            <?php if ($isGlobalViewOnly): ?>
+            <!-- Section 3: ConsultCall Eligibility (global view - Consent Status/Remarks only) -->
+            <div class="bento-card section-card">
+                <div class="section-header" data-section="eligibility">
+                    <h5><i class="bi bi-clipboard-check me-2"></i>ConsultCall Eligibility</h5>
+                    <i class="bi bi-chevron-up"></i>
+                </div>
+                <div class="form-section" id="section-eligibility">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Consent Status</label>
+                            <div class="readonly-field" id="elig-consent-status">--</div>
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label">Remarks</label>
+                            <div class="readonly-field" id="elig-remarks">--</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <?php else: ?>
             <!-- Section 3: ConsultCall Eligibility -->
             <div class="bento-card section-card">
                 <div class="section-header" data-section="eligibility">

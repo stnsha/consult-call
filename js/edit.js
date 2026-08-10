@@ -723,9 +723,10 @@
         });
     }
 
-    // Consent status labels for the global-view eligibility summary, mirroring the
-    // ConsultCall Eligibility radio options -- that section is not in the DOM for
-    // global view, so the labels can't be read off its radio inputs like elsewhere.
+    // Consent status labels for the global-view read-only Eligibility summary,
+    // mirroring the ConsultCall Eligibility radio options -- global view renders a
+    // stripped-down readonly card instead of the interactive form, so the labels
+    // can't be read off radio inputs like elsewhere.
     var CONSENT_STATUS_LABELS = {
         '0': 'Pending',
         '1': 'Obtained',
@@ -733,29 +734,22 @@
         '3': 'On Prescribed Medication'
     };
 
-    // Global view (blood_test campaign link) can't see the ConsultCall Eligibility
-    // section, but still needs Consent Status + Remarks from it surfaced under
-    // Consultation History.
-    function renderEligibilitySummary(consultCallData) {
-        if (!consultCallData) return '';
-        var consentStatus = (consultCallData.consent_call_status !== undefined && consultCallData.consent_call_status !== null)
-            ? String(consultCallData.consent_call_status) : null;
-        var html = '<div class="mb-3">';
-        html += '<div class="mb-1"><strong>ConsultCall Eligibility</strong></div>';
-        html += renderHistoryField('Consent Status', consentStatus !== null ? (CONSENT_STATUS_LABELS[consentStatus] || null) : null);
-        html += renderHistoryField('Remarks', consultCallData.final_remarks || null);
-        html += '</div><hr class="my-2">';
-        return html;
+    // Populate the read-only Consent Status / Remarks fields shown to global view
+    // (blood_test campaign link) in place of the full ConsultCall Eligibility form.
+    function populateEligibilitySummary(data) {
+        var consentStatus = (data.consent_call_status !== undefined && data.consent_call_status !== null)
+            ? String(data.consent_call_status) : null;
+        setText('elig-consent-status', consentStatus !== null ? (CONSENT_STATUS_LABELS[consentStatus] || '') : '');
+        setText('elig-remarks', data.final_remarks || '');
     }
 
-    function renderConsultationHistory(details, followUps, consultCallData) {
+    function renderConsultationHistory(details, followUps) {
         var container = document.getElementById('consultation-history-container');
         if (!container) return;
 
         var staffMap = buildStaffMap();
         var modeConversionMap = buildRadioLabelMap('mode_of_conversion');
         var isGlobalView = !!EDIT_CONFIG.globalView;
-        var eligibilityHtml = isGlobalView ? renderEligibilitySummary(consultCallData) : '';
 
         // Build index-paired list and reverse for newest-first display.
         // All entries are included; pending entries (consult_status 0) show only
@@ -767,7 +761,7 @@
         pairs.reverse();
 
         if (pairs.length === 0) {
-            container.innerHTML = eligibilityHtml + '<div class="text-muted small">No consultation history.</div>';
+            container.innerHTML = '<div class="text-muted small">No consultation history.</div>';
             return;
         }
 
@@ -890,7 +884,7 @@
         }
 
         html += '</div>'; // accordion
-        container.innerHTML = eligibilityHtml + html;
+        container.innerHTML = html;
     }
 
     function renderAccordionBaseInfo(detail, isGlobalView) {
@@ -1479,6 +1473,10 @@
         setText('patient-age', customer.age);
         setText('patient-gender', customer.gender);
 
+        // Global view's read-only Eligibility card (Consent Status + Remarks only);
+        // no-op elsewhere since #elig-consent-status/#elig-remarks aren't in the DOM.
+        populateEligibilitySummary(data);
+
         // -- Consult Call level fields (integer IDs) --
 
         // Consent status (0=Pending, 1=Obtained, 2=Refused)
@@ -1775,7 +1773,7 @@
         }
 
         // Render read-only consultation history accordion
-        renderConsultationHistory(data.details || [], data.follow_ups || [], data);
+        renderConsultationHistory(data.details || [], data.follow_ups || []);
 
         // Apply view-only mode
         if (EDIT_CONFIG.viewOnly) {
