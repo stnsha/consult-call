@@ -729,6 +729,7 @@
 
         var staffMap = buildStaffMap();
         var modeConversionMap = buildRadioLabelMap('mode_of_conversion');
+        var isGlobalView = !!EDIT_CONFIG.globalView;
 
         // Build index-paired list and reverse for newest-first display.
         // All entries are included; pending entries (consult_status 0) show only
@@ -783,11 +784,12 @@
             html += ' aria-labelledby="' + headerId + '" data-bs-parent="#' + accordionId + '">';
             html += '<div class="accordion-body">';
 
-            // Base info is always shown (blood test report, risk tier, clinical condition)
-            html += renderAccordionBaseInfo(d);
+            // Base info is always shown (blood test report, risk tier, clinical condition).
+            // Global view (blood_test campaign link) only gets blood test report + risk tier.
+            html += renderAccordionBaseInfo(d, isGlobalView);
 
-            // Edit is only offered once the consultation is completed
-            if (isCompleted) {
+            // Edit is only offered once the consultation is completed, and never in global view
+            if (isCompleted && !isGlobalView) {
                 html += '<div class="d-flex justify-content-end mb-2">';
                 html += '<button type="button" class="btn btn-sm btn-outline-primary" id="history-edit-btn-' + p + '" onclick="editHistoryEntry(' + p + ')">';
                 html += '<i class="bi bi-pencil me-1"></i>Edit</button>';
@@ -806,7 +808,7 @@
                 html += '<div class="col-4">' + renderHistoryField('Consulted By', staffMap[String(d.consulted_by)] || null) + '</div>';
                 html += '<div class="col-4">' + renderHistoryField('Consult Status', statusMaps.consultStatuses[String(d.consult_status)] || null) + '</div>';
                 html += '</div>';
-                if (isCompleted) {
+                if (isCompleted && !isGlobalView) {
                     html += renderHistoryField('Documentation', d.documentation || null);
                     html += renderHistoryField('Diagnosis', d.diagnosis || null);
                     html += renderHistoryField('Treatment Plan', d.treatment_plan || null);
@@ -814,8 +816,8 @@
                 }
                 html += renderHistoryField('Remarks', d.remarks || null);
 
-                // Follow-up fields (2-column grid)
-                if (isCompleted && fu) {
+                // Follow-up fields (2-column grid) -- not shown in global view
+                if (isCompleted && fu && !isGlobalView) {
                     html += '<hr class="my-2">';
                     html += '<div class="mb-1"><strong>Follow-up</strong></div>';
                     html += '<div class="row g-2">';
@@ -847,8 +849,9 @@
 
             html += '</div>'; // history-view
 
-            // Inline edit form: built once, hidden until the Edit button is clicked
-            if (isCompleted) {
+            // Inline edit form: built once, hidden until the Edit button is clicked.
+            // Never built for global view -- keeps edit affordances out of the DOM entirely.
+            if (isCompleted && !isGlobalView) {
                 html += '<div id="history-edit-' + p + '" data-detail-id="' + escapeHtml(d.id) + '"';
                 html += ' data-follow-up-id="' + (fu && fu.id ? escapeHtml(fu.id) : '') + '" style="display:none;">';
                 html += renderHistoryEditForm(p, d, fu);
@@ -864,7 +867,7 @@
         container.innerHTML = html;
     }
 
-    function renderAccordionBaseInfo(detail) {
+    function renderAccordionBaseInfo(detail, isGlobalView) {
         var html = '<div class="mt-2">';
 
         // Blood test report
@@ -893,8 +896,10 @@
         }
         html += '</div></div>';
 
-        // Clinical condition
-        html += renderHistoryField('Clinical Condition', cc ? (cc.description || null) : null);
+        // Clinical condition -- not shown in global view (blood_test campaign link)
+        if (!isGlobalView) {
+            html += renderHistoryField('Clinical Condition', cc ? (cc.description || null) : null);
+        }
 
         html += '</div>';
         return html;
