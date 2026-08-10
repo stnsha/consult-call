@@ -723,13 +723,39 @@
         });
     }
 
-    function renderConsultationHistory(details, followUps) {
+    // Consent status labels for the global-view eligibility summary, mirroring the
+    // ConsultCall Eligibility radio options -- that section is not in the DOM for
+    // global view, so the labels can't be read off its radio inputs like elsewhere.
+    var CONSENT_STATUS_LABELS = {
+        '0': 'Pending',
+        '1': 'Obtained',
+        '2': 'Refused',
+        '3': 'On Prescribed Medication'
+    };
+
+    // Global view (blood_test campaign link) can't see the ConsultCall Eligibility
+    // section, but still needs Consent Status + Remarks from it surfaced under
+    // Consultation History.
+    function renderEligibilitySummary(consultCallData) {
+        if (!consultCallData) return '';
+        var consentStatus = (consultCallData.consent_call_status !== undefined && consultCallData.consent_call_status !== null)
+            ? String(consultCallData.consent_call_status) : null;
+        var html = '<div class="mb-3">';
+        html += '<div class="mb-1"><strong>ConsultCall Eligibility</strong></div>';
+        html += renderHistoryField('Consent Status', consentStatus !== null ? (CONSENT_STATUS_LABELS[consentStatus] || null) : null);
+        html += renderHistoryField('Remarks', consultCallData.final_remarks || null);
+        html += '</div><hr class="my-2">';
+        return html;
+    }
+
+    function renderConsultationHistory(details, followUps, consultCallData) {
         var container = document.getElementById('consultation-history-container');
         if (!container) return;
 
         var staffMap = buildStaffMap();
         var modeConversionMap = buildRadioLabelMap('mode_of_conversion');
         var isGlobalView = !!EDIT_CONFIG.globalView;
+        var eligibilityHtml = isGlobalView ? renderEligibilitySummary(consultCallData) : '';
 
         // Build index-paired list and reverse for newest-first display.
         // All entries are included; pending entries (consult_status 0) show only
@@ -741,7 +767,7 @@
         pairs.reverse();
 
         if (pairs.length === 0) {
-            container.innerHTML = '<div class="text-muted small">No consultation history.</div>';
+            container.innerHTML = eligibilityHtml + '<div class="text-muted small">No consultation history.</div>';
             return;
         }
 
@@ -864,7 +890,7 @@
         }
 
         html += '</div>'; // accordion
-        container.innerHTML = html;
+        container.innerHTML = eligibilityHtml + html;
     }
 
     function renderAccordionBaseInfo(detail, isGlobalView) {
@@ -1749,7 +1775,7 @@
         }
 
         // Render read-only consultation history accordion
-        renderConsultationHistory(data.details || [], data.follow_ups || []);
+        renderConsultationHistory(data.details || [], data.follow_ups || [], data);
 
         // Apply view-only mode
         if (EDIT_CONFIG.viewOnly) {
