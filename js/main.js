@@ -9,7 +9,7 @@
  *   followup_reminder:   0=Pending, 1=Completed, 2=Rescheduled, 3=Cancelled
  *   scheduled_status:    0=Pending, 1=Confirmed, 2=Rescheduled, 3=Cancelled
  *   mode_of_consultation:0=Pending, 1=Phone, 2=Google Meet, 3=WhatsApp
- *   action:              1=Refer Internal, 2=Refer External, 3=End Process
+ *   action:              1=Refer Internal, 2=Refer External, 3=End Process.
  */
 (function() {
     'use strict';
