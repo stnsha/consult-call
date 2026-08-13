@@ -58,6 +58,7 @@ $current_dir = basename(dirname($_navbar_phpSelf));
 $dashboard_active  = ($current_page == 'index.php'  && $current_dir == 'consultcall')         ? 'active' : '';
 $report_active     = ($current_page == 'report.php' && $current_dir == 'consultcall')         ? 'active' : '';
 $cc_active         = ($current_dir == 'clinical_condition')                                    ? 'active' : '';
+$ao_active         = ($current_dir == 'add_ons')                                               ? 'active' : '';
 $admin_active      = ($current_page == 'index.php'  && $current_dir == 'admin')               ? 'active' : '';
 ?>
 <nav class="consultcall-nav navbar navbar-expand-lg navbar-light mb-3">
@@ -76,6 +77,9 @@ $admin_active      = ($current_page == 'index.php'  && $current_dir == 'admin') 
                 </li>
                 <li class="nav-item">
                     <a class="nav-link <?php echo $cc_active; ?>" href="consultcall/clinical_condition/index.php">Clinical Conditions</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link <?php echo $ao_active; ?>" href="consultcall/add_ons/index.php">Add Ons</a>
                 </li>
                 <?php
                 $_navbar_role = 0;

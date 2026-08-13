@@ -297,8 +297,10 @@
             ? formatDate(testResult.collected_date)
             : '<span class="text-muted">-</span>';
 
-        // Add On: placeholder pending backend field
-        var addOnDisplay = '<span class="text-muted">-</span>';
+        // Add On: tick when a recommended add-on is set, dash otherwise
+        var addOnDisplay = record.add_on
+            ? '<img src="common/img/tick.png" width="15px" title="' + escapeHtml(record.add_on.name || '') + '">'
+            : '<span class="text-muted">-</span>';
 
         // Consulted by: resolve staff name from staffMap; skip if detail is a draft
         var consultedByName = '<span class="text-muted">-</span>';

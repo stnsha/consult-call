@@ -1029,6 +1029,111 @@ function getAddOns($staff_id)
 }
 
 /**
+ * Get all add-ons, active and inactive (for the Add Ons admin management page)
+ * @param int $staff_id Staff ID for authentication
+ * @return array Add-ons data
+ */
+function getAllAddOns($staff_id)
+{
+    $result = getApiDataWithJWT('add-ons/all', null, 'GET', $staff_id);
+    $httpCode = $result['httpCode'];
+    $decoded = json_decode($result['response'], true);
+
+    if ($httpCode == 200) {
+        return array(
+            'success' => true,
+            'data' => isset($decoded['data']) ? $decoded['data'] : array()
+        );
+    } else {
+        return array(
+            'success' => false,
+            'message' => isset($decoded['message']) ? $decoded['message'] : 'Failed to retrieve add-ons'
+        );
+    }
+}
+
+/**
+ * Create a new add-on
+ * @param array $data Fields: name
+ * @param int $staff_id Staff ID for authentication
+ * @return array Create result
+ */
+function createAddOn($data, $staff_id)
+{
+    $result = getApiDataWithJWT('add-ons', $data, 'POST', $staff_id);
+    $httpCode = $result['httpCode'];
+    $decoded = json_decode($result['response'], true);
+
+    if ($httpCode == 200 || $httpCode == 201) {
+        return array(
+            'success' => true,
+            'data' => isset($decoded['data']) ? $decoded['data'] : null,
+            'message' => isset($decoded['message']) ? $decoded['message'] : 'Add-on created successfully'
+        );
+    } else {
+        return array(
+            'success' => false,
+            'message' => isset($decoded['message']) ? $decoded['message'] : 'Failed to create add-on',
+            'errors' => isset($decoded['errors']) ? $decoded['errors'] : null
+        );
+    }
+}
+
+/**
+ * Update an add-on's name
+ * @param int $id Add-on ID
+ * @param array $data Fields: name
+ * @param int $staff_id Staff ID for authentication
+ * @return array Update result
+ */
+function updateAddOn($id, $data, $staff_id)
+{
+    $result = getApiDataWithJWT('add-ons/' . (int)$id, $data, 'PUT', $staff_id);
+    $httpCode = $result['httpCode'];
+    $decoded = json_decode($result['response'], true);
+
+    if ($httpCode == 200) {
+        return array(
+            'success' => true,
+            'data' => isset($decoded['data']) ? $decoded['data'] : null,
+            'message' => isset($decoded['message']) ? $decoded['message'] : 'Add-on updated successfully'
+        );
+    } else {
+        return array(
+            'success' => false,
+            'message' => isset($decoded['message']) ? $decoded['message'] : 'Failed to update add-on',
+            'errors' => isset($decoded['errors']) ? $decoded['errors'] : null
+        );
+    }
+}
+
+/**
+ * Toggle the is_active status of an add-on
+ * @param int $id Add-on ID
+ * @param int $staff_id Staff ID for authentication
+ * @return array Toggle result with new is_active state
+ */
+function toggleAddOn($id, $staff_id)
+{
+    $result = getApiDataWithJWT('add-ons/' . (int)$id . '/toggle', null, 'PATCH', $staff_id);
+    $httpCode = $result['httpCode'];
+    $decoded = json_decode($result['response'], true);
+
+    if ($httpCode == 200) {
+        return array(
+            'success' => true,
+            'data' => isset($decoded['data']) ? $decoded['data'] : null,
+            'message' => isset($decoded['message']) ? $decoded['message'] : 'Add-on toggled successfully'
+        );
+    } else {
+        return array(
+            'success' => false,
+            'message' => isset($decoded['message']) ? $decoded['message'] : 'Failed to toggle add-on'
+        );
+    }
+}
+
+/**
  * Update a clinical condition description and risk tier
  * @param int $id Clinical condition ID
  * @param array $data Fields: description, type, add_ons, risk_tier, active_from
@@ -1470,6 +1575,34 @@ if (!defined('API_JWT_INCLUDED')) {
 
                 case 'get-add-ons':
                     $response = getAddOns($staff_id);
+                    break;
+
+                case 'get-all-add-ons':
+                    $response = getAllAddOns($staff_id);
+                    break;
+
+                case 'create-add-on':
+                    if (isset($jsonData['data'])) {
+                        $response = createAddOn($jsonData['data'], $staff_id);
+                    } else {
+                        $response = array('success' => false, 'message' => 'Missing add-on data');
+                    }
+                    break;
+
+                case 'update-add-on':
+                    if (isset($jsonData['id']) && isset($jsonData['data'])) {
+                        $response = updateAddOn($jsonData['id'], $jsonData['data'], $staff_id);
+                    } else {
+                        $response = array('success' => false, 'message' => 'Missing add-on ID or data');
+                    }
+                    break;
+
+                case 'toggle-add-on':
+                    if (isset($jsonData['id'])) {
+                        $response = toggleAddOn($jsonData['id'], $staff_id);
+                    } else {
+                        $response = array('success' => false, 'message' => 'Missing add-on ID');
+                    }
                     break;
 
                 case 'update-clinical-condition':
