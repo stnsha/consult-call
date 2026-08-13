@@ -5,6 +5,7 @@ if (session_id() == '') {
 ?>
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -20,192 +21,223 @@ if (session_id() == '') {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
     <link href="consultcall/css/style.css?v=<?php echo time(); ?>" rel="stylesheet">
     <style>
-        .section-card {
-            margin-bottom: 1.5rem;
-        }
-        .section-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            cursor: pointer;
-            padding: 0.75rem 0;
-            border-bottom: 1px solid #e9ecef;
-            margin-bottom: 1rem;
-        }
-        .section-header h5 {
-            margin: 0;
-            font-size: 16px;
-            font-weight: 600;
-            color: #212529;
-        }
-        .section-header .bi {
-            transition: transform 0.2s ease;
-        }
-        .section-header.collapsed .bi-chevron-up {
-            transform: rotate(180deg);
-        }
-        .form-section {
-            display: block;
-        }
-        .form-section.collapsed {
-            display: none;
-        }
-        .readonly-field {
-            background-color: #f8f9fa;
-            border: 1px solid #e9ecef;
-            padding: 0.5rem 0.75rem;
-            border-radius: 6px;
-            font-size: 14px;
-            color: #495057;
-            min-height: 38px;
-            display: flex;
-            align-items: center;
-        }
-        .conditional-field {
-            display: none !important;
-        }
-        .conditional-field.visible {
-            display: block !important;
-        }
-        .radio-group {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 1rem;
-        }
-        .radio-group .form-check {
-            margin-bottom: 0;
-        }
-        .btn-back {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        .page-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 1.5rem;
-        }
-        .page-title {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-        .page-title h1 {
-            margin: 0;
-            font-size: 18px;
-            font-weight: 600;
-        }
-        .page-title .patient-id {
-            background-color: #f8f9fa;
-            padding: 0.25rem 0.75rem;
-            border-radius: 4px;
-            font-size: 14px;
-            font-weight: 500;
-            color: #495057;
-        }
-        textarea.form-control {
-            height: auto;
-            min-height: 80px;
-        }
-        /* Fix radio button and checkbox visibility */
-        .consultcall-container .form-check-input {
-            width: 1em !important;
-            height: 1em !important;
-            margin-top: 0 !important;
-            vertical-align: middle !important;
-            background-color: #fff !important;
-            background-repeat: no-repeat !important;
-            background-position: center !important;
-            background-size: contain !important;
-            border: 1px solid rgba(0,0,0,.25) !important;
-            appearance: none !important;
-            -webkit-appearance: none !important;
-            print-color-adjust: exact !important;
-            flex-shrink: 0 !important;
-        }
-        .consultcall-container .form-check-input[type="radio"] {
-            border-radius: 50% !important;
-        }
-        .consultcall-container .form-check-input[type="checkbox"] {
-            border-radius: 0.25em !important;
-        }
-        .consultcall-container .form-check-input:checked {
-            background-color: #0d6efd !important;
-            border-color: #0d6efd !important;
-        }
-        .consultcall-container .form-check-input[type="radio"]:checked {
-            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='2' fill='%23fff'/%3e%3c/svg%3e") !important;
-        }
-        .consultcall-container .form-check-input[type="checkbox"]:checked {
-            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/%3e%3c/svg%3e") !important;
-        }
-        .consultcall-container .form-check-input:focus {
-            border-color: #86b7fe !important;
-            outline: 0 !important;
-            box-shadow: 0 0 0 0.25rem rgba(13,110,253,.25) !important;
-        }
-        .consultcall-container .form-check {
-            display: flex !important;
-            align-items: center !important;
-            justify-content: flex-start !important;
-            padding-left: 0 !important;
-            margin-bottom: 0 !important;
-            gap: 0.4em !important;
-        }
-        /* Ensure columns align content left */
-        .consultcall-container .row .col-md-4,
-        .consultcall-container .row .col-md-6,
-        .consultcall-container .row .col-md-12 {
-            text-align: left !important;
-        }
-        .consultcall-container .form-check .form-check-input {
-            float: none;
-            margin-left: 0;
-            margin-top: 0;
-        }
-        .consultcall-container .form-check-label {
-            cursor: pointer;
-            font-size: 14px;
-        }
-        .consultcall-container .form-label {
-            font-size: 14px;
-            font-weight: 500;
-            margin-bottom: 6px;
-        }
-        .consultcall-container .form-control,
-        .consultcall-container .form-select {
-            font-size: 14px;
-        }
-        /* Radio and checkbox groups sit slightly lower than the label */
-        .consultcall-container .radio-group,
-        .consultcall-container .form-check {
-            padding-top: 2px;
-        }
-        /* Section cards get a little extra inner padding */
-        .consultcall-container .bento-card {
-            padding: 1.25rem 1.5rem;
-        }
-        .field-error {
-            color: #dc3545;
-            font-size: 0.8rem;
-            margin-top: 4px;
-            display: block;
-        }
-        .history-label {
-            font-size: 12px;
-            font-weight: 600;
-            color: #6c757d;
-            text-transform: uppercase;
-            letter-spacing: 0.03em;
-            margin-bottom: 2px;
-        }
-        .history-value {
-            font-size: 14px;
-            color: #212529;
-            word-break: break-word;
-            white-space: pre-wrap;
-        }
+    .section-card {
+        margin-bottom: 1.5rem;
+    }
+
+    .section-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        cursor: pointer;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #e9ecef;
+        margin-bottom: 1rem;
+    }
+
+    .section-header h5 {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 600;
+        color: #212529;
+    }
+
+    .section-header .bi {
+        transition: transform 0.2s ease;
+    }
+
+    .section-header.collapsed .bi-chevron-up {
+        transform: rotate(180deg);
+    }
+
+    .form-section {
+        display: block;
+    }
+
+    .form-section.collapsed {
+        display: none;
+    }
+
+    .readonly-field {
+        background-color: #f8f9fa;
+        border: 1px solid #e9ecef;
+        padding: 0.5rem 0.75rem;
+        border-radius: 6px;
+        font-size: 14px;
+        color: #495057;
+        min-height: 38px;
+        display: flex;
+        align-items: center;
+    }
+
+    .conditional-field {
+        display: none !important;
+    }
+
+    .conditional-field.visible {
+        display: block !important;
+    }
+
+    .radio-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .radio-group .form-check {
+        margin-bottom: 0;
+    }
+
+    .btn-back {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .page-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1.5rem;
+    }
+
+    .page-title {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .page-title h1 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 600;
+    }
+
+    .page-title .patient-id {
+        background-color: #f8f9fa;
+        padding: 0.25rem 0.75rem;
+        border-radius: 4px;
+        font-size: 14px;
+        font-weight: 500;
+        color: #495057;
+    }
+
+    /* Process Status pill toggle in the page header */
+    .header-process-status-field {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .segmented-toggle {
+        display: inline-flex;
+        background-color: #f1f3f5;
+        border-radius: 999px;
+        padding: 3px;
+        gap: 2px;
+    }
+
+    .segmented-toggle-btn {
+        border: none;
+        background: transparent;
+        color: #6c757d;
+        font-size: 13px;
+        font-weight: 500;
+        padding: 6px 16px;
+        border-radius: 999px;
+        cursor: pointer;
+        transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .segmented-toggle-btn.active {
+        color: #fff;
+        font-weight: 600;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, .12);
+    }
+
+    .segmented-toggle-btn.status-active.active {
+        background-color: #198754;
+    }
+
+    .segmented-toggle-btn.status-closed.active {
+        background-color: #6c757d;
+    }
+
+    .segmented-toggle-btn:disabled {
+        cursor: not-allowed;
+        opacity: 0.6;
+    }
+
+    textarea.form-control {
+        height: auto;
+        min-height: 80px;
+    }
+
+    /* Fix radio button and checkbox visibility now lives in css/style.css
+       (.consultcall-container .form-check-input), shared across all consultcall pages. */
+
+    /* Ensure columns align content left */
+    .consultcall-container .row .col-md-4,
+    .consultcall-container .row .col-md-6,
+    .consultcall-container .row .col-md-12 {
+        text-align: left !important;
+    }
+
+    .consultcall-container .form-check .form-check-input {
+        float: none;
+        margin-left: 0;
+        margin-top: 0;
+    }
+
+    .consultcall-container .form-check-label {
+        cursor: pointer;
+        font-size: 14px;
+    }
+
+    .consultcall-container .form-label {
+        font-size: 14px;
+        font-weight: 500;
+        margin-bottom: 6px;
+    }
+
+    .consultcall-container .form-control,
+    .consultcall-container .form-select {
+        font-size: 14px;
+    }
+
+    /* Radio and checkbox groups sit slightly lower than the label */
+    .consultcall-container .radio-group,
+    .consultcall-container .form-check {
+        padding-top: 2px;
+    }
+
+    /* Section cards get a little extra inner padding */
+    .consultcall-container .bento-card {
+        padding: 1.25rem 1.5rem;
+    }
+
+    .field-error {
+        color: #dc3545;
+        font-size: 0.8rem;
+        margin-top: 4px;
+        display: block;
+    }
+
+    .history-label {
+        font-size: 12px;
+        font-weight: 600;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        margin-bottom: 2px;
+    }
+
+    .history-value {
+        font-size: 14px;
+        color: #212529;
+        word-break: break-word;
+        white-space: pre-wrap;
+    }
     </style>
 </head>
 <?php
@@ -289,7 +321,11 @@ $eD = ($currentStaffRole !== 4) ? 'disabled' : '';
 
 // Consultation Details controls are disabled for non-Doctor roles
 $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
+
+// Header Process Status toggle: visible to everyone, but only Doctor and HQ can update it
+$psD = (!in_array($currentStaffRole, array(2, 4))) ? 'disabled' : '';
 ?>
+
 <body>
     <?php include('navbar.php'); ?>
     <div class="consultcall-container mb-3">
@@ -301,6 +337,15 @@ $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
                 </a>
                 <h1>Edit Patient</h1>
                 <span class="patient-id" id="consult-call-id">--</span>
+                <div class="header-process-status-field" id="header-process-status" style="display:none;"
+                    title="Process Status">
+                    <div class="segmented-toggle">
+                        <button type="button" class="segmented-toggle-btn status-active" data-value="1"
+                            <?php echo $psD; ?>>Active</button>
+                        <button type="button" class="segmented-toggle-btn status-closed" data-value="3"
+                            <?php echo $psD; ?>>Closed</button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -313,7 +358,8 @@ $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
                         <div class="section-header" data-section="patient-details">
                             <h5><i class="bi bi-person me-2"></i>Patient Details</h5>
                             <div class="d-flex align-items-center gap-2">
-                                <button type="button" id="btn-view-customer" class="btn btn-sm btn-outline-secondary" onclick="event.stopPropagation(); openCustomerModal();" style="display:none;">
+                                <button type="button" id="btn-view-customer" class="btn btn-sm btn-outline-secondary"
+                                    onclick="event.stopPropagation(); openCustomerModal();" style="display:none;">
                                     <i class="bi bi-person-lines-fill me-1"></i>View Customer
                                 </button>
                                 <i class="bi bi-chevron-up"></i>
@@ -383,6 +429,14 @@ $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
                             <label class="form-label">Consent Status</label>
                             <div class="readonly-field" id="elig-consent-status">--</div>
                         </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Reason</label>
+                            <div class="readonly-field" id="elig-reason">--</div>
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label">Recommended Add Ons</label>
+                            <div class="readonly-field" id="elig-add-on">--</div>
+                        </div>
                         <div class="col-md-12">
                             <label class="form-label">Remarks</label>
                             <div class="readonly-field" id="elig-remarks">--</div>
@@ -405,25 +459,64 @@ $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
                 </div>
                 <div class="form-section" id="section-eligibility">
                     <div class="row g-4">
-                        <!-- Consent Status -->
+                        <!-- Consent Status + Reason live in their own nested row so hiding Reason
+                             (display:none when not Refused/Others) never reflows the fields below. -->
                         <div class="col-md-12">
-                            <label class="form-label">Consent Status<span style="color:red;"> *</span></label>
-                            <div class="radio-group">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="consent_status" id="consent_pending" value="0" checked <?php echo $eD; ?>>
-                                    <label class="form-check-label" for="consent_pending">Pending</label>
+                            <div class="row g-4">
+                                <!-- Consent Status -->
+                                <div class="col-md-6">
+                                    <label class="form-label">Consent Status<span style="color:red;"> *</span></label>
+                                    <div class="radio-group">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="consent_status"
+                                                id="consent_pending" value="0" checked <?php echo $eD; ?>>
+                                            <label class="form-check-label" for="consent_pending">Pending</label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="consent_status"
+                                                id="consent_obtained" value="1" <?php echo $eD; ?>>
+                                            <label class="form-check-label" for="consent_obtained">Obtained</label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="consent_status"
+                                                id="consent_refused" value="2" <?php echo $eD; ?>>
+                                            <label class="form-check-label" for="consent_refused">Refused</label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="consent_status"
+                                                id="consent_others" value="3" <?php echo $eD; ?>>
+                                            <label class="form-check-label" for="consent_others">Others</label>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="consent_status" id="consent_obtained" value="1" <?php echo $eD; ?>>
-                                    <label class="form-check-label" for="consent_obtained">Obtained</label>
+
+                                <!-- Reason (optional, shown when consent is Refused or Others) -->
+                                <div class="col-md-6 conditional-field" data-condition="consent_reason">
+                                    <label class="form-label">Reason</label>
+                                    <select class="form-select" name="reason" id="reason" <?php echo $eD; ?>>
+                                        <option value="">Select Reason</option>
+                                        <option value="On Prescribed Medication/Follow-Up">On Prescribed
+                                            Medication/Follow-Up
+                                        </option>
+                                        <option value="Unreachable">Unreachable</option>
+                                        <option value="Not Keen">Not Keen</option>
+                                        <option value="Foreign Number">Foreign Number</option>
+                                        <option value="Others">Others</option>
+                                    </select>
                                 </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="consent_status" id="consent_refused" value="2" <?php echo $eD; ?>>
-                                    <label class="form-check-label" for="consent_refused">Refused</label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="consent_status" id="consent_on_medication" value="3" <?php echo $eD; ?>>
-                                    <label class="form-check-label" for="consent_on_medication">On Prescribed Medication</label>
+                            </div>
+                        </div>
+
+                        <!-- Recommended Add Ons (shown only when consent is Obtained); wrapped in its
+                             own nested row so it gets its own line at half width, matching the same
+                             reflow-isolation trick used for the Consent Status + Reason row above. -->
+                        <div class="col-md-12 conditional-field" data-condition="consent_obtained">
+                            <div class="row g-4">
+                                <div class="col-md-6">
+                                    <label class="form-label">Recommended Add Ons</label>
+                                    <select class="form-select" name="add_on_id" id="add_on_id" <?php echo $eD; ?>>
+                                        <option value="">Select Add On</option>
+                                    </select>
                                 </div>
                             </div>
                         </div>
@@ -431,27 +524,33 @@ $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
                         <!-- Conditional fields when consent = obtained -->
                         <div class="col-md-6 conditional-field" data-condition="consent_obtained">
                             <label class="form-label">Consent Date<span style="color:red;"> *</span></label>
-                            <input type="date" class="form-control" name="consent_call_date" id="consent_call_date" <?php echo $eD; ?>>
+                            <input type="date" class="form-control" name="consent_call_date" id="consent_call_date"
+                                <?php echo $eD; ?>>
                         </div>
 
                         <div class="col-md-6 conditional-field" data-condition="consent_obtained">
-                            <label class="form-label">Scheduled Consult Date &amp; Time<span style="color:red;"> *</span></label>
-                            <input type="date" class="form-control" name="scheduled_call_date" id="scheduled_call_date" <?php echo $eD; ?>>
+                            <label class="form-label">Scheduled Consult Date &amp; Time<span style="color:red;">
+                                    *</span></label>
+                            <input type="date" class="form-control" name="scheduled_call_date" id="scheduled_call_date"
+                                <?php echo $eD; ?>>
                         </div>
 
                         <div class="col-md-12 conditional-field" data-condition="consent_obtained">
                             <label class="form-label">Scheduled Status<span style="color:red;"> *</span></label>
                             <div class="radio-group">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="scheduled_status" id="scheduled_confirmed" value="1" checked <?php echo $eD; ?>>
+                                    <input class="form-check-input" type="radio" name="scheduled_status"
+                                        id="scheduled_confirmed" value="1" checked <?php echo $eD; ?>>
                                     <label class="form-check-label" for="scheduled_confirmed">Confirmed</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="scheduled_status" id="scheduled_reschedule" value="2" <?php echo $eD; ?>>
+                                    <input class="form-check-input" type="radio" name="scheduled_status"
+                                        id="scheduled_reschedule" value="2" <?php echo $eD; ?>>
                                     <label class="form-check-label" for="scheduled_reschedule">Reschedule</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="scheduled_status" id="scheduled_cancelled" value="3" <?php echo $eD; ?>>
+                                    <input class="form-check-input" type="radio" name="scheduled_status"
+                                        id="scheduled_cancelled" value="3" <?php echo $eD; ?>>
                                     <label class="form-check-label" for="scheduled_cancelled">Cancelled</label>
                                 </div>
                             </div>
@@ -460,7 +559,8 @@ $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
                         <!-- Conditional field when scheduled_status = reschedule -->
                         <div class="col-md-6 conditional-field" data-condition="scheduled_reschedule">
                             <label class="form-label">Updated Scheduled Date<span style="color:red;"> *</span></label>
-                            <input type="date" class="form-control" name="updated_scheduled_date" id="updated_scheduled_date" <?php echo $eD; ?>>
+                            <input type="date" class="form-control" name="updated_scheduled_date"
+                                id="updated_scheduled_date" <?php echo $eD; ?>>
                         </div>
 
                         <div class="col-md-6 conditional-field" data-condition="consent_obtained">
@@ -476,10 +576,14 @@ $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
                             </select>
                         </div>
 
-                        <!-- Conditional field when consent = refused -->
+                        <!-- Conditional field when consent = refused or others.
+                             The red asterisk is toggled by js/edit.js: required unless the
+                             Reason dropdown has a specific predefined (non-"Others") value. -->
                         <div class="col-md-12 conditional-field" data-condition="consent_refused">
-                            <label class="form-label">Remarks<span style="color:red;"> *</span></label>
-                            <textarea class="form-control" name="refusal_remarks" id="refusal_remarks" rows="3" placeholder="Enter reason for refusal" <?php echo $eD; ?>></textarea>
+                            <label class="form-label">Remarks<span id="refusal_remarks_required_mark"
+                                    style="color:red;"> *</span></label>
+                            <textarea class="form-control" name="refusal_remarks" id="refusal_remarks" rows="3"
+                                placeholder="Enter remarks" <?php echo $eD; ?>></textarea>
                         </div>
                     </div>
                 </div>
@@ -502,33 +606,40 @@ $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
                 <div class="form-section" id="section-followup-checkpoint">
                     <div class="row g-4">
                         <div class="col-md-12">
-                            <label class="form-label">Follow-up Reminder Status<span style="color:red;"> *</span></label>
+                            <label class="form-label">Follow-up Reminder Status<span style="color:red;">
+                                    *</span></label>
                             <div class="radio-group">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="followup_reminder" id="reminder_pending" value="0" checked <?php echo $eD; ?>>
+                                    <input class="form-check-input" type="radio" name="followup_reminder"
+                                        id="reminder_pending" value="0" checked <?php echo $eD; ?>>
                                     <label class="form-check-label" for="reminder_pending">Pending</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="followup_reminder" id="reminder_completed" value="1" <?php echo $eD; ?>>
+                                    <input class="form-check-input" type="radio" name="followup_reminder"
+                                        id="reminder_completed" value="1" <?php echo $eD; ?>>
                                     <label class="form-check-label" for="reminder_completed">Completed</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="followup_reminder" id="reminder_rescheduled" value="2" <?php echo $eD; ?>>
+                                    <input class="form-check-input" type="radio" name="followup_reminder"
+                                        id="reminder_rescheduled" value="2" <?php echo $eD; ?>>
                                     <label class="form-check-label" for="reminder_rescheduled">Rescheduled</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="followup_reminder" id="reminder_cancelled" value="3" <?php echo $eD; ?>>
+                                    <input class="form-check-input" type="radio" name="followup_reminder"
+                                        id="reminder_cancelled" value="3" <?php echo $eD; ?>>
                                     <label class="form-check-label" for="reminder_cancelled">Cancelled</label>
                                 </div>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Follow-up Date<span style="color:red;"> *</span></label>
-                            <input type="date" class="form-control" name="checkpoint_followup_date" id="checkpoint_followup_date" <?php echo $eD; ?>>
+                            <input type="date" class="form-control" name="checkpoint_followup_date"
+                                id="checkpoint_followup_date" <?php echo $eD; ?>>
                         </div>
                         <div class="col-md-6 conditional-field" data-condition="reminder_rescheduled">
                             <label class="form-label">Rescheduled Date<span style="color:red;"> *</span></label>
-                            <input type="date" class="form-control" name="rescheduled_date" id="rescheduled_date" <?php echo $eD; ?>>
+                            <input type="date" class="form-control" name="rescheduled_date" id="rescheduled_date"
+                                <?php echo $eD; ?>>
                         </div>
                     </div>
                 </div>
@@ -553,7 +664,8 @@ $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
                         <!-- Consult Date -->
                         <div class="col-md-6">
                             <label class="form-label">Consult Date<span style="color:red;"> *</span></label>
-                            <input type="date" class="form-control" name="consult_date" id="consult_date" <?php echo $dD; ?>>
+                            <input type="date" class="form-control" name="consult_date" id="consult_date"
+                                <?php echo $dD; ?>>
                         </div>
 
                         <!-- Consulted By -->
@@ -562,30 +674,52 @@ $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
                             <select class="form-select" name="consulted_by" id="consulted_by" <?php echo $dD; ?>>
                                 <option value="">Select Staff</option>
                                 <?php foreach ($staffList as $staff): ?>
-                                <option value="<?php echo htmlspecialchars($staff['id']); ?>"><?php echo htmlspecialchars($staff['name'] ?? ''); ?></option>
+                                <option value="<?php echo htmlspecialchars($staff['id']); ?>">
+                                    <?php echo htmlspecialchars($staff['name'] ?? ''); ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
 
                         <!-- Consult Status -->
-                        <div class="col-md-12">
+                        <div class="col-md-6">
                             <label class="form-label">Consult Status<span style="color:red;"> *</span></label>
                             <div class="radio-group">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="consult_status" id="consult_pending" value="0" <?php echo $dD; ?>>
+                                    <input class="form-check-input" type="radio" name="consult_status"
+                                        id="consult_pending" value="0" checked <?php echo $dD; ?>>
                                     <label class="form-check-label" for="consult_pending">Pending</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="consult_status" id="consult_completed" value="1" <?php echo $dD; ?>>
+                                    <input class="form-check-input" type="radio" name="consult_status"
+                                        id="consult_completed" value="1" <?php echo $dD; ?>>
                                     <label class="form-check-label" for="consult_completed">Completed</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="consult_status" id="consult_no_show" value="2" <?php echo $dD; ?>>
+                                    <input class="form-check-input" type="radio" name="consult_status"
+                                        id="consult_no_show" value="2" <?php echo $dD; ?>>
                                     <label class="form-check-label" for="consult_no_show">No-show</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="consult_status" id="consult_cancelled" value="3" <?php echo $dD; ?>>
+                                    <input class="form-check-input" type="radio" name="consult_status"
+                                        id="consult_cancelled" value="3" <?php echo $dD; ?>>
                                     <label class="form-check-label" for="consult_cancelled">Cancelled</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Consultation Type -->
+                        <div class="col-md-6">
+                            <label class="form-label">Consultation Type<span style="color:red;"> *</span></label>
+                            <div class="radio-group">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="consultation_type"
+                                        id="consultation_type_new_case" value="1" <?php echo $dD; ?>>
+                                    <label class="form-check-label" for="consultation_type_new_case">New Case</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="consultation_type"
+                                        id="consultation_type_follow_up" value="2" <?php echo $dD; ?>>
+                                    <label class="form-check-label" for="consultation_type_follow_up">Follow-Up</label>
                                 </div>
                             </div>
                         </div>
@@ -593,47 +727,37 @@ $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
                         <!-- Documentation -->
                         <div class="col-md-12 conditional-field" data-condition="consult_completed">
                             <label class="form-label">Documentation<span style="color:red;"> *</span></label>
-                            <textarea class="form-control" name="documentation" id="documentation" rows="5" placeholder="Enter documentation" <?php echo $dD; ?>></textarea>
+                            <textarea class="form-control" name="documentation" id="documentation" rows="5"
+                                placeholder="Enter documentation" <?php echo $dD; ?>></textarea>
                         </div>
 
                         <!-- Diagnosis -->
                         <div class="col-md-12 conditional-field" data-condition="consult_completed">
                             <label class="form-label">Diagnosis<span style="color:red;"> *</span></label>
-                            <textarea class="form-control" name="diagnosis" id="diagnosis" rows="10" placeholder="Enter diagnosis" <?php echo $dD; ?>></textarea>
+                            <textarea class="form-control" name="diagnosis" id="diagnosis" rows="10"
+                                placeholder="Enter diagnosis" <?php echo $dD; ?>></textarea>
                         </div>
 
                         <!-- Treatment Plan -->
                         <div class="col-md-12 conditional-field" data-condition="consult_completed">
                             <label class="form-label">Treatment Plan<span style="color:red;"> *</span></label>
-                            <textarea class="form-control" name="treatment_plan" id="treatment_plan" rows="10" placeholder="Enter treatment plan" <?php echo $dD; ?>></textarea>
+                            <textarea class="form-control" name="treatment_plan" id="treatment_plan" rows="10"
+                                placeholder="Enter treatment plan" <?php echo $dD; ?>></textarea>
                         </div>
 
-                        <!-- Rx Issued -->
-                        <div class="col-md-12 conditional-field" data-condition="consult_completed">
+                        <!-- Rx Issued | Follow Up Type -->
+                        <div class="col-md-6 conditional-field" data-condition="consult_completed">
                             <label class="form-label">Rx Issued<span style="color:red;"> *</span></label>
                             <div class="radio-group">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="rx_issued" id="rx_issued_yes" value="1" <?php echo $dD; ?>>
+                                    <input class="form-check-input" type="radio" name="rx_issued" id="rx_issued_yes"
+                                        value="1" <?php echo $dD; ?>>
                                     <label class="form-check-label" for="rx_issued_yes">Yes</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="rx_issued" id="rx_issued_no" value="0" checked <?php echo $dD; ?>>
+                                    <input class="form-check-input" type="radio" name="rx_issued" id="rx_issued_no"
+                                        value="0" checked <?php echo $dD; ?>>
                                     <label class="form-check-label" for="rx_issued_no">No</label>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Blood Test Required | Follow Up Type -->
-                        <div class="col-md-6 conditional-field" data-condition="consult_completed">
-                            <label class="form-label">Blood Test Required<span style="color:red;"> *</span></label>
-                            <div class="radio-group">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="is_blood_test_required" id="blood_test_yes" value="1" <?php echo $dD; ?>>
-                                    <label class="form-check-label" for="blood_test_yes">Yes</label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="is_blood_test_required" id="blood_test_no" value="0" <?php echo $dD; ?>>
-                                    <label class="form-check-label" for="blood_test_no">No</label>
                                 </div>
                             </div>
                         </div>
@@ -642,15 +766,19 @@ $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
                             <label class="form-label">Follow Up Type<span style="color:red;"> *</span></label>
                             <div class="radio-group">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="followup_type" id="followup_type_no" value="0" checked <?php echo $dD; ?>>
+                                    <input class="form-check-input" type="radio" name="followup_type"
+                                        id="followup_type_no" value="0" checked <?php echo $dD; ?>>
                                     <label class="form-check-label" for="followup_type_no">No</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="followup_type" id="followup_blood_review" value="1" <?php echo $dD; ?>>
-                                    <label class="form-check-label" for="followup_blood_review">Blood Test + Review</label>
+                                    <input class="form-check-input" type="radio" name="followup_type"
+                                        id="followup_blood_review" value="1" <?php echo $dD; ?>>
+                                    <label class="form-check-label" for="followup_blood_review">Blood Test +
+                                        Review</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="followup_type" id="followup_review_only" value="2" <?php echo $dD; ?>>
+                                    <input class="form-check-input" type="radio" name="followup_type"
+                                        id="followup_review_only" value="2" <?php echo $dD; ?>>
                                     <label class="form-check-label" for="followup_review_only">Review Only</label>
                                 </div>
                             </div>
@@ -661,78 +789,74 @@ $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
                             <label class="form-label">Next Follow Up<span style="color:red;"> *</span></label>
                             <div class="radio-group">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="next_followup" id="followup_none" value="0" checked <?php echo $dD; ?>>
+                                    <input class="form-check-input" type="radio" name="next_followup" id="followup_none"
+                                        value="0" checked <?php echo $dD; ?>>
                                     <label class="form-check-label" for="followup_none">None</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="next_followup" id="followup_1month" value="1" <?php echo $dD; ?>>
+                                    <input class="form-check-input" type="radio" name="next_followup"
+                                        id="followup_1month" value="1" <?php echo $dD; ?>>
                                     <label class="form-check-label" for="followup_1month">1 Month</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="next_followup" id="followup_3months" value="2" <?php echo $dD; ?>>
+                                    <input class="form-check-input" type="radio" name="next_followup"
+                                        id="followup_3months" value="2" <?php echo $dD; ?>>
                                     <label class="form-check-label" for="followup_3months">3 Months</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="next_followup" id="followup_6months" value="3" <?php echo $dD; ?>>
+                                    <input class="form-check-input" type="radio" name="next_followup"
+                                        id="followup_6months" value="3" <?php echo $dD; ?>>
                                     <label class="form-check-label" for="followup_6months">6 Months</label>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="col-md-6 conditional-field" data-condition="consult_completed" id="next-followup-date-container" style="display:none;">
+                        <div class="col-md-6 conditional-field" data-condition="consult_completed"
+                            id="next-followup-date-container" style="display:none;">
                             <label class="form-label">Next Follow Up Date</label>
-                            <input type="date" class="form-control" name="followup_date" id="followup_date" <?php echo $dD; ?>>
+                            <input type="date" class="form-control" name="followup_date" id="followup_date"
+                                <?php echo $dD; ?>>
                         </div>
 
-                        <!-- Mode of Conversion -->
+                        <!-- Mode of Conversion | Action -->
                         <div class="col-md-6 conditional-field" data-condition="consult_completed">
                             <label class="form-label">Mode of Conversion<span style="color:red;"> *</span></label>
                             <div class="radio-group">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="mode_of_conversion" id="conversion_none" value="0" <?php echo $dD; ?>>
+                                    <input class="form-check-input" type="radio" name="mode_of_conversion"
+                                        id="conversion_none" value="0" <?php echo $dD; ?>>
                                     <label class="form-check-label" for="conversion_none">None</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="mode_of_conversion" id="conversion_outlet" value="1" <?php echo $dD; ?>>
+                                    <input class="form-check-input" type="radio" name="mode_of_conversion"
+                                        id="conversion_outlet" value="1" <?php echo $dD; ?>>
                                     <label class="form-check-label" for="conversion_outlet">Outlet</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="mode_of_conversion" id="conversion_clinic" value="2" <?php echo $dD; ?>>
+                                    <input class="form-check-input" type="radio" name="mode_of_conversion"
+                                        id="conversion_clinic" value="2" <?php echo $dD; ?>>
                                     <label class="form-check-label" for="conversion_clinic">Clinic</label>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Action -->
-                        <div class="col-md-12 conditional-field" data-condition="consult_completed">
+                        <div class="col-md-6 conditional-field" data-condition="consult_completed">
                             <label class="form-label">Action<span style="color:red;"> *</span></label>
                             <div class="radio-group">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="action" id="action_refer_outlet" value="1" <?php echo $dD; ?>>
+                                    <input class="form-check-input" type="radio" name="action" id="action_refer_outlet"
+                                        value="1" <?php echo $dD; ?>>
                                     <label class="form-check-label" for="action_refer_outlet">Refer Internal</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="action" id="action_refer_clinic" value="2" <?php echo $dD; ?>>
+                                    <input class="form-check-input" type="radio" name="action" id="action_refer_clinic"
+                                        value="2" <?php echo $dD; ?>>
                                     <label class="form-check-label" for="action_refer_clinic">Refer External</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="action" id="action_end_process" value="3" <?php echo $dD; ?>>
+                                    <input class="form-check-input" type="radio" name="action" id="action_end_process"
+                                        value="3" <?php echo $dD; ?>>
                                     <label class="form-check-label" for="action_end_process">End Process</label>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Process Status (doctor-controlled; auto-locked to Closed by JS when action forces it) -->
-                        <div class="col-md-12 conditional-field" data-condition="consult_completed">
-                            <label class="form-label">Process Status<span style="color:red;"> *</span></label>
-                            <div class="radio-group">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="process_status" id="process_active" value="1" <?php echo $dD; ?>>
-                                    <label class="form-check-label" for="process_active">Active</label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="process_status" id="process_closed" value="3" <?php echo $dD; ?>>
-                                    <label class="form-check-label" for="process_closed">Closed</label>
                                 </div>
                             </div>
                         </div>
@@ -740,7 +864,8 @@ $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
                         <!-- Remarks (visible for all consult statuses) -->
                         <div class="col-md-12">
                             <label class="form-label">Remarks<span style="color:red;"> *</span></label>
-                            <textarea class="form-control" name="remarks" id="remarks" rows="3" placeholder="Enter any additional remarks" <?php echo $dD; ?>></textarea>
+                            <textarea class="form-control" name="remarks" id="remarks" rows="3"
+                                placeholder="Enter any additional remarks" <?php echo $dD; ?>></textarea>
                         </div>
                     </div>
                 </div>
@@ -754,14 +879,17 @@ $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
 
             <!-- Closed process status without End Process action — block shown by JS, requires acknowledgment -->
             <div id="closed-no-end-process-warning" class="alert alert-danger mt-3" style="display:none;" role="alert">
-                <strong>Cannot save:</strong> Process Status is set to <strong>Closed</strong> but the selected Action is not <strong>End Process</strong>. Please select "End Process" as the Action, or change the Process Status to Active before saving.
+                <strong>Cannot save:</strong> Process Status is set to <strong>Closed</strong> but the selected Action
+                is not <strong>End Process</strong>. Please select "End Process" as the Action, or change the Process
+                Status to Active before saving.
             </div>
 
             <!-- Acknowledgment panel — shown when Action = Refer Internal and Process Status = Closed -->
             <div id="closed-status-acknowledge" class="mt-2" style="display:none; text-align:right;">
                 <div class="alert alert-warning d-inline-block mb-0 py-2 px-3" style="text-align:left;">
                     <div class="form-check mb-0">
-                        <input class="form-check-input" type="checkbox" id="acknowledge_closed_status" name="acknowledge_closed_status">
+                        <input class="form-check-input" type="checkbox" id="acknowledge_closed_status"
+                            name="acknowledge_closed_status">
                         <label class="form-check-label fw-semibold" for="acknowledge_closed_status">
                             I am aware that Process Status is set to Closed despite Action being Refer Internal.
                         </label>
@@ -793,8 +921,10 @@ $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
                 <h6 class="mb-0">MyReferral</h6>
             </div>
             <div class="p-3">
-                <p class="text-muted mb-3">A referral is required for this action. Please create a MyReferral record to complete the process.</p>
-                <a id="myreferral-create-btn" href="/odb/referral/create.php" target="_blank" rel="noopener" class="btn btn-outline-primary">
+                <p class="text-muted mb-3">A referral is required for this action. Please create a MyReferral record to
+                    complete the process.</p>
+                <a id="myreferral-create-btn" href="/odb/referral/create.php" target="_blank" rel="noopener"
+                    class="btn btn-outline-primary">
                     <i class="bi bi-plus-circle me-1"></i>Create MyReferral
                 </a>
             </div>
@@ -846,4 +976,5 @@ $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="consultcall/js/edit.js?v=<?php echo time(); ?>"></script>
 </body>
+
 </html>

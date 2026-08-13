@@ -3,7 +3,7 @@
  * API-driven dashboard with fetch-based data loading
  *
  * Status ID reference (from API status libraries):
- *   consent_call_status: 0=Pending, 1=Obtained, 2=Refused, 3=On Prescribed Medication
+ *   consent_call_status: 0=Pending, 1=Obtained, 2=Refused, 3=Others
  *   enrollment_type:     1=Primary, 2=Follow Up
  *   process_status:      1=Active, 3=Closed
  *   followup_reminder:   0=Pending, 1=Completed, 2=Rescheduled, 3=Cancelled
@@ -22,7 +22,7 @@
 
     // Integer ID to label maps for fields not loaded from API
     var LABELS = {
-        consent:    { 0: 'Pending', 1: 'Obtained', 2: 'Refused', 3: 'On Medication' },
+        consent:    { 0: 'Pending', 1: 'Obtained', 2: 'Refused', 3: 'Others' },
         enrollment: { 1: 'Primary', 2: 'Follow Up' }
     };
 

@@ -16,9 +16,11 @@
     };
 
     var allConditions = [];
+    var filteredConditions = [];
     var currentPage = 1;
-    var perPage = 15;
+    var perPage = 30;
     var selectedIds = {};
+    var filterDebounce = null;
 
     function formatDate(dateStr) {
         if (!dateStr) return '-';
@@ -29,6 +31,16 @@
         var m = parseInt(parts[1], 10) - 1;
         var y = parts[0];
         return d + ' ' + months[m] + ' ' + y;
+    }
+
+    function isConditionActive(row) {
+        return row.is_active === true || row.is_active === 1 || row.is_active === '1';
+    }
+
+    function sortByActiveFirst(list) {
+        return list.slice().sort(function (a, b) {
+            return (isConditionActive(b) ? 1 : 0) - (isConditionActive(a) ? 1 : 0);
+        });
     }
 
     function escapeHtml(str) {
@@ -64,6 +76,61 @@
         }
     }
 
+    var TYPE_OPTIONS = ['CC', 'AO', 'CC + AO'];
+
+    function findConditionById(id) {
+        for (var i = 0; i < allConditions.length; i++) {
+            if (String(allConditions[i].id) === String(id)) return allConditions[i];
+        }
+        return null;
+    }
+
+    // Inline-editable Type cell: a select for super admins (matches the Update link
+    // gating), read-only text for everyone else.
+    function renderTypeCell(row) {
+        if (!CC_CONFIG.isSuperAdmin) {
+            return row.type ? escapeHtml(row.type) : '-';
+        }
+        var html = '<select class="form-select form-select-sm type-select" data-id="' + escapeHtml(row.id) + '" style="font-size:11px;">';
+        html += '<option value=""' + (!row.type ? ' selected' : '') + '>-</option>';
+        for (var i = 0; i < TYPE_OPTIONS.length; i++) {
+            var opt = TYPE_OPTIONS[i];
+            html += '<option value="' + escapeHtml(opt) + '"' + (row.type === opt ? ' selected' : '') + '>' + escapeHtml(opt) + '</option>';
+        }
+        html += '</select>';
+        return html;
+    }
+
+    function updateType(id, newType, selectEl) {
+        var condition = findConditionById(id);
+        if (!condition) return;
+
+        var previousType = condition.type || '';
+        selectEl.disabled = true;
+
+        apiCall('update-clinical-condition', {
+            id: id,
+            data: {
+                description: condition.description,
+                type: newType,
+                risk_tier: parseInt(condition.risk_tier, 10) || 0,
+                active_from: condition.active_from ? condition.active_from.substr(0, 10) : null
+            }
+        }).then(function (result) {
+            selectEl.disabled = false;
+            if (result.success) {
+                condition.type = newType;
+            } else {
+                selectEl.value = previousType;
+                showAlert(result.message || 'Failed to update type.');
+            }
+        }).catch(function () {
+            selectEl.disabled = false;
+            selectEl.value = previousType;
+            showAlert('Network error. Please try again.');
+        });
+    }
+
     function renderTable(data) {
         var tbody = document.getElementById('conditions-tbody');
         if (!tbody) return;
@@ -79,7 +146,7 @@
             var tier = parseInt(row.risk_tier, 10);
             var tierLabel = RISK_TIER_LABELS[tier] !== undefined ? RISK_TIER_LABELS[tier] : String(tier);
             var tierBadge = RISK_TIER_BADGES[tier] !== undefined ? RISK_TIER_BADGES[tier] : 'bg-secondary';
-            var isActive = row.is_active === true || row.is_active === 1 || row.is_active === '1';
+            var isActive = isConditionActive(row);
             var statusBadge = isActive ? 'bg-success' : 'bg-secondary';
             var statusLabel = isActive ? 'Active' : 'Inactive';
             var toggleLabel = isActive ? 'Set Inactive' : 'Set Active';
@@ -93,6 +160,7 @@
             }
             html += '<td class="text-muted">' + rowNum + '</td>';
             html += '<td>' + escapeHtml(row.description) + '</td>';
+            html += '<td>' + renderTypeCell(row) + '</td>';
             html += '<td><span class="badge ' + tierBadge + '">' + escapeHtml(tierLabel) + '</span></td>';
             html += '<td><span class="badge ' + statusBadge + '">' + statusLabel + '</span></td>';
 
@@ -120,7 +188,7 @@
     function handlePageClick(e) {
         e.preventDefault();
         var page = this.getAttribute('data-page');
-        var total = allConditions.length;
+        var total = filteredConditions.length;
         var totalPages = Math.max(1, Math.ceil(total / perPage));
         if (page === 'prev') {
             if (currentPage > 1) currentPage--;
@@ -180,12 +248,34 @@
         }
     }
 
+    function applyFilters() {
+        var descEl = document.getElementById('filter-description');
+        var statusEl = document.getElementById('filter-status');
+        var descTerm = descEl ? descEl.value.trim().toLowerCase() : '';
+        var statusTerm = statusEl ? statusEl.value : '';
+
+        filteredConditions = allConditions.filter(function (row) {
+            if (descTerm && String(row.description || '').toLowerCase().indexOf(descTerm) === -1) {
+                return false;
+            }
+            if (statusTerm) {
+                var active = isConditionActive(row);
+                if (statusTerm === 'active' && !active) return false;
+                if (statusTerm === 'inactive' && active) return false;
+            }
+            return true;
+        });
+
+        currentPage = 1;
+        renderPage();
+    }
+
     function renderPage() {
-        var total = allConditions.length;
+        var total = filteredConditions.length;
         var totalPages = Math.max(1, Math.ceil(total / perPage));
         if (currentPage > totalPages) currentPage = totalPages;
         var start = (currentPage - 1) * perPage;
-        var slice = allConditions.slice(start, start + perPage);
+        var slice = filteredConditions.slice(start, start + perPage);
         renderTable(slice);
         renderPagination(totalPages, total);
         updateBulkUI();
@@ -243,7 +333,7 @@
                     break;
                 }
             }
-            var isActive = condition && (condition.is_active === true || condition.is_active === 1 || condition.is_active === '1');
+            var isActive = condition && isConditionActive(condition);
             if (!condition || isActive !== targetActive) {
                 idsNeedingChange.push(ids[i]);
             }
@@ -297,8 +387,8 @@
 
         apiCall('get-clinical-conditions', {}).then(function (result) {
             if (result.success) {
-                allConditions = result.data || [];
-                renderPage();
+                allConditions = sortByActiveFirst(result.data || []);
+                applyFilters();
             } else {
                 showAlert(result.message || 'Failed to load clinical conditions.');
                 if (tbody) {
@@ -360,6 +450,12 @@
                 delete selectedIds[id];
             }
             updateBulkUI();
+            return;
+        }
+
+        if (e.target.classList.contains('type-select')) {
+            var typeId = e.target.getAttribute('data-id');
+            if (typeId) updateType(typeId, e.target.value, e.target);
         }
     });
 
@@ -389,6 +485,19 @@
             toggleCondition(id);
         }
     });
+
+    var filterDescEl = document.getElementById('filter-description');
+    if (filterDescEl) {
+        filterDescEl.addEventListener('input', function () {
+            clearTimeout(filterDebounce);
+            filterDebounce = setTimeout(applyFilters, 250);
+        });
+    }
+
+    var filterStatusEl = document.getElementById('filter-status');
+    if (filterStatusEl) {
+        filterStatusEl.addEventListener('change', applyFilters);
+    }
 
     loadConditions();
 

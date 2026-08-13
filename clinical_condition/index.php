@@ -78,6 +78,19 @@ $can_toggle_condition_status = ($consult_call_permission === 1)
             </div>
             <?php endif; ?>
 
+            <div class="row g-2 mb-3">
+                <div class="col-8">
+                    <input type="text" id="filter-description" class="form-control form-control-sm" placeholder="Search description..." style="font-size: 13px;">
+                </div>
+                <div class="col-4">
+                    <select id="filter-status" class="form-select form-select-sm" style="font-size: 13px;">
+                        <option value="">All Status</option>
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                </div>
+            </div>
+
             <div class="table-responsive">
                 <table class="table table-hover mb-0" style="font-size: 13px;">
                     <thead>
@@ -87,6 +100,7 @@ $can_toggle_condition_status = ($consult_call_permission === 1)
                             <?php endif; ?>
                             <th style="width: 40px;">#</th>
                             <th>Description</th>
+                            <th style="width: 120px;">Type</th>
                             <th style="width: 100px;">Risk Tier</th>
                             <th style="width: 90px;">Status</th>
                             <th style="width: 110px;">Active From</th>
@@ -95,7 +109,7 @@ $can_toggle_condition_status = ($consult_call_permission === 1)
                     </thead>
                     <tbody id="conditions-tbody">
                         <tr>
-                            <td colspan="7" class="text-center text-muted py-4">Loading...</td>
+                            <td colspan="8" class="text-center text-muted py-4">Loading...</td>
                         </tr>
                     </tbody>
                 </table>
@@ -118,7 +132,7 @@ $can_toggle_condition_status = ($consult_call_permission === 1)
         apiUrl: 'consultcall/api-jwt.php',
         isSuperAdmin: <?php echo $consult_call_permission === 1 ? 'true' : 'false'; ?>,
         canToggleStatus: <?php echo $can_toggle_condition_status ? 'true' : 'false'; ?>,
-        colSpan: <?php echo $can_toggle_condition_status ? 7 : 6; ?>
+        colSpan: <?php echo $can_toggle_condition_status ? 8 : 7; ?>
     };
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>

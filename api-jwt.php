@@ -130,7 +130,7 @@ function getApiHost()
         // return 'http://127.0.0.1:8000/api/v1/consult-call/';
          return 'http://127.0.0.1:8001/api/v1/consult-call/';
     } else {
-        return 'http://mytotalhealth.com.my/production/api/v1/consult-call/'; //production
+        return 'http://mytotalhealth.com.my/staging/api/v1/consult-call/'; //staging
     }
 }
 
@@ -1005,9 +1005,33 @@ function getClinicalConditions($staff_id)
 }
 
 /**
+ * Get all add-ons (lookup list for ConsultCall Eligibility's Recommended Add Ons dropdown)
+ * @param int $staff_id Staff ID for authentication
+ * @return array Add-ons data
+ */
+function getAddOns($staff_id)
+{
+    $result = getApiDataWithJWT('add-ons', null, 'GET', $staff_id);
+    $httpCode = $result['httpCode'];
+    $decoded = json_decode($result['response'], true);
+
+    if ($httpCode == 200) {
+        return array(
+            'success' => true,
+            'data' => isset($decoded['data']) ? $decoded['data'] : array()
+        );
+    } else {
+        return array(
+            'success' => false,
+            'message' => isset($decoded['message']) ? $decoded['message'] : 'Failed to retrieve add-ons'
+        );
+    }
+}
+
+/**
  * Update a clinical condition description and risk tier
  * @param int $id Clinical condition ID
- * @param array $data Fields: description, risk_tier
+ * @param array $data Fields: description, type, add_ons, risk_tier, active_from
  * @param int $staff_id Staff ID for authentication
  * @return array Update result
  */
@@ -1442,6 +1466,10 @@ if (!defined('API_JWT_INCLUDED')) {
 
                 case 'get-clinical-conditions':
                     $response = getClinicalConditions($staff_id);
+                    break;
+
+                case 'get-add-ons':
+                    $response = getAddOns($staff_id);
                     break;
 
                 case 'update-clinical-condition':

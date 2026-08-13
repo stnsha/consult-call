@@ -104,6 +104,24 @@ if (!$condition_id) {
                         </div>
 
                         <div class="mb-3">
+                            <label class="form-label" style="font-size: 13px; font-weight: 500;">Type</label>
+                            <div style="display: flex; flex-direction: column; gap: 0.4rem;">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="type" id="field-type-cc" value="CC">
+                                    <label class="form-check-label" for="field-type-cc" style="font-size: 13px;">CC</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="type" id="field-type-ao" value="AO">
+                                    <label class="form-check-label" for="field-type-ao" style="font-size: 13px;">AO</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="type" id="field-type-cc-ao" value="CC + AO">
+                                    <label class="form-check-label" for="field-type-cc-ao" style="font-size: 13px;">CC + AO</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
                             <label for="field-risk-tier" class="form-label" style="font-size: 13px; font-weight: 500;">Risk Tier <span class="text-danger">*</span></label>
                             <select class="form-select" id="field-risk-tier" name="risk_tier" style="font-size: 13px;">
                                 <option value="0">0 — Healthy</option>

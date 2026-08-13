@@ -3,14 +3,15 @@
  * Handles form loading, population, submission, and conditional fields
  *
  * API field name reference:
- *   Consult Call: consent_call_status (0/1/2), consent_call_date, enrollment_type (1/2),
+ *   Consult Call: consent_call_status (0/1/2/3), reason, consent_call_date, enrollment_type (1/2),
  *     scheduled_status (0-3), scheduled_call_date, handled_by,
  *     closure_date, final_remarks
  *   Detail: diagnosis, treatment_plan, rx_issued (bool), action (1-3),
- *     consult_status (0-3), process_status (1-3), consulted_by, consult_date, remarks
+ *     consultation_type (1=New Case, 2=Follow-Up), consult_status (0-3),
+ *     process_status (1-3), consulted_by, consult_date, remarks
  *   Follow-Up: followup_type (0-2), next_followup (0-3), followup_date,
- *     is_blood_test_required (bool), mode_of_conversion,
- *     followup_reminder (0-3), rescheduled_date, remarks
+ *     mode_of_conversion, followup_reminder (0-3), rescheduled_date, remarks
+ *     (is_blood_test_required removed from the form; column kept, nullable, always sent null)
  */
 (function() {
     'use strict';
@@ -24,6 +25,10 @@
     // Tracks the IDs of the latest loaded detail and follow-up records
     var currentDetailId = null;
     var currentFollowUpId = null;
+
+    // Detail ID targeted by the header Process Status pill toggle -- always the
+    // latest detail record, independent of currentDetailId's update-vs-create semantics.
+    var headerProcessStatusDetailId = null;
 
     // Tracks the last confirmed consult status so the radio can be reverted
     // when the doctor declines the "Completed" confirmation dialog.
@@ -51,7 +56,18 @@
     var CONSENT_PENDING = '0';
     var CONSENT_OBTAINED = '1';
     var CONSENT_REFUSED = '2';
-    var CONSENT_ON_PRESCRIBED_MED = '3';
+    var CONSENT_OTHERS = '3';
+
+    // Predefined Reason dropdown options (values match the exact text stored in
+    // the "reason" column, and are self-explanatory enough that Remarks becomes
+    // optional). Blank (no reason chosen yet) or "Others" both keep Remarks
+    // required, since neither one explains itself on its own.
+    var REASON_PREDEFINED = [
+        'On Prescribed Medication/Follow-Up',
+        'Unreachable',
+        'Not Keen',
+        'Foreign Number'
+    ];
 
     // Scheduled status integer constants
     var SCHEDULED_RESCHEDULE = '2';
@@ -330,10 +346,13 @@
                 } else { clearFieldError('handled_by'); }
             }
 
-            if (consentStatus === '2') {
+            if (consentStatus === CONSENT_REFUSED || consentStatus === CONSENT_OTHERS) {
+                // Remarks is required unless the Reason dropdown has a specific
+                // predefined value -- blank or "Others" both still require it.
+                var remarksRequired = REASON_PREDEFINED.indexOf(getSelectValue('reason')) === -1;
                 var refusalRemarks = getInputValue('refusal_remarks');
-                if (!refusalRemarks || !refusalRemarks.trim()) {
-                    showFieldError('refusal_remarks', 'Remarks are required when consent is refused.');
+                if (remarksRequired && (!refusalRemarks || !refusalRemarks.trim())) {
+                    showFieldError('refusal_remarks', 'Remarks are required.');
                     valid = false;
                 } else { clearFieldError('refusal_remarks'); }
             }
@@ -381,6 +400,12 @@
                 valid = false;
             } else { clearFieldError('consult_status'); }
 
+            var consultationType = getRadioValue('consultation_type');
+            if (!consultationType) {
+                showFieldError('consultation_type', 'Please select a consultation type.');
+                valid = false;
+            } else { clearFieldError('consultation_type'); }
+
             if (consultStatus === '1') {
                 var documentation = getInputValue('documentation');
                 if (!documentation || !documentation.trim()) {
@@ -399,12 +424,6 @@
                     showFieldError('treatment_plan', 'Treatment plan is required.');
                     valid = false;
                 } else { clearFieldError('treatment_plan'); }
-
-                var bloodTest = getRadioValue('is_blood_test_required');
-                if (!bloodTest) {
-                    showFieldError('is_blood_test_required', 'Please select whether a blood test is required.');
-                    valid = false;
-                } else { clearFieldError('is_blood_test_required'); }
 
                 var followupType = getRadioValue('followup_type');
                 if (followupType === '') {
@@ -457,8 +476,9 @@
     /**
      * Show/hide conditional fields based on consent status integer value.
      * consent_obtained (data-condition) shows when value === '1' (Obtained)
-     * consent_refused (data-condition) shows when value === '2' (Refused)
-     * @param {string} value Consent status value as string ('0', '1', '2')
+     * consent_refused (data-condition) and consent_reason (data-condition) show when
+     * value === '2' (Refused) or '3' (Others) -- Remarks is required in both cases.
+     * @param {string} value Consent status value as string ('0', '1', '2', '3')
      */
     function handleConsentChange(value) {
         var consentFields = document.querySelectorAll('[data-condition="consent_obtained"]');
@@ -470,14 +490,28 @@
             }
         }
 
+        var showReason = (value === CONSENT_REFUSED || value === CONSENT_OTHERS);
+
         var refusedFields = document.querySelectorAll('[data-condition="consent_refused"]');
         for (var k = 0; k < refusedFields.length; k++) {
-            if (value === CONSENT_REFUSED) {
+            if (showReason) {
                 refusedFields[k].classList.add('visible');
             } else {
                 refusedFields[k].classList.remove('visible');
             }
         }
+
+        var reasonFields = document.querySelectorAll('[data-condition="consent_reason"]');
+        for (var m = 0; m < reasonFields.length; m++) {
+            if (showReason) {
+                reasonFields[m].classList.add('visible');
+            } else {
+                reasonFields[m].classList.remove('visible');
+            }
+        }
+        // Keep the Remarks required-mark in sync with the current Reason value
+        // whenever consent status changes (e.g. on initial load).
+        handleReasonChange(getSelectValue('reason'));
 
         if (value !== CONSENT_OBTAINED) {
             var rescheduleFields = document.querySelectorAll('[data-condition="scheduled_reschedule"]');
@@ -485,6 +519,36 @@
                 rescheduleFields[j].classList.remove('visible');
             }
         }
+    }
+
+    /**
+     * Toggle the red required-mark next to the Remarks label based on the Reason
+     * dropdown value. Remarks stays required (mark shown) unless a specific
+     * predefined, self-explanatory reason is chosen.
+     * @param {string} value Reason dropdown value
+     */
+    function handleReasonChange(value) {
+        var requiredMark = document.getElementById('refusal_remarks_required_mark');
+        if (requiredMark) {
+            requiredMark.style.display = (REASON_PREDEFINED.indexOf(value) === -1) ? '' : 'none';
+        }
+    }
+
+    /**
+     * Resolve the value to submit for the "reason" field.
+     * @returns {string|null}
+     */
+    function getReasonValue() {
+        return getSelectValue('reason') || null;
+    }
+
+    /**
+     * Populate the Reason dropdown from a saved reason string.
+     * @param {string|null} reason
+     */
+    function populateReasonField(reason) {
+        setSelectValue('reason', reason || '');
+        handleReasonChange(reason || '');
     }
 
     /**
@@ -504,7 +568,7 @@
         // Cascade: appointment cancelled → consent becomes Refused, consult_status becomes Cancelled.
         // Do NOT call handleConsentChange('2') — that hides consent_obtained fields (Scheduled
         // Status, Handled By) which must stay visible as context for the cancelled appointment.
-        // Instead, explicitly keep those fields visible and only add the Refusal Remarks field.
+        // Instead, explicitly keep those fields visible and only add the Remarks/Reason fields.
         if (value === '3') {
             setRadioValue('consent_status', '2');
             var coFields = document.querySelectorAll('[data-condition="consent_obtained"]');
@@ -514,6 +578,10 @@
             var crFields = document.querySelectorAll('[data-condition="consent_refused"]');
             for (var cr = 0; cr < crFields.length; cr++) {
                 crFields[cr].classList.add('visible');
+            }
+            var crReasonFields = document.querySelectorAll('[data-condition="consent_reason"]');
+            for (var crr = 0; crr < crReasonFields.length; crr++) {
+                crReasonFields[crr].classList.add('visible');
             }
             setRadioValue('consult_status', CONSULT_CANCELLED);
             handleConsultStatusChange(CONSULT_CANCELLED);
@@ -613,6 +681,78 @@
                     if (radios[i].value === '1') { radios[i].checked = true; break; }
                 }
             }
+        }
+    }
+
+    /**
+     * Process Status pill toggle in the page header. Independent of the Consultation
+     * Details form -- saves immediately on click via its own update-detail call,
+     * rather than participating in the main form's submit/validation flow.
+     */
+
+    function setHeaderProcessStatusActive(value) {
+        var btns = document.querySelectorAll('#header-process-status .segmented-toggle-btn');
+        for (var i = 0; i < btns.length; i++) {
+            if (btns[i].getAttribute('data-value') === String(value)) {
+                btns[i].classList.add('active');
+            } else {
+                btns[i].classList.remove('active');
+            }
+        }
+    }
+
+    function showHeaderProcessStatus(detailId, processStatus) {
+        var container = document.getElementById('header-process-status');
+        if (!container || !detailId) return;
+        headerProcessStatusDetailId = detailId;
+        setHeaderProcessStatusActive(processStatus !== undefined && processStatus !== null ? processStatus : 1);
+        container.style.display = '';
+    }
+
+    function hideHeaderProcessStatus() {
+        var container = document.getElementById('header-process-status');
+        if (container) container.style.display = 'none';
+        headerProcessStatusDetailId = null;
+    }
+
+    function saveHeaderProcessStatus(newValue) {
+        var container = document.getElementById('header-process-status');
+        if (!container || !headerProcessStatusDetailId) return;
+        var btns = container.querySelectorAll('.segmented-toggle-btn');
+        var previousActive = container.querySelector('.segmented-toggle-btn.active');
+        var previousValue = previousActive ? previousActive.getAttribute('data-value') : '1';
+        if (previousValue === String(newValue)) return;
+
+        var i;
+        for (i = 0; i < btns.length; i++) { btns[i].disabled = true; }
+        setHeaderProcessStatusActive(newValue);
+
+        apiCall('update-detail', {
+            consult_call_id: EDIT_CONFIG.consultCallId,
+            detail_id: headerProcessStatusDetailId,
+            data: { process_status: parseInt(newValue, 10) }
+        }).then(function(result) {
+            for (i = 0; i < btns.length; i++) { btns[i].disabled = false; }
+            if (!result.success) {
+                setHeaderProcessStatusActive(previousValue);
+                alert(result.message || 'Failed to update process status.');
+            }
+        }).catch(function() {
+            for (i = 0; i < btns.length; i++) { btns[i].disabled = false; }
+            setHeaderProcessStatusActive(previousValue);
+            alert('Network error. Please try again.');
+        });
+    }
+
+    function initHeaderProcessStatus() {
+        var container = document.getElementById('header-process-status');
+        if (!container) return;
+        var btns = container.querySelectorAll('.segmented-toggle-btn');
+        for (var i = 0; i < btns.length; i++) {
+            btns[i].addEventListener('click', function() {
+                if (this.disabled) return;
+                saveHeaderProcessStatus(this.getAttribute('data-value'));
+            });
         }
     }
 
@@ -723,6 +863,22 @@
         });
     }
 
+    // Populates the "Recommended Add Ons" dropdown from the add_ons lookup table.
+    // Non-fatal on failure -- the field just keeps its default "Select Add On" option.
+    function loadAddOnsOptions() {
+        var select = document.getElementById('add_on_id');
+        if (!select) return Promise.resolve();
+        return apiCall('get-add-ons', {}).then(function(result) {
+            if (!result.success || !result.data) return;
+            for (var i = 0; i < result.data.length; i++) {
+                var opt = document.createElement('option');
+                opt.value = result.data[i].id;
+                opt.textContent = result.data[i].name;
+                select.appendChild(opt);
+            }
+        }).catch(function() {});
+    }
+
     // Consent status labels for the global-view read-only Eligibility summary,
     // mirroring the ConsultCall Eligibility radio options -- global view renders a
     // stripped-down readonly card instead of the interactive form, so the labels
@@ -731,15 +887,24 @@
         '0': 'Pending',
         '1': 'Obtained',
         '2': 'Refused',
-        '3': 'On Prescribed Medication'
+        '3': 'Others'
     };
 
-    // Populate the read-only Consent Status / Remarks fields shown to global view
+    // Consultation Type labels for the Consultation History accordion, mirroring the
+    // Consultation Details radio options (1=New Case, 2=Follow-Up).
+    var CONSULTATION_TYPE_LABELS = {
+        '1': 'New Case',
+        '2': 'Follow-Up'
+    };
+
+    // Populate the read-only Consent Status / Reason / Remarks fields shown to global view
     // (blood_test campaign link) in place of the full ConsultCall Eligibility form.
     function populateEligibilitySummary(data) {
         var consentStatus = (data.consent_call_status !== undefined && data.consent_call_status !== null)
             ? String(data.consent_call_status) : null;
         setText('elig-consent-status', consentStatus !== null ? (CONSENT_STATUS_LABELS[consentStatus] || '') : '');
+        setText('elig-reason', data.reason || '');
+        setText('elig-add-on', (data.add_on && data.add_on.name) || '');
         setText('elig-remarks', data.final_remarks || '');
     }
 
@@ -824,30 +989,35 @@
                 html += '<hr class="my-2">';
                 html += '<div class="mb-1"><strong>Consultation</strong></div>';
                 html += '<div class="row g-2">';
-                html += '<div class="col-4">' + renderHistoryField('Consult Date', d.consult_date ? formatDate(d.consult_date) : null) + '</div>';
-                html += '<div class="col-4">' + renderHistoryField('Consulted By', staffMap[String(d.consulted_by)] || null) + '</div>';
-                html += '<div class="col-4">' + renderHistoryField('Consult Status', statusMaps.consultStatuses[String(d.consult_status)] || null) + '</div>';
+                html += '<div class="col-3">' + renderHistoryField('Consult Date', d.consult_date ? formatDate(d.consult_date) : null) + '</div>';
+                html += '<div class="col-3">' + renderHistoryField('Consulted By', staffMap[String(d.consulted_by)] || null) + '</div>';
+                html += '<div class="col-3">' + renderHistoryField('Consult Status', statusMaps.consultStatuses[String(d.consult_status)] || null) + '</div>';
+                html += '<div class="col-3">' + renderHistoryField('Consultation Type', CONSULTATION_TYPE_LABELS[String(d.consultation_type)] || null) + '</div>';
                 html += '</div>';
                 if (isCompleted && !isGlobalView) {
                     html += renderHistoryField('Documentation', d.documentation || null);
                     html += renderHistoryField('Diagnosis', d.diagnosis || null);
                     html += renderHistoryField('Treatment Plan', d.treatment_plan || null);
+                    // Detail-level field (not tied to a follow-up record), so it stays
+                    // available here even for completed detail with no paired follow-up
+                    // (e.g. action = End Process never creates one).
                     html += renderHistoryField('Rx Issued', d.rx_issued ? 'Yes' : 'No');
                 }
                 html += renderHistoryField('Remarks', d.remarks || null);
 
-                // Follow-up fields (2-column grid) -- not shown in global view
+                // Follow-up fields (2-column grid, matching the Consultation Details layout:
+                // Follow Up Type | Next Follow Up, Next Follow Up Date | Mode of Conversion) --
+                // not shown in global view. Blood Test Required removed to match Consultation
+                // Details; Action stays full-width for its My Referral link/unlink controls.
                 if (isCompleted && fu && !isGlobalView) {
                     html += '<hr class="my-2">';
                     html += '<div class="mb-1"><strong>Follow-up</strong></div>';
                     html += '<div class="row g-2">';
 
-                    html += '<div class="col-6">' + renderHistoryField('Blood Test Required', fu.is_blood_test_required ? 'Yes' : 'No') + '</div>';
                     html += '<div class="col-6">' + renderHistoryField('Follow Up Type', statusMaps.followupTypes[String(fu.followup_type)] || null) + '</div>';
-
                     html += '<div class="col-6">' + renderHistoryField('Next Follow Up', statusMaps.nextFollowups[String(fu.next_followup)] || null) + '</div>';
-                    html += '<div class="col-6">' + renderHistoryField('Next Follow Up Date', (fu.next_followup && String(fu.next_followup) !== '0') ? formatDate(fu.followup_date) : null) + '</div>';
 
+                    html += '<div class="col-6">' + renderHistoryField('Next Follow Up Date', (fu.next_followup && String(fu.next_followup) !== '0') ? formatDate(fu.followup_date) : null) + '</div>';
                     html += '<div class="col-6">' + renderHistoryField('Mode of Conversion', modeConversionMap[String(fu.mode_of_conversion)] || null) + '</div>';
 
                     var actionLabel = statusMaps.actions[String(d.action)] || null;
@@ -861,7 +1031,7 @@
                         actionCell += '</div>';
                     }
                     actionCell += '</div>';
-                    html += '<div class="col-6">' + actionCell + '</div>';
+                    html += '<div class="col-12">' + actionCell + '</div>';
 
                     html += '</div>'; // row
                 }
@@ -919,6 +1089,7 @@
         // Clinical condition -- not shown in global view (blood_test campaign link)
         if (!isGlobalView) {
             html += renderHistoryField('Clinical Condition', cc ? (cc.description || null) : null);
+            html += renderHistoryField('Add-Ons Type', cc ? (cc.type || null) : null);
         }
 
         html += '</div>';
@@ -999,6 +1170,11 @@
                 { value: '2', label: 'No-show' }, { value: '3', label: 'Cancelled' }
             ], d.consult_status) + '</div>';
 
+        html += '<div class="col-md-4"><label class="form-label">Consultation Type</label>'
+            + historyRadioGroup('consultation_type', idx, [
+                { value: '1', label: 'New Case' }, { value: '2', label: 'Follow-Up' }
+            ], d.consultation_type) + '</div>';
+
         html += '<div class="col-md-12"><label class="form-label">Documentation</label>'
             + '<textarea class="form-control form-control-sm" id="hist_documentation_' + idx + '" rows="3">' + escapeHtml(d.documentation || '') + '</textarea></div>';
 
@@ -1016,17 +1192,11 @@
                 { value: '1', label: 'Refer Internal' }, { value: '2', label: 'Refer External' }, { value: '3', label: 'End Process' }
             ], d.action) + '</div>';
 
-        html += '<div class="col-md-6"><label class="form-label">Process Status</label>'
-            + historyRadioGroup('process_status', idx, [{ value: '1', label: 'Active' }, { value: '3', label: 'Closed' }], d.process_status) + '</div>';
-
         html += '<div class="col-md-12"><label class="form-label">Remarks</label>'
             + '<textarea class="form-control form-control-sm" id="hist_remarks_' + idx + '" rows="2">' + escapeHtml(d.remarks || '') + '</textarea></div>';
 
         if (fu) {
             html += '<div class="col-12"><hr class="my-2"><strong>Follow-up</strong></div>';
-
-            html += '<div class="col-md-6"><label class="form-label">Blood Test Required</label>'
-                + historyRadioGroup('is_blood_test_required', idx, [{ value: '1', label: 'Yes' }, { value: '0', label: 'No' }], fu.is_blood_test_required ? '1' : '0') + '</div>';
 
             html += '<div class="col-md-6"><label class="form-label">Follow Up Type</label>'
                 + historyRadioGroup('followup_type', idx, [
@@ -1090,12 +1260,12 @@
             consult_date: getHistInputValue(idx, 'consult_date') || null,
             consulted_by: toIntOrNull(getHistInputValue(idx, 'consulted_by')),
             consult_status: toIntOrNull(getHistRadioValue(idx, 'consult_status')),
+            consultation_type: toIntOrNull(getHistRadioValue(idx, 'consultation_type')),
             documentation: getHistInputValue(idx, 'documentation') || null,
             diagnosis: getHistInputValue(idx, 'diagnosis') || null,
             treatment_plan: getHistInputValue(idx, 'treatment_plan') || null,
             rx_issued: getHistRadioValue(idx, 'rx_issued') === '1',
             action: toIntOrNull(getHistRadioValue(idx, 'action')),
-            process_status: toIntOrNull(getHistRadioValue(idx, 'process_status')),
             remarks: getHistInputValue(idx, 'remarks') || null
         };
 
@@ -1107,7 +1277,6 @@
 
         if (followUpId) {
             var followUpData = {
-                is_blood_test_required: toIntOrNull(getHistRadioValue(idx, 'is_blood_test_required')),
                 followup_type: toIntOrNull(getHistRadioValue(idx, 'followup_type')),
                 next_followup: toIntOrNull(getHistRadioValue(idx, 'next_followup')),
                 followup_date: getHistInputValue(idx, 'followup_date') || null,
@@ -1254,6 +1423,13 @@
         for (var j = 0; j < consentRadios.length; j++) {
             consentRadios[j].addEventListener('change', function() {
                 handleConsentChange(this.value);
+            });
+        }
+
+        var reasonSelect = document.querySelector('select[name="reason"]');
+        if (reasonSelect) {
+            reasonSelect.addEventListener('change', function() {
+                handleReasonChange(this.value);
             });
         }
 
@@ -1479,10 +1655,15 @@
 
         // -- Consult Call level fields (integer IDs) --
 
-        // Consent status (0=Pending, 1=Obtained, 2=Refused)
+        // Consent status (0=Pending, 1=Obtained, 2=Refused, 3=Others)
         var consentStatus = (data.consent_call_status !== undefined && data.consent_call_status !== null)
             ? String(data.consent_call_status) : CONSENT_PENDING;
         setRadioValue('consent_status', consentStatus);
+        // Populate the Reason field first -- handleConsentChange() runs last so its
+        // Refused/Others visibility check has final say over whether the Reason
+        // field and Remarks required-mark are actually shown.
+        populateReasonField(data.reason || null);
+        setSelectValue('add_on_id', data.add_on_id || '');
         handleConsentChange(consentStatus);
 
         // Also show consultation section when the latest detail is past Pending (doctor has acted),
@@ -1530,10 +1711,20 @@
         currentFollowUpId = null;
         isDetailClaimedByCurrentDoctor = false;
 
+        // Header Process Status pill toggle always tracks the latest detail record,
+        // independent of the update-vs-create branching below.
+        if (details.length > 0) {
+            var latestDetailForHeader = details[details.length - 1];
+            showHeaderProcessStatus(latestDetailForHeader.id, latestDetailForHeader.process_status);
+        } else {
+            hideHeaderProcessStatus();
+        }
+
         // Reset all consultation detail fields so that a soft refresh via loadConsultCallData()
         // leaves the form in the same blank state as a full page reload would. Without this,
         // fields filled in by the doctor remain visible after the save completes.
-        setInputValue('consult_date', '');
+        // Defaults to today; overwritten below when re-editing a historical consult_date.
+        setInputValue('consult_date', toDateValue(new Date()));
         setSelectValue('consulted_by', '');
         setInputValue('documentation', '');
         setInputValue('diagnosis', '');
@@ -1542,15 +1733,18 @@
         setInputValue('remarks', '');
         setRadioValue('followup_type', '0');
         setRadioValue('next_followup', '0');
-        var detailFieldsToDeselect = ['consult_status', 'rx_issued', 'is_blood_test_required', 'mode_of_conversion', 'action', 'process_status'];
+        var detailFieldsToDeselect = ['consult_status', 'rx_issued', 'mode_of_conversion', 'action', 'process_status', 'consultation_type'];
         for (var dfi = 0; dfi < detailFieldsToDeselect.length; dfi++) {
             var dfRads = document.querySelectorAll('input[name="' + detailFieldsToDeselect[dfi] + '"]');
             for (var dfj = 0; dfj < dfRads.length; dfj++) { dfRads[dfj].checked = false; }
         }
+        // Consult Status defaults to Pending (mirrors Consent Status's default) unless a
+        // branch below overrides it based on the doctor's own in-progress/completed record.
+        setRadioValue('consult_status', CONSULT_PENDING);
         handleConsultStatusChange('');
         handleNextFollowUpChange('0', false);
         handleActionChange('');
-        prevConsultStatus = '';
+        prevConsultStatus = CONSULT_PENDING;
 
         // HQ checkpoint always targets the latest follow-up record
         if (followUps.length > 0) {
@@ -1620,6 +1814,9 @@
                 setInputValue('diagnosis', lastDetail.diagnosis || '');
                 setInputValue('treatment_plan', lastDetail.treatment_plan || '');
                 setRadioValue('rx_issued', lastDetail.rx_issued ? '1' : '0');
+                if (lastDetail.consultation_type) {
+                    setRadioValue('consultation_type', String(lastDetail.consultation_type));
+                }
                 if (lastDetail.action) {
                     setRadioValue('action', String(lastDetail.action));
                     handleActionChange(String(lastDetail.action));
@@ -1631,7 +1828,6 @@
                 }
                 setInputValue('remarks', lastDetail.remarks || '');
                 if (pairedFollowUp) {
-                    setRadioValue('is_blood_test_required', pairedFollowUp.is_blood_test_required ? '1' : '0');
                     var fuType = pairedFollowUp.followup_type !== null ? String(pairedFollowUp.followup_type) : '0';
                     setRadioValue('followup_type', fuType);
                     var nextFu = pairedFollowUp.next_followup !== null ? String(pairedFollowUp.next_followup) : '0';
@@ -1655,7 +1851,6 @@
         if (doctorFollowUpId && pairedFollowUp) {
             var fuRepopType = pairedFollowUp.followup_type !== null ? String(pairedFollowUp.followup_type) : '0';
             setRadioValue('followup_type', fuRepopType);
-            setRadioValue('is_blood_test_required', pairedFollowUp.is_blood_test_required ? '1' : '0');
             var fuRepopNext = pairedFollowUp.next_followup !== null ? String(pairedFollowUp.next_followup) : '0';
             setRadioValue('next_followup', fuRepopNext);
             handleNextFollowUpChange(fuRepopNext, false);
@@ -1890,6 +2085,8 @@
         // Consult call level data (matches API 2.5 Update fields)
         var consultCallData = {
             consent_call_status: toIntOrNull(getRadioValue('consent_status')),
+            reason: getReasonValue(),
+            add_on_id: toIntOrNull(getSelectValue('add_on_id')),
             consent_call_date: getInputValue('consent_call_date') || null,
             scheduled_status: toIntOrNull(getRadioValue('scheduled_status')),
             scheduled_call_date: getInputValue('scheduled_call_date') || null,
@@ -1914,13 +2111,16 @@
             test_result_id: previousDetailTestResultId,
             consult_date: getInputValue('consult_date') || null,
             consulted_by: consultedByValue,
+            consultation_type: toIntOrNull(getRadioValue('consultation_type')),
             consult_status: consultStatusForDetail,
             documentation: getInputValue('documentation') || null,
             diagnosis: getInputValue('diagnosis') || null,
             treatment_plan: getInputValue('treatment_plan') || null,
             rx_issued: getRadioValue('rx_issued') === '1',
             action: actionValue,
-            process_status: toIntOrNull(getRadioValue('process_status')),
+            // process_status is no longer part of this form -- it's managed independently
+            // via the header pill toggle's own update-detail call. Sending null here would
+            // overwrite the existing value and violate the column's NOT NULL constraint.
             remarks: getInputValue('remarks') || null
         };
 
@@ -1931,7 +2131,9 @@
             followup_type: toIntOrNull(getRadioValue('followup_type')),
             next_followup: toIntOrNull(getRadioValue('next_followup')),
             followup_date: getInputValue('followup_date') || null,
-            is_blood_test_required: toIntOrNull(getRadioValue('is_blood_test_required')),
+            // Blood Test Required field was removed from the form; the DB column stays
+            // nullable so historical/API data is unaffected, this just stops sending it.
+            is_blood_test_required: null,
             mode_of_conversion: toIntOrNull(getRadioValue('mode_of_conversion'))
         };
 
@@ -1975,7 +2177,7 @@
                 }));
             }
 
-            // HQ (role 4): automatically update the detail when consent is refused/on-medication
+            // HQ (role 4): automatically update the detail when consent is refused/others
             // or when the scheduled appointment is cancelled.
             if (EDIT_CONFIG.currentStaffRole === 4) {
                 var hqDetailData = null;
@@ -2011,12 +2213,9 @@
                 // Follow-up is only created when consultation is completed (status 1),
                 // action is Refer Internal (1), process_status is Active (1), and follow-up data is present.
                 // All other action/process_status combinations must not produce a follow-up record.
-                // Exception: draft saves may create/update a follow-up to persist blood test required
-                // and mode of conversion, which are follow-up fields not present on the detail record.
-                var draftHasFollowUpData = isDraft && (
-                    getRadioValue('is_blood_test_required') !== '' ||
-                    getRadioValue('mode_of_conversion') !== ''
-                );
+                // Exception: draft saves may create/update a follow-up to persist mode of conversion,
+                // a follow-up field not present on the detail record.
+                var draftHasFollowUpData = isDraft && getRadioValue('mode_of_conversion') !== '';
                 var hasFollowUp = draftHasFollowUpData || (!isDraft &&
                     detailData.consult_status === 1 &&
                     actionValue === 1 &&
@@ -2135,7 +2334,8 @@
         initSectionCollapse();
         initConditionalFields();
         initFormSubmission();
-        loadStatusMaps().then(function() {
+        initHeaderProcessStatus();
+        Promise.all([loadStatusMaps(), loadAddOnsOptions()]).then(function() {
             loadConsultCallData();
         });
     });

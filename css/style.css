@@ -148,6 +148,60 @@ body {
     box-shadow: 0 2px 10px rgba(19, 92, 170, 0.1);
 }
 
+/* Fix radio button and checkbox visibility (ODB's global stylesheet strips native appearance) */
+.consultcall-container .form-check-input {
+    width: 1em !important;
+    height: 1em !important;
+    margin-top: 0 !important;
+    margin-left: 0 !important;
+    vertical-align: middle !important;
+    background-color: #fff !important;
+    background-repeat: no-repeat !important;
+    background-position: center !important;
+    background-size: contain !important;
+    border: 1px solid rgba(0, 0, 0, .25) !important;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    print-color-adjust: exact !important;
+    flex-shrink: 0 !important;
+}
+
+.consultcall-container .form-check-input[type="radio"] {
+    border-radius: 50% !important;
+}
+
+.consultcall-container .form-check-input[type="checkbox"] {
+    border-radius: 0.25em !important;
+}
+
+.consultcall-container .form-check-input:checked {
+    background-color: #0d6efd !important;
+    border-color: #0d6efd !important;
+}
+
+.consultcall-container .form-check-input[type="radio"]:checked {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='2' fill='%23fff'/%3e%3c/svg%3e") !important;
+}
+
+.consultcall-container .form-check-input[type="checkbox"]:checked {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/%3e%3c/svg%3e") !important;
+}
+
+.consultcall-container .form-check-input:focus {
+    border-color: #86b7fe !important;
+    outline: 0 !important;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, .25) !important;
+}
+
+.consultcall-container .form-check {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    padding-left: 0 !important;
+    margin-bottom: 0 !important;
+    gap: 0.4em !important;
+}
+
 /* Headings */
 h1, h2, h3, h4, h5, h6 {
     font-weight: 600;

@@ -42,6 +42,11 @@
         var fieldDesc = document.getElementById('field-description');
         if (fieldDesc) fieldDesc.value = condition.description || '';
 
+        var typeRadios = document.querySelectorAll('input[name="type"]');
+        for (var i = 0; i < typeRadios.length; i++) {
+            typeRadios[i].checked = (typeRadios[i].value === condition.type);
+        }
+
         var fieldRisk = document.getElementById('field-risk-tier');
         if (fieldRisk) fieldRisk.value = String(condition.risk_tier !== undefined ? condition.risk_tier : 0);
 
@@ -85,9 +90,11 @@
             e.preventDefault();
 
             var descField = document.getElementById('field-description');
+            var checkedType = document.querySelector('input[name="type"]:checked');
             var riskField = document.getElementById('field-risk-tier');
             var activeFromField = document.getElementById('field-active-from');
             var description = descField ? descField.value.trim() : '';
+            var type = checkedType ? checkedType.value : '';
             var riskTier = riskField ? parseInt(riskField.value, 10) : 0;
             var activeFrom = activeFromField && activeFromField.value ? activeFromField.value : null;
 
@@ -106,6 +113,7 @@
                 id: CC_CONFIG.conditionId,
                 data: {
                     description: description,
+                    type: type,
                     risk_tier: riskTier,
                     active_from: activeFrom
                 }
