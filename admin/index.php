@@ -1,4 +1,13 @@
-<?php ob_start(); ?>
+<?php
+ob_start();
+// Absolute base URL for the consultcall module's own pages/assets -- see
+// navbar.php for the full explanation. Defined here too since this file is
+// one level down (admin/) and its <head> link tag is output before
+// navbar.php is included further down.
+if (!defined('CONSULTCALL_BASE')) {
+    define('CONSULTCALL_BASE', '/odb/' . basename(dirname(dirname(__FILE__))) . '/');
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -15,7 +24,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
-    <link href="consultcall/css/style.css?v=<?php echo time(); ?>" rel="stylesheet">
+    <link href="<?php echo CONSULTCALL_BASE; ?>css/style.css?v=<?php echo time(); ?>" rel="stylesheet">
     <style>
         .select2-container .select2-selection--single {
             height: 38px;
@@ -154,7 +163,7 @@ if ($_adm_is_local && isset($_SESSION['dev_role_override'])) {
 }
 
 if ($consult_call_permission !== 1) {
-    header('Location: /odb/consultcall/index.php');
+    header('Location: ' . CONSULTCALL_BASE . 'index.php');
     exit;
 }
 
@@ -282,7 +291,7 @@ $role_badges = array(
     <script>
     var ROLE_LABELS = <?php echo json_encode($role_labels); ?>;
     var ROLE_BADGES = <?php echo json_encode($role_badges); ?>;
-    var BACKEND_URL = 'consultcall/admin/backend.php';
+    var BACKEND_URL = <?php echo json_encode(CONSULTCALL_BASE . 'admin/backend.php'); ?>;
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>

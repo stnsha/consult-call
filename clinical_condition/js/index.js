@@ -168,7 +168,7 @@
 
             var disabled = CC_CONFIG.canToggleStatus ? '' : ' disabled';
             html += '<td>';
-            html += '<a href="' + (CC_CONFIG.isSuperAdmin ? 'consultcall/clinical_condition/update.php?id=' + escapeHtml(row.id) : '#') + '" '
+            html += '<a href="' + (CC_CONFIG.isSuperAdmin ? CC_CONFIG.baseUrl + 'clinical_condition/update.php?id=' + escapeHtml(row.id) : '#') + '" '
                   + 'class="btn btn-sm btn-outline-primary me-1' + (CC_CONFIG.isSuperAdmin ? '' : ' disabled') + '" '
                   + 'style="font-size:11px;"'
                   + (CC_CONFIG.isSuperAdmin ? '' : ' aria-disabled="true" tabindex="-1"')

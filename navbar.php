@@ -1,4 +1,15 @@
 <?php
+// Absolute base URL for this module's own pages/assets, e.g. "/odb/consultcall/" or
+// "/odb/consultcall-staging/". Derived from this file's own folder name so every
+// in-module link, redirect, and asset reference follows whichever copy
+// (production or staging) is actually serving the current request, instead
+// of a hardcoded folder name. Pages that redirect before reaching this include
+// (e.g. on a permission check) define it themselves earlier -- guarded here too
+// in case navbar.php is ever included by a page that didn't.
+if (!defined('CONSULTCALL_BASE')) {
+    define('CONSULTCALL_BASE', '/odb/' . basename(dirname(__FILE__)) . '/');
+}
+
 // Dev role switcher toolbar (localhost only)
 $_navbar_serverName = isset($_SERVER['SERVER_NAME']) ? $_SERVER['SERVER_NAME'] : '';
 $_navbar_httpHost   = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : '';
@@ -26,20 +37,20 @@ if ($_navbar_isLocal) {
     $_navbar_activeRoleLabel = ($_navbar_activeRole !== null)
         ? $_navbar_roleLabels[$_navbar_activeRole]
         : 'DB Default';
-    $_navbar_currentUri      = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '/odb/consultcall/index.php';
+    $_navbar_currentUri      = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : CONSULTCALL_BASE . 'index.php';
 ?>
 <div style="background:#12122a;color:#d0d0f0;padding:5px 14px;font-size:11px;font-family:monospace;display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-bottom:1px solid #333;">
     <span style="color:#888;letter-spacing:.05em;">DEV ROLE</span>
     <strong style="color:#f0c040;">[<?php echo htmlspecialchars($_navbar_activeRoleLabel ?? ''); ?>]</strong>
     <?php foreach ($_navbar_roleLabels as $_r => $_label): ?>
-        <form method="POST" action="/odb/consultcall/dev-switch-role.php" style="display:inline;margin:0;">
+        <form method="POST" action="<?php echo CONSULTCALL_BASE; ?>dev-switch-role.php" style="display:inline;margin:0;">
             <input type="hidden" name="role" value="<?php echo $_r; ?>">
             <input type="hidden" name="redirect" value="<?php echo htmlspecialchars($_navbar_currentUri); ?>">
             <button type="submit" style="background:<?php echo ($_navbar_activeRole === $_r ? '#2e2e6e' : '#1e1e3e'); ?>;color:<?php echo ($_navbar_activeRole === $_r ? '#f0c040' : '#aaa'); ?>;border:1px solid <?php echo ($_navbar_activeRole === $_r ? '#555' : '#333'); ?>;padding:2px 7px;font-size:11px;cursor:pointer;border-radius:3px;font-family:monospace;"><?php echo $_r; ?>: <?php echo $_label; ?></button>
         </form>
     <?php endforeach; ?>
     <?php if ($_navbar_activeRole !== null): ?>
-        <form method="POST" action="/odb/consultcall/dev-switch-role.php" style="display:inline;margin:0;">
+        <form method="POST" action="<?php echo CONSULTCALL_BASE; ?>dev-switch-role.php" style="display:inline;margin:0;">
             <input type="hidden" name="role" value="clear">
             <input type="hidden" name="redirect" value="<?php echo htmlspecialchars($_navbar_currentUri); ?>">
             <button type="submit" style="background:#3a1010;color:#ff8888;border:1px solid #a44;padding:2px 7px;font-size:11px;cursor:pointer;border-radius:3px;font-family:monospace;">Clear Override</button>
@@ -53,10 +64,13 @@ if ($_navbar_isLocal) {
 $_navbar_phpSelf = isset($_SERVER['PHP_SELF']) ? $_SERVER['PHP_SELF'] : '';
 $current_page = basename($_navbar_phpSelf);
 $current_dir = basename(dirname($_navbar_phpSelf));
+// Module's own root folder name (consultcall or consultcall-staging), not a
+// hardcoded 'consultcall' -- keeps active-tab highlighting correct on staging.
+$_navbar_moduleDir = basename(dirname(__FILE__));
 
 // Determine active class for each nav item
-$dashboard_active  = ($current_page == 'index.php'  && $current_dir == 'consultcall')         ? 'active' : '';
-$report_active     = ($current_page == 'report.php' && $current_dir == 'consultcall')         ? 'active' : '';
+$dashboard_active  = ($current_page == 'index.php'  && $current_dir == $_navbar_moduleDir)    ? 'active' : '';
+$report_active     = ($current_page == 'report.php' && $current_dir == $_navbar_moduleDir)    ? 'active' : '';
 $cc_active         = ($current_dir == 'clinical_condition')                                    ? 'active' : '';
 $ao_active         = ($current_dir == 'add_ons')                                               ? 'active' : '';
 $admin_active      = ($current_page == 'index.php'  && $current_dir == 'admin')               ? 'active' : '';
@@ -70,16 +84,16 @@ $admin_active      = ($current_page == 'index.php'  && $current_dir == 'admin') 
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav">
                 <li class="nav-item">
-                    <a class="nav-link <?php echo $report_active; ?>" href="consultcall/report.php">Dashboard</a>
+                    <a class="nav-link <?php echo $report_active; ?>" href="<?php echo CONSULTCALL_BASE; ?>report.php">Dashboard</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link <?php echo $dashboard_active; ?>" href="consultcall/index.php">Consultations</a>
+                    <a class="nav-link <?php echo $dashboard_active; ?>" href="<?php echo CONSULTCALL_BASE; ?>index.php">Consultations</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link <?php echo $cc_active; ?>" href="consultcall/clinical_condition/index.php">Clinical Conditions</a>
+                    <a class="nav-link <?php echo $cc_active; ?>" href="<?php echo CONSULTCALL_BASE; ?>clinical_condition/index.php">Clinical Conditions</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link <?php echo $ao_active; ?>" href="consultcall/add_ons/index.php">Add Ons</a>
+                    <a class="nav-link <?php echo $ao_active; ?>" href="<?php echo CONSULTCALL_BASE; ?>add_ons/index.php">Add Ons</a>
                 </li>
                 <?php
                 $_navbar_role = 0;
@@ -91,7 +105,7 @@ $admin_active      = ($current_page == 'index.php'  && $current_dir == 'admin') 
                 ?>
                 <?php if ($_navbar_role === 1): ?>
                 <li class="nav-item">
-                    <a class="nav-link <?php echo $admin_active; ?>" href="consultcall/admin/index.php">Admin</a>
+                    <a class="nav-link <?php echo $admin_active; ?>" href="<?php echo CONSULTCALL_BASE; ?>admin/index.php">Admin</a>
                 </li>
                 <?php endif; ?>
             </ul>

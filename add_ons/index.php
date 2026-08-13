@@ -1,3 +1,12 @@
+<?php
+// Absolute base URL for the consultcall module's own pages/assets -- see
+// navbar.php for the full explanation. Defined here too since this file is
+// one level down (add_ons/) and its <head> link tag is output before
+// navbar.php is included further down.
+if (!defined('CONSULTCALL_BASE')) {
+    define('CONSULTCALL_BASE', '/odb/' . basename(dirname(dirname(__FILE__))) . '/');
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -13,7 +22,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
-    <link href="consultcall/css/style.css?v=<?php echo time(); ?>" rel="stylesheet">
+    <link href="<?php echo CONSULTCALL_BASE; ?>css/style.css?v=<?php echo time(); ?>" rel="stylesheet">
 </head>
 <?php
 require_once('../../lock_adv.php');
@@ -39,7 +48,7 @@ if ($_ao_is_local && isset($_SESSION['dev_role_override'])) {
 }
 
 if ($consult_call_permission === 0) {
-    header('Location: /odb/consultcall/unauthorized.php');
+    header('Location: ' . CONSULTCALL_BASE . 'unauthorized.php');
     exit;
 }
 
@@ -147,12 +156,13 @@ $can_manage_add_ons = ($consult_call_permission === 1)
     var AO_CONFIG = {
         staffId: <?php echo json_encode(isset($id_user) ? $id_user : ''); ?>,
         permission: <?php echo json_encode($consult_call_permission); ?>,
-        apiUrl: 'consultcall/api-jwt.php',
+        baseUrl: <?php echo json_encode(CONSULTCALL_BASE); ?>,
+        apiUrl: '<?php echo CONSULTCALL_BASE; ?>api-jwt.php',
         canManage: <?php echo $can_manage_add_ons ? 'true' : 'false'; ?>,
         colSpan: 4
     };
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="consultcall/add_ons/js/index.js?v=<?php echo time(); ?>"></script>
+    <script src="<?php echo CONSULTCALL_BASE; ?>add_ons/js/index.js?v=<?php echo time(); ?>"></script>
 </body>
 </html>

@@ -2,6 +2,12 @@
 if (session_id() == '') {
     session_start();
 }
+// Absolute base URL for this module's own pages/assets -- see navbar.php for
+// the full explanation. Defined here too since this link tag in <head> is
+// output before navbar.php is included further down.
+if (!defined('CONSULTCALL_BASE')) {
+    define('CONSULTCALL_BASE', '/odb/' . basename(dirname(__FILE__)) . '/');
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -19,7 +25,7 @@ if (session_id() == '') {
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
-    <link href="consultcall/css/style.css?v=<?php echo time(); ?>" rel="stylesheet">
+    <link href="<?php echo CONSULTCALL_BASE; ?>css/style.css?v=<?php echo time(); ?>" rel="stylesheet">
     <style>
     .section-card {
         margin-bottom: 1.5rem;
@@ -307,7 +313,7 @@ $isAccessControlUser = ($currentStaffRole !== 0);
 $isGlobalViewOnly = ($global_view && !$isAccessControlUser);
 
 if ($currentStaffRole === 0 && !$global_view) {
-    header('Location: /odb/consultcall/unauthorized.php');
+    header('Location: ' . CONSULTCALL_BASE . 'unauthorized.php');
     exit;
 }
 
@@ -332,7 +338,7 @@ $psD = (!in_array($currentStaffRole, array(2, 4))) ? 'disabled' : '';
         <!-- Page Header -->
         <div class="page-header">
             <div class="page-title">
-                <a href="consultcall/index.php" class="btn btn-outline-secondary btn-back">
+                <a href="<?php echo CONSULTCALL_BASE; ?>index.php" class="btn btn-outline-secondary btn-back">
                     <i class="bi bi-arrow-left"></i> Back
                 </a>
                 <h1>Edit Patient</h1>
@@ -902,7 +908,7 @@ $psD = (!in_array($currentStaffRole, array(2, 4))) ? 'disabled' : '';
 
             <!-- Save Button -->
             <div class="d-flex justify-content-end gap-2 mt-4" id="form-actions">
-                <a href="consultcall/index.php" class="btn btn-outline-secondary">Cancel</a>
+                <a href="<?php echo CONSULTCALL_BASE; ?>index.php" class="btn btn-outline-secondary">Cancel</a>
                 <?php if ($currentStaffRole === 1 || $currentStaffRole === 2 || $currentStaffRole === 6): ?>
                 <button type="button" class="btn btn-outline-warning" id="draftBtn">
                     <i class="bi bi-pencil-square me-1"></i>Save as Draft
@@ -970,11 +976,12 @@ $psD = (!in_array($currentStaffRole, array(2, 4))) ? 'disabled' : '';
         staffId: <?php echo json_encode(isset($id_user) ? $id_user : ''); ?>,
         currentStaffId: <?php echo json_encode($currentStaffId); ?>,
         currentStaffRole: <?php echo json_encode($currentStaffRole); ?>,
-        apiUrl: 'consultcall/api-jwt.php'
+        baseUrl: <?php echo json_encode(CONSULTCALL_BASE); ?>,
+        apiUrl: '<?php echo CONSULTCALL_BASE; ?>api-jwt.php'
     };
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="consultcall/js/edit.js?v=<?php echo time(); ?>"></script>
+    <script src="<?php echo CONSULTCALL_BASE; ?>js/edit.js?v=<?php echo time(); ?>"></script>
 </body>
 
 </html>

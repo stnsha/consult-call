@@ -333,7 +333,7 @@
         html += '<td>' + consultedByName + '</td>';
         html += '<td>' + (processLabel ? '<span class="badge ' + processBadge + '">' + escapeHtml(processLabel) + '</span>' : '<span class="text-muted">-</span>') + '</td>';
         html += '<td>';
-        html += '<a href="consultcall/edit.php?id=' + encodeURIComponent(record.id) + '" class="btn btn-sm btn-outline-secondary" title="Edit"><i class="bi bi-pencil"></i></a>';
+        html += '<a href="' + CC_CONFIG.baseUrl + 'edit.php?id=' + encodeURIComponent(record.id) + '" class="btn btn-sm btn-outline-secondary" title="Edit"><i class="bi bi-pencil"></i></a>';
         if (detailIsDraft) {
             html += '<br><span class="badge bg-warning text-dark mt-1">Draft</span>';
         }
@@ -576,7 +576,7 @@
             var chipClass = getChipClass(item.followup_date);
             var dateLabel = formatChipDate(item.followup_date);
 
-            html += '<a href="consultcall/edit.php?id=' + encodeURIComponent(item.id) + '" class="followup-chip ' + chipClass + '">';
+            html += '<a href="' + CC_CONFIG.baseUrl + 'edit.php?id=' + encodeURIComponent(item.id) + '" class="followup-chip ' + chipClass + '">';
             html += '<span class="followup-chip-date">'  + escapeHtml(dateLabel) + '</span>';
             html += '<span class="followup-chip-name">'  + escapeHtml(name)      + '</span>';
             html += '<span class="followup-chip-meta">#CC' + escapeHtml(String(item.id)) + '</span>';

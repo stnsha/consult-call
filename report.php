@@ -1,3 +1,11 @@
+<?php
+// Absolute base URL for this module's own pages/assets -- see navbar.php for
+// the full explanation. Defined here too since this link tag in <head> is
+// output before navbar.php is included further down.
+if (!defined('CONSULTCALL_BASE')) {
+    define('CONSULTCALL_BASE', '/odb/' . basename(dirname(__FILE__)) . '/');
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 
@@ -14,7 +22,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
-    <link href="consultcall/css/style.css?v=<?php echo time(); ?>" rel="stylesheet">
+    <link href="<?php echo CONSULTCALL_BASE; ?>css/style.css?v=<?php echo time(); ?>" rel="stylesheet">
 </head>
 <?php
 require_once('../lock_adv.php');
@@ -40,7 +48,7 @@ if ($_rpt_is_local && isset($_SESSION['dev_role_override'])) {
 }
 
 if ($consult_call_permission === 0) {
-    header('Location: /odb/consultcall/unauthorized.php');
+    header('Location: ' . CONSULTCALL_BASE . 'unauthorized.php');
     exit;
 }
 ?>

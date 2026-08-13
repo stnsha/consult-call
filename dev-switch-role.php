@@ -49,13 +49,20 @@ if ($role_input === 'clear') {
 unset($_SESSION['jwt_token']);
 unset($_SESSION['jwt_expires']);
 
+// This file doesn't include navbar.php, so define the module base locally, keeping
+// the fallback redirect on the same folder (consultcall or consultcall-staging)
+// that served this request.
+if (!defined('CONSULTCALL_BASE')) {
+    define('CONSULTCALL_BASE', '/odb/' . basename(dirname(__FILE__)) . '/');
+}
+
 $redirect = isset($_POST['redirect']) && $_POST['redirect'] !== ''
     ? $_POST['redirect']
-    : '/odb/consultcall/index.php';
+    : CONSULTCALL_BASE . 'index.php';
 
 // Only allow relative redirects to prevent open redirect
 if (strpos($redirect, '://') !== false) {
-    $redirect = '/odb/consultcall/index.php';
+    $redirect = CONSULTCALL_BASE . 'index.php';
 }
 
 header('Location: ' . $redirect);

@@ -1,6 +1,14 @@
 <?php
 date_default_timezone_set('Asia/Kuala_Lumpur');
 
+// This file is hit directly as a standalone POST endpoint (no navbar.php in that
+// request), so define the module base here too if not already set -- see
+// navbar.php for the full explanation. Guarded since api-jwt.php can also be
+// include()'d from other pages that already defined it.
+if (!defined('CONSULTCALL_BASE')) {
+    define('CONSULTCALL_BASE', '/odb/' . basename(dirname(__FILE__)) . '/');
+}
+
 // Only set JSON header if this file is accessed directly (not included)
 if (!defined('API_JWT_INCLUDED')) {
     header('Content-Type: application/json');

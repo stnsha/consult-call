@@ -121,7 +121,7 @@
                 if (result.success) {
                     showAlert('Clinical condition updated successfully.', true);
                     setTimeout(function () {
-                        window.location.href = '/odb/consultcall/clinical_condition/index.php';
+                        window.location.href = CC_CONFIG.baseUrl + 'clinical_condition/index.php';
                     }, 800);
                 } else {
                     showAlert(result.message || 'Failed to update clinical condition.', false);
