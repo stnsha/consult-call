@@ -207,6 +207,19 @@ h1, h2, h3, h4, h5, h6 {
     font-weight: 600;
 }
 
+/* Dashboard chart cards (report.php) */
+.chart-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #52514e;
+    margin-bottom: 0.75rem;
+}
+
+.chart-wrap {
+    position: relative;
+    height: 280px;
+}
+
 /* Bento Card Styling - Overview Cards */
 .bento-card {
     background-color: #ffffff;
