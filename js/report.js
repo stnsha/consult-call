@@ -265,9 +265,10 @@
         }
         var ids = Object.keys(counts);
         ids.sort(function(a, b) { return counts[b] - counts[a]; });
+        ids = ids.slice(0, 10);
         var labels = ids.map(function(id) {
             var o = outletMap[id];
-            return o ? (o.code + ' - ' + o.comp_name) : ('Outlet #' + id);
+            return o ? o.code : ('Outlet #' + id);
         });
         return { labels: labels, data: ids.map(function(id) { return counts[id]; }) };
     }

@@ -147,31 +147,31 @@ $report_default_to   = date('Y-m-d');
         <!-- A) Enrollment Data -->
         <div class="row mb-2">
             <div class="col-12">
-                <h2 class="mb-0" style="font-size: 15px; font-weight: 600;">A) Enrollment Data</h2>
+                <h2 class="mb-0" style="font-size: 15px; font-weight: 600;">Enrollment Data</h2>
             </div>
         </div>
         <div class="row g-3 mb-4">
             <div class="col-md-6">
                 <div class="bento-card">
-                    <h3 class="chart-title">1) Enrollment Data / Time</h3>
+                    <h3 class="chart-title">Enrollment Data / Time</h3>
                     <div class="chart-wrap"><canvas id="chartA1"></canvas></div>
                 </div>
             </div>
             <div class="col-md-6">
                 <div class="bento-card">
-                    <h3 class="chart-title">2) Enrollment Type</h3>
+                    <h3 class="chart-title">Enrollment Type</h3>
                     <div class="chart-wrap"><canvas id="chartA2"></canvas></div>
                 </div>
             </div>
             <div class="col-md-6">
                 <div class="bento-card">
-                    <h3 class="chart-title">3) Enrollment Data by Outlets</h3>
+                    <h3 class="chart-title">Enrollment Data by Outlets (Top 10)</h3>
                     <div class="chart-wrap"><canvas id="chartA3"></canvas></div>
                 </div>
             </div>
             <div class="col-md-6">
                 <div class="bento-card">
-                    <h3 class="chart-title">4) Enrollment Data by Doctors</h3>
+                    <h3 class="chart-title">Enrollment Data by Doctors</h3>
                     <div class="chart-wrap"><canvas id="chartA4"></canvas></div>
                 </div>
             </div>
@@ -180,49 +180,49 @@ $report_default_to   = date('Y-m-d');
         <!-- B) Status Data -->
         <div class="row mb-2">
             <div class="col-12">
-                <h2 class="mb-0" style="font-size: 15px; font-weight: 600;">B) Status Data</h2>
+                <h2 class="mb-0" style="font-size: 15px; font-weight: 600;">Status Data</h2>
             </div>
         </div>
         <div class="row g-3 mb-4">
             <div class="col-md-6">
                 <div class="bento-card">
-                    <h3 class="chart-title">1) Consent Status</h3>
+                    <h3 class="chart-title">Consent Status</h3>
                     <div class="chart-wrap"><canvas id="chartB1"></canvas></div>
                 </div>
             </div>
             <div class="col-md-6">
                 <div class="bento-card">
-                    <h3 class="chart-title">2) Non-Eligibility Reasons</h3>
+                    <h3 class="chart-title">Non-Eligibility Reasons</h3>
                     <div class="chart-wrap"><canvas id="chartB2"></canvas></div>
                 </div>
             </div>
             <div class="col-md-6">
                 <div class="bento-card">
-                    <h3 class="chart-title">3) Add-On Status</h3>
+                    <h3 class="chart-title">Add-On Status</h3>
                     <div class="chart-wrap"><canvas id="chartB3"></canvas></div>
                 </div>
             </div>
             <div class="col-md-6">
                 <div class="bento-card">
-                    <h3 class="chart-title">4) Tests Added</h3>
+                    <h3 class="chart-title">Tests Added</h3>
                     <div class="chart-wrap"><canvas id="chartB4"></canvas></div>
                 </div>
             </div>
             <div class="col-12">
                 <div class="bento-card">
-                    <h3 class="chart-title">5) Consultation Status (New Case vs Follow-up)</h3>
+                    <h3 class="chart-title">Consultation Status (New Case vs Follow-up)</h3>
                     <div class="chart-wrap"><canvas id="chartB5"></canvas></div>
                 </div>
             </div>
             <div class="col-md-6">
                 <div class="bento-card">
-                    <h3 class="chart-title">6) Process Status</h3>
+                    <h3 class="chart-title">Process Status</h3>
                     <div class="chart-wrap"><canvas id="chartB6"></canvas></div>
                 </div>
             </div>
             <div class="col-md-6">
                 <div class="bento-card">
-                    <h3 class="chart-title">7) Mode of Action</h3>
+                    <h3 class="chart-title">Mode of Action</h3>
                     <div class="chart-wrap"><canvas id="chartB7"></canvas></div>
                 </div>
             </div>
