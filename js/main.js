@@ -837,7 +837,8 @@
                     csvField('Phone No'),
                     csvField('Outlet Code'),
                     csvField('Clinical Condition'),
-                    csvField('Risk Tier')
+                    csvField('Risk Tier'),
+                    csvField('Blood Test Report Date')
                 ].join(','));
 
                 for (var j = 0; j < records.length; j++) {
@@ -847,6 +848,7 @@
 
                     var clinicalConditionName = '';
                     var riskTierLabel = '';
+                    var bloodTestReportDate = '';
                     var details = rec.details || [];
                     for (var d = details.length - 1; d >= 0; d--) {
                         if (details[d].is_draft !== 1) {
@@ -856,6 +858,9 @@
                                 riskTierLabel = (cc.risk_tier !== null && cc.risk_tier !== undefined)
                                     ? (RISK_TIER_LABELS[cc.risk_tier] || String(cc.risk_tier))
                                     : '';
+                            }
+                            if (details[d].test_result && details[d].test_result.collected_date) {
+                                bloodTestReportDate = formatDate(details[d].test_result.collected_date);
                             }
                             break;
                         }
@@ -868,7 +873,8 @@
                         csvField(customer.phone || ''),
                         csvField(outlet.code    || ''),
                         csvField(clinicalConditionName),
-                        csvField(riskTierLabel)
+                        csvField(riskTierLabel),
+                        csvField(bloodTestReportDate)
                     ].join(','));
                 }
 
