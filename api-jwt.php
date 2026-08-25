@@ -1451,7 +1451,8 @@ if (!defined('API_JWT_INCLUDED')) {
                         'date_from', 'date_to', 'search', 'enrollment_type',
                         'process_status', 'followup_reminder', 'scheduled_from',
                         'scheduled_to', 'consulted_by', 'per_page', 'page', 'draft_status',
-                        'sort_by', 'sort_dir'
+                        'has_add_on', 'blood_test_date_from', 'blood_test_date_to',
+                        'advise_type', 'sort_by', 'sort_dir'
                     );
                     foreach ($allowedParams as $param) {
                         if (isset($jsonData[$param]) && $jsonData[$param] !== '') {

@@ -863,20 +863,111 @@
         });
     }
 
-    // Populates the "Recommended Add Ons" dropdown from the add_ons lookup table.
-    // Non-fatal on failure -- the field just keeps its default "Select Add On" option.
-    function loadAddOnsOptions() {
-        var select = document.getElementById('add_on_id');
-        if (!select) return Promise.resolve();
-        return apiCall('get-add-ons', {}).then(function(result) {
-            if (!result.success || !result.data) return;
-            for (var i = 0; i < result.data.length; i++) {
-                var opt = document.createElement('option');
-                opt.value = result.data[i].id;
-                opt.textContent = result.data[i].name;
-                select.appendChild(opt);
+    // -- Recommended Add Ons: multi-select checkbox dropdown --
+    // Only HQ (role 4) may check/uncheck; disabled entirely for other roles and in
+    // view-only mode (native checkboxes also get caught by disableAllFormFields()).
+    var addOnDropdownDisabled = (EDIT_CONFIG.viewOnly === true) || (EDIT_CONFIG.currentStaffRole !== 4);
+
+    function getSelectedAddOnIds() {
+        var listEl = document.getElementById('addon-ms-list');
+        if (!listEl) return [];
+        var boxes = listEl.querySelectorAll('input[type=checkbox]:checked');
+        var out = [];
+        for (var i = 0; i < boxes.length; i++) { out.push(parseInt(boxes[i].value, 10)); }
+        return out;
+    }
+
+    function setSelectedAddOnIds(ids) {
+        var listEl = document.getElementById('addon-ms-list');
+        if (!listEl) return;
+        var idSet = {};
+        for (var i = 0; i < (ids || []).length; i++) { idSet[String(ids[i])] = true; }
+        var boxes = listEl.querySelectorAll('input[type=checkbox]');
+        for (var j = 0; j < boxes.length; j++) {
+            boxes[j].checked = !!idSet[boxes[j].value];
+        }
+        updateAddOnButtonLabel();
+    }
+
+    function updateAddOnButtonLabel() {
+        var btn = document.getElementById('addon-ms-btn');
+        var listEl = document.getElementById('addon-ms-list');
+        if (!btn || !listEl) return;
+        var checked = listEl.querySelectorAll('input[type=checkbox]:checked');
+        if (checked.length === 0) {
+            btn.textContent = 'Select Add On(s)';
+        } else if (checked.length <= 2) {
+            var names = [];
+            for (var i = 0; i < checked.length; i++) {
+                var label = checked[i].parentNode;
+                names.push(label ? label.textContent.trim() : checked[i].value);
             }
-        }).catch(function() {});
+            btn.textContent = names.join(', ');
+        } else {
+            btn.textContent = checked.length + ' add ons selected';
+        }
+    }
+
+    // Add On Recommendation section is only relevant when the advise type calls for an
+    // add-on. CC-only never shows it, regardless of consent status.
+    function updateAddOnRecommendationVisibility(adviseType) {
+        var section = document.getElementById('addon-recommendation-section');
+        if (!section) return;
+        var shouldShow = (adviseType === 'AO' || adviseType === 'CC + AO');
+        section.classList.toggle('cc-hidden-by-advise-type', !shouldShow);
+    }
+
+    function initAddOnDropdown() {
+        var btnEl  = document.getElementById('addon-ms-btn');
+        var dropEl = document.getElementById('addon-ms-dropdown');
+        var wrapEl = document.getElementById('addon-ms-wrap');
+        if (!btnEl || !dropEl || !wrapEl) return;
+
+        if (addOnDropdownDisabled) {
+            wrapEl.classList.add('cc-ms-disabled');
+        }
+
+        btnEl.addEventListener('click', function(e) {
+            e.stopPropagation();
+            if (addOnDropdownDisabled) return;
+            dropEl.classList.toggle('open');
+        });
+        btnEl.addEventListener('keydown', function(e) {
+            if (addOnDropdownDisabled) return;
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); dropEl.classList.toggle('open'); }
+        });
+        document.addEventListener('click', function(e) {
+            if (!wrapEl.contains(e.target)) { dropEl.classList.remove('open'); }
+        });
+        dropEl.addEventListener('change', function(e) {
+            if (e.target && e.target.type === 'checkbox') {
+                updateAddOnButtonLabel();
+            }
+        });
+    }
+
+    // Populates the "Recommended Add Ons" checkbox dropdown from the add_ons lookup table.
+    // Non-fatal on failure -- the field just keeps its default empty list.
+    function loadAddOnsOptions() {
+        var listEl = document.getElementById('addon-ms-list');
+        if (!listEl) return Promise.resolve();
+        return apiCall('get-add-ons', {}).then(function(result) {
+            if (!result.success || !result.data || result.data.length === 0) {
+                listEl.innerHTML = '<li class="cc-ms-empty">No add ons available</li>';
+                return;
+            }
+            var html = '';
+            for (var i = 0; i < result.data.length; i++) {
+                var id = escapeHtml(result.data[i].id);
+                var name = escapeHtml(result.data[i].name);
+                html += '<li><label><input type="checkbox" value="' + id + '"' +
+                    (addOnDropdownDisabled ? ' disabled' : '') + '> ' + name + '</label></li>';
+            }
+            listEl.innerHTML = html;
+            updateAddOnButtonLabel();
+        }).catch(function() {
+            listEl.innerHTML = '<li class="cc-ms-empty">Failed to load add ons</li>';
+        });
     }
 
     // Consent status labels for the global-view read-only Eligibility summary,
@@ -897,6 +988,13 @@
         '2': 'Follow-Up'
     };
 
+    // Invoice Status labels for the Consultation History accordion, mirroring the
+    // Add On Recommendation section's Invoice Status radio options.
+    var INVOICE_STATUS_LABELS = {
+        '1': 'Confirmed',
+        '2': 'Completed'
+    };
+
     // Populate the read-only Consent Status / Reason / Remarks fields shown to global view
     // (blood_test campaign link) in place of the full ConsultCall Eligibility form.
     function populateEligibilitySummary(data) {
@@ -904,7 +1002,14 @@
             ? String(data.consent_call_status) : null;
         setText('elig-consent-status', consentStatus !== null ? (CONSENT_STATUS_LABELS[consentStatus] || '') : '');
         setText('elig-reason', data.reason || '');
-        setText('elig-add-on', (data.add_on && data.add_on.name) || '');
+        var addOnNames = [];
+        var addOnRows = data.addOns || [];
+        for (var i = 0; i < addOnRows.length; i++) {
+            if (addOnRows[i].add_on && addOnRows[i].add_on.name) {
+                addOnNames.push(addOnRows[i].add_on.name);
+            }
+        }
+        setText('elig-add-on', addOnNames.join(', '));
         setText('elig-remarks', data.final_remarks || '');
     }
 
@@ -1002,6 +1107,8 @@
                     // available here even for completed detail with no paired follow-up
                     // (e.g. action = End Process never creates one).
                     html += renderHistoryField('Rx Issued', d.rx_issued ? 'Yes' : 'No');
+                    html += renderHistoryField('Invoice ID', d.invoice_id || null);
+                    html += renderHistoryField('Invoice Status', INVOICE_STATUS_LABELS[String(d.invoice_status)] || null);
                 }
                 html += renderHistoryField('Remarks', d.remarks || null);
 
@@ -1089,7 +1196,8 @@
         // Clinical condition -- not shown in global view (blood_test campaign link)
         if (!isGlobalView) {
             html += renderHistoryField('Clinical Condition', cc ? (cc.description || null) : null);
-            html += renderHistoryField('Add-Ons Type', cc ? (cc.type || null) : null);
+            html += '<div class="mb-2"><div class="history-label">Advise Type</div>'
+                + '<div class="history-value">' + (cc && cc.type ? renderAdviseTypeBadge(cc.type) : '') + '</div></div>';
         }
 
         html += '</div>';
@@ -1192,6 +1300,14 @@
                 { value: '1', label: 'Refer Internal' }, { value: '2', label: 'Refer External' }, { value: '3', label: 'End Process' }
             ], d.action) + '</div>';
 
+        html += '<div class="col-md-6"><label class="form-label">Invoice ID</label>'
+            + '<input type="text" class="form-control form-control-sm" id="hist_invoice_id_' + idx + '" value="' + escapeHtml(d.invoice_id || '') + '"></div>';
+
+        html += '<div class="col-md-6"><label class="form-label">Invoice Status</label>'
+            + historyRadioGroup('invoice_status', idx, [
+                { value: '1', label: 'Confirmed' }, { value: '2', label: 'Completed' }
+            ], d.invoice_status) + '</div>';
+
         html += '<div class="col-md-12"><label class="form-label">Remarks</label>'
             + '<textarea class="form-control form-control-sm" id="hist_remarks_' + idx + '" rows="2">' + escapeHtml(d.remarks || '') + '</textarea></div>';
 
@@ -1266,6 +1382,8 @@
             treatment_plan: getHistInputValue(idx, 'treatment_plan') || null,
             rx_issued: getHistRadioValue(idx, 'rx_issued') === '1',
             action: toIntOrNull(getHistRadioValue(idx, 'action')),
+            invoice_id: getHistInputValue(idx, 'invoice_id') || null,
+            invoice_status: toIntOrNull(getHistRadioValue(idx, 'invoice_status')),
             remarks: getHistInputValue(idx, 'remarks') || null
         };
 
@@ -1579,6 +1697,15 @@
         return '<span class="badge bg-secondary">' + escapeHtml(label) + '</span>';
     }
 
+    // -- Advise Type badge helper --
+    var ADVISE_TYPE_BADGES = { 'CC': 'bg-primary', 'AO': 'bg-info', 'CC + AO': 'bg-dark' };
+
+    function renderAdviseTypeBadge(type) {
+        if (!type) return '';
+        var cls = ADVISE_TYPE_BADGES[type] || 'bg-secondary';
+        return '<span class="badge rounded-pill ' + cls + '">' + escapeHtml(type) + '</span>';
+    }
+
     // -- Data loading --
 
     /**
@@ -1663,7 +1790,7 @@
         // Refused/Others visibility check has final say over whether the Reason
         // field and Remarks required-mark are actually shown.
         populateReasonField(data.reason || null);
-        setSelectValue('add_on_id', data.add_on_id || '');
+        setSelectedAddOnIds(data.add_on_ids || []);
         handleConsentChange(consentStatus);
 
         // Also show consultation section when the latest detail is past Pending (doctor has acted),
@@ -1673,6 +1800,22 @@
         var latestDetailForSection = rawDetails.length > 0 ? rawDetails[rawDetails.length - 1] : null;
         var detailHasAction = !!(latestDetailForSection && String(latestDetailForSection.consult_status) !== '0');
         toggleConsultationSection(String(data.consent_call_status) === CONSENT_OBTAINED || detailHasAction);
+
+        // Invoice ID/Status live on the consultation detail record (nullable), not the
+        // consult call itself -- pre-fill from the latest detail regardless of who saved it,
+        // since this is HQ-owned data shown in the Add On Recommendation section.
+        setInputValue('invoice_id', (latestDetailForSection && latestDetailForSection.invoice_id) || '');
+        setRadioValue('invoice_status', (latestDetailForSection && latestDetailForSection.invoice_status)
+            ? String(latestDetailForSection.invoice_status) : '');
+
+        // Add On Recommendation section only makes sense when the advise type calls for
+        // an add-on (AO or CC + AO) -- hidden entirely when the clinical condition's
+        // advise type is CC-only. Advise type isn't user-editable on this form; it's
+        // read off the latest detail's linked clinical condition.
+        var adviseTypeForSection = (latestDetailForSection && latestDetailForSection.clinical_condition)
+            ? latestDetailForSection.clinical_condition.type
+            : null;
+        updateAddOnRecommendationVisibility(adviseTypeForSection);
 
         // Consent obtained fields
         if (data.consent_call_date) {
@@ -2086,7 +2229,7 @@
         var consultCallData = {
             consent_call_status: toIntOrNull(getRadioValue('consent_status')),
             reason: getReasonValue(),
-            add_on_id: toIntOrNull(getSelectValue('add_on_id')),
+            add_on_ids: getSelectedAddOnIds(),
             consent_call_date: getInputValue('consent_call_date') || null,
             scheduled_status: toIntOrNull(getRadioValue('scheduled_status')),
             scheduled_call_date: getInputValue('scheduled_call_date') || null,
@@ -2117,6 +2260,8 @@
             diagnosis: getInputValue('diagnosis') || null,
             treatment_plan: getInputValue('treatment_plan') || null,
             rx_issued: getRadioValue('rx_issued') === '1',
+            invoice_id: getInputValue('invoice_id') || null,
+            invoice_status: toIntOrNull(getRadioValue('invoice_status')),
             action: actionValue,
             // process_status is no longer part of this form -- it's managed independently
             // via the header pill toggle's own update-detail call. Sending null here would
@@ -2335,6 +2480,7 @@
         initConditionalFields();
         initFormSubmission();
         initHeaderProcessStatus();
+        initAddOnDropdown();
         Promise.all([loadStatusMaps(), loadAddOnsOptions()]).then(function() {
             loadConsultCallData();
         });

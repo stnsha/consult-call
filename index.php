@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 // Absolute base URL for this module's own pages/assets -- see navbar.php for
 // the full explanation. Defined here too since this link tag in <head> is
 // output before navbar.php is included further down.
@@ -74,7 +74,120 @@ if ($doctor_result) {
         <div class="row mb-4">
             <div class="col-12">
                 <h1 class="mb-1 fw-bold" style="font-size: 18px; font-weight: 500; text-align: left;">Consultations</h1>
-                <p class="text-muted mb-0" style="font-size: 13px; text-align: left;">Track and manage telehealth patient consultations</p>
+                <p class="text-muted mb-0" style="font-size: 13px; text-align: left;">Track and manage telehealth
+                    patient consultations</p>
+            </div>
+        </div>
+
+        <!-- Row 1: Overview Cards -->
+        <div class="row g-4 mb-4">
+            <!-- Total Patients Card -->
+            <div class="col-md-6 col-xl-3 overview-card">
+                <div class="bento-card h-100">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="card-icon bg-primary bg-opacity-10 text-primary">
+                            <i class="bi bi-people"></i>
+                        </div>
+                        <div class="ms-3 text-start">
+                            <h6 class="card-subtitle text-muted mb-1">Total Patients</h6>
+                            <h2 class="card-value mb-0"><span id="summary-total">--</span></h2>
+                        </div>
+                    </div>
+                    <div class="card-divider card-divider-1"></div>
+                    <div class="d-flex justify-content-between w-100 card-filter-row" data-filter-field="enrollmentFilter" data-filter-value="1">
+                        <span class="status-label">Primary</span>
+                        <span class="status-value" id="summary-enrollment-primary">--</span>
+                    </div>
+                    <div class="d-flex justify-content-between w-100 card-filter-row" data-filter-field="enrollmentFilter" data-filter-value="2">
+                        <span class="status-label">Follow-up</span>
+                        <span class="status-value" id="summary-enrollment-followup">--</span>
+                    </div>
+                </div>
+            </div>
+            <!-- Consent Status Card -->
+            <div class="col-md-6 col-xl-3 overview-card">
+                <div class="bento-card h-100">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="card-icon bg-success bg-opacity-10 text-success">
+                            <i class="bi bi-clipboard-check"></i>
+                        </div>
+                        <div class="ms-3 text-start">
+                            <h6 class="card-subtitle text-muted mb-1">Consent Status</h6>
+                            <h2 class="card-value mb-0"><span id="summary-consent-total">--</span></h2>
+                        </div>
+                    </div>
+                    <div class="card-divider card-divider-2"></div>
+                    <div class="d-flex justify-content-between w-100 card-filter-row" data-filter-field="consentFilter" data-filter-value="0">
+                        <span class="status-label">Pending</span>
+                        <span class="status-value" id="summary-consent-pending">--</span>
+                    </div>
+                    <div class="d-flex justify-content-between w-100 card-filter-row" data-filter-field="consentFilter" data-filter-value="1">
+                        <span class="status-label">Obtained</span>
+                        <span class="status-value" id="summary-consent-obtained">--</span>
+                    </div>
+                    <div class="d-flex justify-content-between w-100 card-filter-row" data-filter-field="consentFilter" data-filter-value="2">
+                        <span class="status-label">Refused</span>
+                        <span class="status-value" id="summary-consent-refused">--</span>
+                    </div>
+                    <div class="d-flex justify-content-between w-100 card-filter-row" data-filter-field="consentFilter" data-filter-value="3">
+                        <span class="status-label">On Medication</span>
+                        <span class="status-value" id="summary-consent-on-medication">--</span>
+                    </div>
+                </div>
+            </div>
+            <!-- Process Status Card -->
+            <div class="col-md-6 col-xl-3 overview-card">
+                <div class="bento-card h-100">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="card-icon bg-info bg-opacity-10 text-info">
+                            <i class="bi bi-gear"></i>
+                        </div>
+                        <div class="ms-3 text-start">
+                            <h6 class="card-subtitle text-muted mb-1">Process Status</h6>
+                            <h2 class="card-value mb-0"><span id="summary-process-total">--</span></h2>
+                        </div>
+                    </div>
+                    <div class="card-divider card-divider-3"></div>
+                    <div class="d-flex justify-content-between w-100 card-filter-row" data-filter-field="processFilter" data-filter-value="1">
+                        <span class="status-label">Active</span>
+                        <span class="status-value" id="summary-process-active">--</span>
+                    </div>
+                    <div class="d-flex justify-content-between w-100 card-filter-row" data-filter-field="processFilter" data-filter-value="3">
+                        <span class="status-label">Closed</span>
+                        <span class="status-value" id="summary-process-closed">--</span>
+                    </div>
+                    <div class="d-flex justify-content-between w-100 card-filter-row" data-filter-field="processFilter" data-filter-value="2">
+                        <span class="status-label">Escalated</span>
+                        <span class="status-value" id="summary-process-escalated">--</span>
+                    </div>
+                </div>
+            </div>
+            <!-- Advise Type Card -->
+            <div class="col-md-6 col-xl-3 overview-card">
+                <div class="bento-card h-100">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="card-icon card-icon-purple">
+                            <i class="bi bi-clipboard2-pulse"></i>
+                        </div>
+                        <div class="ms-3 text-start">
+                            <h6 class="card-subtitle text-muted mb-1">Advise Type</h6>
+                            <h2 class="card-value mb-0"><span id="summary-advise-total">--</span></h2>
+                        </div>
+                    </div>
+                    <div class="card-divider card-divider-4"></div>
+                    <div class="d-flex justify-content-between w-100 card-filter-row" data-filter-field="adviseTypeFilter" data-filter-value="CC">
+                        <span class="status-label">CC</span>
+                        <span class="status-value" id="summary-advise-cc">--</span>
+                    </div>
+                    <div class="d-flex justify-content-between w-100 card-filter-row" data-filter-field="adviseTypeFilter" data-filter-value="AO">
+                        <span class="status-label">AO</span>
+                        <span class="status-value" id="summary-advise-ao">--</span>
+                    </div>
+                    <div class="d-flex justify-content-between w-100 card-filter-row" data-filter-field="adviseTypeFilter" data-filter-value="CC + AO">
+                        <span class="status-label">CC + AO</span>
+                        <span class="status-value" id="summary-advise-both">--</span>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -99,7 +212,8 @@ if ($doctor_result) {
                     <div class="row g-3 align-items-end">
                         <div class="col-12">
                             <label for="searchInput" class="form-label">Search</label>
-                            <input type="text" class="form-control" id="searchInput" placeholder="Name, IC, phone or #CC123">
+                            <input type="text" class="form-control" id="searchInput"
+                                placeholder="Name, IC, phone or #CC123">
                         </div>
                     </div>
                     <!-- Filter row 1: Consent Status | Process Status | Draft Status | Action -->
@@ -171,7 +285,7 @@ if ($doctor_result) {
                             <input type="date" class="form-control" id="dateTo">
                         </div>
                     </div>
-                    <!-- Filter row 3: Scheduled From | Scheduled To | Consulted By | buttons -->
+                    <!-- Filter row 3: Scheduled From | Scheduled To | Blood Test Report Date From | Blood Test Report Date To -->
                     <div class="row g-3 align-items-end mt-1">
                         <div class="col-md-3">
                             <label for="scheduledFrom" class="form-label">Scheduled From</label>
@@ -182,19 +296,50 @@ if ($doctor_result) {
                             <input type="date" class="form-control" id="scheduledTo">
                         </div>
                         <div class="col-md-3">
+                            <label for="bloodTestDateFrom" class="form-label">Blood Test Report Date From</label>
+                            <input type="date" class="form-control" id="bloodTestDateFrom">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="bloodTestDateTo" class="form-label">Blood Test Report Date To</label>
+                            <input type="date" class="form-control" id="bloodTestDateTo">
+                        </div>
+                    </div>
+                    <!-- Filter row 4: Consulted By | Add-on | Advise Type | buttons -->
+                    <div class="row g-3 align-items-end mt-1">
+                        <div class="col-md-3">
                             <label for="consultedByFilter" class="form-label">Consulted By</label>
                             <select class="form-select" id="consultedByFilter">
                                 <option value="">All</option>
                                 <?php foreach ($doctor_list as $doctor): ?>
-                                    <option value="<?php echo (int)$doctor['id']; ?>"><?php echo htmlspecialchars($doctor['nama_staff'] ?? ''); ?></option>
+                                <option value="<?php echo (int)$doctor['id']; ?>">
+                                    <?php echo htmlspecialchars($doctor['nama_staff'] ?? ''); ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
+                        <div class="col-md-3">
+                            <label for="addOnFilter" class="form-label">Add On</label>
+                            <select class="form-select" id="addOnFilter">
+                                <option value="">All</option>
+                                <option value="1">Yes</option>
+                                <option value="0">No</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="adviseTypeFilter" class="form-label">Advise Type</label>
+                            <select class="form-select" id="adviseTypeFilter">
+                                <option value="">All</option>
+                                <option value="CC">CC</option>
+                                <option value="AO">AO</option>
+                                <option value="CC + AO">CC + AO</option>
+                            </select>
+                        </div>
                         <div class="col-md-3 d-flex gap-2 align-items-end">
-                            <button type="button" class="btn btn-success flex-fill" id="exportBtn" title="Export current filter results to Excel">
+                            <button type="button" class="btn btn-success flex-fill" id="exportBtn"
+                                title="Export current filter results to Excel">
                                 <i class="bi bi-file-earmark-spreadsheet me-1"></i>Export to Excel
                             </button>
-                            <button type="button" class="btn btn-secondary flex-fill" id="resetBtn" title="Reset Filters">
+                            <button type="button" class="btn btn-secondary flex-fill" id="resetBtn"
+                                title="Reset Filters">
                                 <i class="bi bi-x-lg me-1"></i>Reset
                             </button>
                         </div>
@@ -211,21 +356,27 @@ if ($doctor_result) {
                         <table class="table table-hover mb-0" id="patientsTable">
                             <thead>
                                 <tr>
-                                    <th class="sortable-col" data-sort-col="id">Consult Call ID <span class="sort-icon"></span></th>
+                                    <th class="sortable-col" data-sort-col="id">Consult Call ID <span
+                                            class="sort-icon"></span></th>
                                     <th>Patient Details</th>
-                                    <th class="sortable-col" data-sort-col="consent_call_status">Consent Status <span class="sort-icon"></span></th>
+                                    <th class="sortable-col" data-sort-col="consent_call_status">Consent Status <span
+                                            class="sort-icon"></span></th>
                                     <th>Blood Test Report Date</th>
-                                    <th class="sortable-col" data-sort-col="enrollment_date">Enrollment Date <span class="sort-icon"></span></th>
+                                    <th>Advise Type</th>
+                                    <th class="sortable-col" data-sort-col="enrollment_date">Enrollment Date <span
+                                            class="sort-icon"></span></th>
                                     <th>Add On</th>
-                                    <th class="sortable-col" data-sort-col="scheduled_call_date">Scheduled Date <span class="sort-icon"></span></th>
+                                    <th class="sortable-col" data-sort-col="scheduled_call_date">Scheduled Date <span
+                                            class="sort-icon"></span></th>
                                     <th>Consulted By</th>
-                                    <th class="sortable-col" data-sort-col="process_status">Process Status <span class="sort-icon"></span></th>
+                                    <th class="sortable-col" data-sort-col="process_status">Process Status <span
+                                            class="sort-icon"></span></th>
                                     <th>Action</th>
                                 </tr>
                             </thead>
                             <tbody id="patientsTableBody">
                                 <tr>
-                                    <td colspan="9" class="text-center py-4">
+                                    <td colspan="10" class="text-center py-4">
                                         <div class="spinner-border spinner-border-sm text-primary" role="status">
                                             <span class="visually-hidden">Loading...</span>
                                         </div>
@@ -248,7 +399,8 @@ if ($doctor_result) {
                             <span class="ms-2" style="font-size: 13px;">entries</span>
                         </div>
                         <div class="d-flex align-items-center">
-                            <span id="paginationInfo" class="me-3" style="font-size: 13px;">Showing 0 to 0 of 0 entries</span>
+                            <span id="paginationInfo" class="me-3" style="font-size: 13px;">Showing 0 to 0 of 0
+                                entries</span>
                             <nav>
                                 <ul class="pagination pagination-sm mb-0" id="paginationControls">
                                 </ul>
@@ -261,12 +413,12 @@ if ($doctor_result) {
     </div>
 
     <script>
-        var CC_CONFIG = {
-            staffId: <?php echo json_encode(isset($id_user) ? $id_user : ''); ?>,
-            permission: <?php echo json_encode($consult_call_permission); ?>,
-            baseUrl: <?php echo json_encode(CONSULTCALL_BASE); ?>,
-            apiUrl: '<?php echo CONSULTCALL_BASE; ?>api-jwt.php'
-        };
+    var CC_CONFIG = {
+        staffId: <?php echo json_encode(isset($id_user) ? $id_user : ''); ?>,
+        permission: <?php echo json_encode($consult_call_permission); ?>,
+        baseUrl: <?php echo json_encode(CONSULTCALL_BASE); ?>,
+        apiUrl: '<?php echo CONSULTCALL_BASE; ?>api-jwt.php'
+    };
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="<?php echo CONSULTCALL_BASE; ?>js/main.js?v=<?php echo time(); ?>"></script>

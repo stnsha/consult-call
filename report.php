@@ -62,7 +62,7 @@ if ($doctor_result) {
 }
 
 $outlet_list = array();
-$outlet_query = "SELECT id, code, comp_name FROM outlet ORDER BY comp_name";
+$outlet_query = "SELECT id, code, comp_name FROM outlet ORDER BY code ASC";
 $outlet_result = mysqli_query($conn, $outlet_query);
 if ($outlet_result) {
     while ($outlet_row = mysqli_fetch_assoc($outlet_result)) {
@@ -87,7 +87,8 @@ $report_default_to   = date('Y-m-d');
         <div class="row mb-4">
             <div class="col-12">
                 <h1 class="mb-1 fw-bold" style="font-size: 18px; font-weight: 500; text-align: left;">Dashboard</h1>
-                <p class="text-muted mb-0" style="font-size: 13px; text-align: left;">Enrollment and status analytics for telehealth consultations</p>
+                <p class="text-muted mb-0" style="font-size: 13px; text-align: left;">Enrollment and status analytics
+                    for telehealth consultations</p>
             </div>
         </div>
 
@@ -98,18 +99,22 @@ $report_default_to   = date('Y-m-d');
                     <div class="row g-3 align-items-end">
                         <div class="col-md-2">
                             <label for="rptDateFrom" class="form-label">Enrollment From</label>
-                            <input type="date" class="form-control" id="rptDateFrom" value="<?php echo htmlspecialchars($report_default_from); ?>">
+                            <input type="date" class="form-control" id="rptDateFrom"
+                                value="<?php echo htmlspecialchars($report_default_from); ?>">
                         </div>
                         <div class="col-md-2">
                             <label for="rptDateTo" class="form-label">Enrollment To</label>
-                            <input type="date" class="form-control" id="rptDateTo" value="<?php echo htmlspecialchars($report_default_to); ?>">
+                            <input type="date" class="form-control" id="rptDateTo"
+                                value="<?php echo htmlspecialchars($report_default_to); ?>">
                         </div>
                         <div class="col-md-2">
                             <label for="rptOutletFilter" class="form-label">Outlet</label>
                             <select class="form-select" id="rptOutletFilter">
                                 <option value="">All Outlets</option>
                                 <?php foreach ($outlet_list as $outlet): ?>
-                                    <option value="<?php echo (int)$outlet['id']; ?>"><?php echo htmlspecialchars($outlet['code'] . ' - ' . $outlet['comp_name']); ?></option>
+                                <option value="<?php echo (int)$outlet['id']; ?>">
+                                    <?php echo htmlspecialchars($outlet['code']); ?>
+                                </option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
@@ -118,7 +123,8 @@ $report_default_to   = date('Y-m-d');
                             <select class="form-select" id="rptDoctorFilter">
                                 <option value="">All Doctors</option>
                                 <?php foreach ($doctor_list as $doctor): ?>
-                                    <option value="<?php echo (int)$doctor['id']; ?>"><?php echo htmlspecialchars($doctor['nama_staff']); ?></option>
+                                <option value="<?php echo (int)$doctor['id']; ?>">
+                                    <?php echo htmlspecialchars($doctor['nama_staff']); ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
@@ -135,10 +141,70 @@ $report_default_to   = date('Y-m-d');
                             <button type="button" class="btn btn-primary flex-fill" id="rptApplyBtn">
                                 <i class="bi bi-funnel me-1"></i>Apply
                             </button>
-                            <button type="button" class="btn btn-secondary flex-fill" id="rptResetBtn" title="Reset Filters">
+                            <button type="button" class="btn btn-secondary flex-fill" id="rptResetBtn"
+                                title="Reset Filters">
                                 <i class="bi bi-x-lg"></i>
                             </button>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Monthly breakdown tables -->
+        <div class="row mb-2">
+            <div class="col-12">
+                <h2 class="mb-0" style="font-size: 15px; font-weight: 600;">Enrollment Data Breakdown by Month</h2>
+            </div>
+        </div>
+        <div class="row g-3 mb-4">
+            <div class="col-12">
+                <div class="bento-card">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0" id="enrollmentMonthlyTable">
+                            <thead>
+                                <tr id="enrollmentMonthlyTableHead">
+                                    <th>Type</th>
+                                    <th class="text-end">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody id="enrollmentMonthlyTableBody">
+                                <tr>
+                                    <td colspan="2" class="text-center text-muted py-3">No data for the selected
+                                        filters.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-2">
+            <div class="col-12">
+                <h2 class="mb-0" style="font-size: 15px; font-weight: 600;">Monthly Performance Summary</h2>
+            </div>
+        </div>
+        <div class="row g-3 mb-4">
+            <div class="col-12">
+                <div class="bento-card">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0" id="monthlySummaryTable">
+                            <thead>
+                                <tr>
+                                    <th>Month</th>
+                                    <th class="text-end">Total Calls Obtained</th>
+                                    <th class="text-end">Total Completed Calls</th>
+                                    <th class="text-end">Total Referred Internally</th>
+                                </tr>
+                            </thead>
+                            <tbody id="monthlySummaryTableBody">
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted py-3">No data for the selected
+                                        filters.</td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -151,27 +217,27 @@ $report_default_to   = date('Y-m-d');
             </div>
         </div>
         <div class="row g-3 mb-4">
-            <div class="col-md-6">
+            <div class="col-12">
                 <div class="bento-card">
                     <h3 class="chart-title">Enrollment Data / Time</h3>
                     <div class="chart-wrap"><canvas id="chartA1"></canvas></div>
                 </div>
             </div>
-            <div class="col-md-6">
+            <div class="col-12">
                 <div class="bento-card">
-                    <h3 class="chart-title">Enrollment Type</h3>
+                    <h3 class="chart-title">Enrollment Type by Month</h3>
                     <div class="chart-wrap"><canvas id="chartA2"></canvas></div>
                 </div>
             </div>
-            <div class="col-md-6">
+            <div class="col-12">
                 <div class="bento-card">
-                    <h3 class="chart-title">Enrollment Data by Outlets (Top 10)</h3>
+                    <h3 class="chart-title">Enrollment Data by Outlets by Month (Top 5)</h3>
                     <div class="chart-wrap"><canvas id="chartA3"></canvas></div>
                 </div>
             </div>
-            <div class="col-md-6">
+            <div class="col-12">
                 <div class="bento-card">
-                    <h3 class="chart-title">Enrollment Data by Doctors</h3>
+                    <h3 class="chart-title">Enrollment Data by Doctors by Month (Top 5)</h3>
                     <div class="chart-wrap"><canvas id="chartA4"></canvas></div>
                 </div>
             </div>
@@ -184,61 +250,64 @@ $report_default_to   = date('Y-m-d');
             </div>
         </div>
         <div class="row g-3 mb-4">
-            <div class="col-md-6">
+            <div class="col-12">
                 <div class="bento-card">
-                    <h3 class="chart-title">Consent Status</h3>
+                    <h3 class="chart-title">Consent Status by Month</h3>
                     <div class="chart-wrap"><canvas id="chartB1"></canvas></div>
                 </div>
             </div>
-            <div class="col-md-6">
+            <div class="col-12">
                 <div class="bento-card">
-                    <h3 class="chart-title">Non-Eligibility Reasons</h3>
+                    <h3 class="chart-title">Non-Eligibility Reasons by Month</h3>
                     <div class="chart-wrap"><canvas id="chartB2"></canvas></div>
                 </div>
             </div>
-            <div class="col-md-6">
+            <div class="col-12">
                 <div class="bento-card">
-                    <h3 class="chart-title">Add-On Status</h3>
+                    <h3 class="chart-title">Add-On Status by Month</h3>
                     <div class="chart-wrap"><canvas id="chartB3"></canvas></div>
                 </div>
             </div>
-            <div class="col-md-6">
+            <div class="col-12">
                 <div class="bento-card">
-                    <h3 class="chart-title">Tests Added</h3>
+                    <h3 class="chart-title">Advise Type Breakdown by Month</h3>
                     <div class="chart-wrap"><canvas id="chartB4"></canvas></div>
                 </div>
             </div>
             <div class="col-12">
                 <div class="bento-card">
-                    <h3 class="chart-title">Consultation Status (New Case vs Follow-up)</h3>
+                    <h3 class="chart-title">Consultation Status by Month (New Case vs Follow-up)</h3>
                     <div class="chart-wrap"><canvas id="chartB5"></canvas></div>
                 </div>
             </div>
-            <div class="col-md-6">
+            <div class="col-12">
                 <div class="bento-card">
-                    <h3 class="chart-title">Process Status</h3>
+                    <h3 class="chart-title">Process Status by Month</h3>
                     <div class="chart-wrap"><canvas id="chartB6"></canvas></div>
                 </div>
             </div>
-            <div class="col-md-6">
+            <div class="col-12">
                 <div class="bento-card">
-                    <h3 class="chart-title">Mode of Action</h3>
+                    <h3 class="chart-title">Mode of Action by Month</h3>
                     <div class="chart-wrap"><canvas id="chartB7"></canvas></div>
                 </div>
             </div>
         </div>
+
     </div><!-- /.consultcall-container -->
 
     <script>
-        var CC_CONFIG = {
-            staffId: <?php echo json_encode(isset($id_user) ? $id_user : ''); ?>,
-            permission: <?php echo json_encode($consult_call_permission); ?>,
-            baseUrl: <?php echo json_encode(CONSULTCALL_BASE); ?>,
-            apiUrl: '<?php echo CONSULTCALL_BASE; ?>api-jwt.php'
-        };
+    var CC_CONFIG = {
+        staffId: <?php echo json_encode(isset($id_user) ? $id_user : ''); ?>,
+        permission: <?php echo json_encode($consult_call_permission); ?>,
+        baseUrl: <?php echo json_encode(CONSULTCALL_BASE); ?>,
+        apiUrl: '<?php echo CONSULTCALL_BASE; ?>api-jwt.php'
+    };
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2/dist/chartjs-plugin-datalabels.min.js">
+    </script>
     <script src="<?php echo CONSULTCALL_BASE; ?>js/report.js?v=<?php echo time(); ?>"></script>
 </body>
 

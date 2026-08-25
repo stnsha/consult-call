@@ -32,7 +32,8 @@
         enrollment: { 1: 'bg-primary',  2: 'bg-secondary' },
         process:    { 1: 'bg-success',  3: 'bg-secondary' },
         reminder:   { 0: 'bg-warning',  1: 'bg-success',  2: 'bg-info', 3: 'bg-danger' },
-        action:     { 1: 'bg-primary',  2: 'bg-info',     3: 'bg-secondary' }
+        action:     { 1: 'bg-primary',  2: 'bg-info',     3: 'bg-secondary' },
+        adviseType: { 'CC': 'bg-primary', 'AO': 'bg-info', 'CC + AO': 'bg-dark' }
     };
 
     // Status label maps loaded from StatusLibraryController via get-statuses
@@ -118,6 +119,58 @@
     }
 
     /**
+     * Set text content of an element by ID, with fallback
+     * @param {string} id Element ID
+     * @param {*} value Value to display
+     */
+    function setText(id, value) {
+        var el = document.getElementById(id);
+        if (el) {
+            el.textContent = (value !== undefined && value !== null) ? value : '0';
+        }
+    }
+
+    /**
+     * Load summary data from API and update all summary card elements.
+     * Summary response uses string keys for sub-groups (e.g. "primary", "follow_up").
+     */
+    function loadSummary() {
+        apiCall('get-summary').then(function(result) {
+            if (!result.success || !result.data) return;
+            var d = result.data;
+
+            var enroll = d.enrollment_type || {};
+            setText('summary-total', d.total || 0);
+            setText('summary-enrollment-primary', enroll.primary || 0);
+            setText('summary-enrollment-followup', enroll.follow_up || 0);
+
+            var consent = d.consent_call_status || {};
+            var consentTotal = (consent.pending || 0) + (consent.obtained || 0) + (consent.refused || 0) + (consent.on_medication || 0);
+            setText('summary-consent-total', consentTotal);
+            setText('summary-consent-pending', consent.pending || 0);
+            setText('summary-consent-obtained', consent.obtained || 0);
+            setText('summary-consent-refused', consent.refused || 0);
+            setText('summary-consent-on-medication', consent.on_medication || 0);
+
+            var process = d.process_status || {};
+            var processTotal = (process.active || 0) + (process.escalated || 0) + (process.closed || 0);
+            setText('summary-process-total', processTotal);
+            setText('summary-process-active', process.active || 0);
+            setText('summary-process-closed', process.closed || 0);
+            setText('summary-process-escalated', process.escalated || 0);
+
+            var advise = d.advise_type || {};
+            var adviseTotal = (advise.cc || 0) + (advise.ao || 0) + (advise.cc_ao || 0);
+            setText('summary-advise-total', adviseTotal);
+            setText('summary-advise-cc', advise.cc || 0);
+            setText('summary-advise-ao', advise.ao || 0);
+            setText('summary-advise-both', advise.cc_ao || 0);
+        }).catch(function(err) {
+            console.error('Failed to load summary:', err);
+        });
+    }
+
+    /**
      * Build filter parameters from the current state of filter DOM elements.
      * Filter values are already integers from the select options.
      * @returns {object} Filter parameters for the API call
@@ -170,6 +223,18 @@
         var draftFilter = document.getElementById('draftFilter').value;
         if (draftFilter !== '') params.draft_status = draftFilter;
 
+        var addOnFilter = document.getElementById('addOnFilter').value;
+        if (addOnFilter !== '') params.has_add_on = addOnFilter;
+
+        var bloodTestDateFrom = document.getElementById('bloodTestDateFrom').value;
+        if (bloodTestDateFrom) params.blood_test_date_from = bloodTestDateFrom;
+
+        var bloodTestDateTo = document.getElementById('bloodTestDateTo').value;
+        if (bloodTestDateTo) params.blood_test_date_to = bloodTestDateTo;
+
+        var adviseType = document.getElementById('adviseTypeFilter').value;
+        if (adviseType !== '') params.advise_type = adviseType;
+
         params.per_page = perPage;
         params.page = currentPage;
 
@@ -218,7 +283,7 @@
      */
     function showTableLoading() {
         var tbody = document.getElementById('patientsTableBody');
-        tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4">' +
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center py-4">' +
             '<div class="spinner-border spinner-border-sm text-primary" role="status">' +
             '<span class="visually-hidden">Loading...</span></div>' +
             '<span class="ms-2 text-muted">Loading data...</span></td></tr>';
@@ -230,7 +295,7 @@
      */
     function renderEmptyTable(message) {
         var tbody = document.getElementById('patientsTableBody');
-        tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-muted">' +
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center py-4 text-muted">' +
             escapeHtml(message || 'No records found') + '</td></tr>';
     }
 
@@ -297,9 +362,17 @@
             ? formatDate(testResult.collected_date)
             : '<span class="text-muted">-</span>';
 
-        // Add On: tick when a recommended add-on is set, dash otherwise
-        var addOnDisplay = record.add_on
-            ? '<img src="common/img/tick.png" width="15px" title="' + escapeHtml(record.add_on.name || '') + '">'
+        // Advise Type: from the latest consultation detail's linked clinical condition
+        var clinicalCondition = latestDetail ? latestDetail.clinical_condition : null;
+        var adviseTypeValue = clinicalCondition ? clinicalCondition.type : null;
+        var adviseType = adviseTypeValue
+            ? '<span class="badge rounded-pill ' + (BADGES.adviseType[adviseTypeValue] || 'bg-secondary') + '">' + escapeHtml(adviseTypeValue) + '</span>'
+            : '<span class="text-muted">-</span>';
+
+        // Add On: plain indicator -- tick when this consult call has any row in
+        // consult_call_add_ons, dash otherwise. No add-on names shown here.
+        var addOnDisplay = (record.add_on_ids && record.add_on_ids.length)
+            ? '<img src="common/img/tick.png" width="15px">'
             : '<span class="text-muted">-</span>';
 
         // Consulted by: resolve staff name from staffMap; skip if detail is a draft
@@ -327,6 +400,7 @@
 
         html += '<td><span class="badge ' + consentBadge + '">' + escapeHtml(consentLabel) + '</span></td>';
         html += '<td style="white-space:nowrap">' + bloodTestDate + '</td>';
+        html += '<td>' + adviseType + '</td>';
         html += '<td style="white-space:nowrap">' + enrollmentDate + '</td>';
         html += '<td>' + addOnDisplay + '</td>';
         html += '<td style="white-space:nowrap">' + scheduledDate + '</td>';
@@ -416,9 +490,61 @@
      * After fetching consult calls, batch-fetches customer details from ODB
      * using the customer_id field on each record.
      */
+    /**
+     * add_on and advise_type are derived from the latest consultation detail's
+     * relations (add_on, clinical_condition.type) rather than real consult_calls
+     * columns, so the API does not support filtering on them server-side. Applied
+     * client-side instead -- see loadTableData().
+     */
+    function recordMatchesAddOn(record, addOnVal) {
+        if (addOnVal === '') return true;
+        var hasAddOn = !!(record.add_on_ids && record.add_on_ids.length);
+        return addOnVal === '1' ? hasAddOn : !hasAddOn;
+    }
+
+    function recordMatchesAdviseType(record, adviseTypeVal) {
+        if (adviseTypeVal === '') return true;
+        var details = record.details || [];
+        var latestDetail = details.length > 0 ? details[details.length - 1] : null;
+        var cc = latestDetail ? latestDetail.clinical_condition : null;
+        return !!(cc && cc.type === adviseTypeVal);
+    }
+
+    function recordMatchesBloodTestDate(record, dateFromVal, dateToVal) {
+        if (dateFromVal === '' && dateToVal === '') return true;
+        var details = record.details || [];
+        var latestDetail = details.length > 0 ? details[details.length - 1] : null;
+        var testResult = latestDetail ? latestDetail.test_result : null;
+        var collected = testResult ? testResult.collected_date : null;
+        if (!collected) return false;
+        var collectedDay = String(collected).slice(0, 10);
+        if (dateFromVal !== '' && collectedDay < dateFromVal) return false;
+        if (dateToVal !== '' && collectedDay > dateToVal) return false;
+        return true;
+    }
+
     function loadTableData() {
         showTableLoading();
         var params = getFilterParams();
+
+        var addOnVal = document.getElementById('addOnFilter').value;
+        var adviseTypeVal = document.getElementById('adviseTypeFilter').value;
+        var bloodTestDateFromVal = document.getElementById('bloodTestDateFrom').value;
+        var bloodTestDateToVal = document.getElementById('bloodTestDateTo').value;
+        var needsClientFilter = (addOnVal !== '' || adviseTypeVal !== '' ||
+            bloodTestDateFromVal !== '' || bloodTestDateToVal !== '');
+        var requestedPage = params.page;
+        var requestedPerPage = params.per_page;
+
+        if (needsClientFilter) {
+            delete params.has_add_on;
+            delete params.advise_type;
+            delete params.blood_test_date_from;
+            delete params.blood_test_date_to;
+            params.per_page = 9999;
+            params.page = 1;
+        }
+
         apiCall('all-consult-call', params).then(function(result) {
             if (!result.success) {
                 renderEmptyTable(result.message || 'Failed to load data');
@@ -428,9 +554,24 @@
 
             var data = result.data;
             var records = data.data || [];
-            var totalPages = data.last_page || 1;
-            var total = data.total || 0;
-            currentPage = data.current_page || 1;
+            var totalPages, total;
+
+            if (needsClientFilter) {
+                records = records.filter(function(r) {
+                    return recordMatchesAddOn(r, addOnVal) &&
+                        recordMatchesAdviseType(r, adviseTypeVal) &&
+                        recordMatchesBloodTestDate(r, bloodTestDateFromVal, bloodTestDateToVal);
+                });
+                total = records.length;
+                totalPages = Math.max(1, Math.ceil(total / requestedPerPage));
+                currentPage = Math.min(requestedPage, totalPages);
+                var startIdx = (currentPage - 1) * requestedPerPage;
+                records = records.slice(startIdx, startIdx + requestedPerPage);
+            } else {
+                totalPages = data.last_page || 1;
+                total = data.total || 0;
+                currentPage = data.current_page || 1;
+            }
 
             if (records.length === 0) {
                 renderEmptyTable('No records found');
@@ -643,6 +784,40 @@
     }
 
     /**
+     * Handle a card summary row click: clear all dropdowns, apply the clicked filter, reload.
+     * @param {Event} e Click event
+     */
+    function handleCardFilterClick(e) {
+        var field = this.getAttribute('data-filter-field');
+        var value = this.getAttribute('data-filter-value');
+
+        document.getElementById('searchInput').value = '';
+        document.getElementById('consentFilter').value = '';
+        document.getElementById('processFilter').value = '';
+        document.getElementById('reminderFilter').value = '';
+        document.getElementById('enrollmentFilter').value = '';
+        document.getElementById('dateFrom').value = '';
+        document.getElementById('dateTo').value = '';
+        document.getElementById('scheduledFrom').value = '';
+        document.getElementById('scheduledTo').value = '';
+        document.getElementById('consultedByFilter').value = '';
+        document.getElementById('actionFilter').value = '';
+        document.getElementById('draftFilter').value = '';
+        document.getElementById('addOnFilter').value = '';
+        document.getElementById('bloodTestDateFrom').value = '';
+        document.getElementById('bloodTestDateTo').value = '';
+        document.getElementById('adviseTypeFilter').value = '';
+
+        var el = document.getElementById(field);
+        if (el) {
+            el.value = value;
+        }
+
+        currentPage = 1;
+        loadTableData();
+    }
+
+    /**
      * Reset all filter inputs and reload table data
      */
     function resetFilters() {
@@ -658,6 +833,10 @@
         document.getElementById('consultedByFilter').value = '';
         document.getElementById('actionFilter').value = '';
         document.getElementById('draftFilter').value = '';
+        document.getElementById('addOnFilter').value = '';
+        document.getElementById('bloodTestDateFrom').value = '';
+        document.getElementById('bloodTestDateTo').value = '';
+        document.getElementById('adviseTypeFilter').value = '';
         sortBy  = null;
         sortDir = 'asc';
         currentPage = 1;
@@ -708,6 +887,19 @@
             }
 
             var records = result.data.data || [];
+
+            // add_on / advise_type / blood test report date are relation-derived and not
+            // filterable server-side -- apply the same client-side filtering used by the table.
+            var addOnVal = document.getElementById('addOnFilter').value;
+            var adviseTypeVal = document.getElementById('adviseTypeFilter').value;
+            var bloodTestDateFromVal = document.getElementById('bloodTestDateFrom').value;
+            var bloodTestDateToVal = document.getElementById('bloodTestDateTo').value;
+            records = records.filter(function(r) {
+                return recordMatchesAddOn(r, addOnVal) &&
+                    recordMatchesAdviseType(r, adviseTypeVal) &&
+                    recordMatchesBloodTestDate(r, bloodTestDateFromVal, bloodTestDateToVal);
+            });
+
             if (records.length === 0) {
                 alert('No records match the current filters. Nothing to export.');
                 resetExportBtn(btn);
@@ -765,7 +957,10 @@
                     csvField('Phone No'),
                     csvField('Outlet Code'),
                     csvField('Clinical Condition'),
-                    csvField('Risk Tier')
+                    csvField('Risk Tier'),
+                    csvField('Blood Test Report Date'),
+                    csvField('Advise Type'),
+                    csvField('Add On')
                 ].join(','));
 
                 for (var j = 0; j < records.length; j++) {
@@ -775,6 +970,8 @@
 
                     var clinicalConditionName = '';
                     var riskTierLabel = '';
+                    var adviseTypeLabel = '';
+                    var bloodTestDateLabel = '';
                     var details = rec.details || [];
                     for (var d = details.length - 1; d >= 0; d--) {
                         if (details[d].is_draft !== 1) {
@@ -784,10 +981,17 @@
                                 riskTierLabel = (cc.risk_tier !== null && cc.risk_tier !== undefined)
                                     ? (RISK_TIER_LABELS[cc.risk_tier] || String(cc.risk_tier))
                                     : '';
+                                adviseTypeLabel = cc.type || '';
+                            }
+                            var tr = details[d].test_result;
+                            if (tr && tr.collected_date) {
+                                bloodTestDateLabel = formatDate(tr.collected_date);
                             }
                             break;
                         }
                     }
+
+                    var addOnLabel = (rec.add_on_ids && rec.add_on_ids.length) ? 'Yes' : 'No';
 
                     rows.push([
                         csvField(rec.id ? '#CC' + rec.id : ''),
@@ -796,7 +1000,10 @@
                         csvField(customer.phone || ''),
                         csvField(outlet.code    || ''),
                         csvField(clinicalConditionName),
-                        csvField(riskTierLabel)
+                        csvField(riskTierLabel),
+                        csvField(bloodTestDateLabel),
+                        csvField(adviseTypeLabel),
+                        csvField(addOnLabel)
                     ].join(','));
                 }
 
@@ -852,9 +1059,18 @@
         document.getElementById('consultedByFilter').addEventListener('change', onFilterChange);
         document.getElementById('actionFilter').addEventListener('change', onFilterChange);
         document.getElementById('draftFilter').addEventListener('change', onFilterChange);
+        document.getElementById('addOnFilter').addEventListener('change', onFilterChange);
+        document.getElementById('bloodTestDateFrom').addEventListener('change', onFilterChange);
+        document.getElementById('bloodTestDateTo').addEventListener('change', onFilterChange);
+        document.getElementById('adviseTypeFilter').addEventListener('change', onFilterChange);
 
         document.getElementById('resetBtn').addEventListener('click', resetFilters);
         document.getElementById('exportBtn').addEventListener('click', exportToExcel);
+
+        var filterRows = document.querySelectorAll('.card-filter-row');
+        for (var f = 0; f < filterRows.length; f++) {
+            filterRows[f].addEventListener('click', handleCardFilterClick);
+        }
 
         document.getElementById('rowsPerPage').addEventListener('change', function() {
             perPage = parseInt(this.value, 10);
@@ -864,6 +1080,7 @@
 
         initSortableHeaders();
         loadFollowupBanner();
+        loadSummary();
         loadStatusMaps().then(function() {
             loadTableData();
         });

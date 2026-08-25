@@ -84,6 +84,12 @@ if (!defined('CONSULTCALL_BASE')) {
         display: block !important;
     }
 
+    /* Must come after .conditional-field.visible so it wins the cascade tie when both
+       classes are present -- Add On Recommendation hidden for CC even if consent is Obtained. */
+    .conditional-field.cc-hidden-by-advise-type {
+        display: none !important;
+    }
+
     .radio-group {
         display: flex;
         flex-wrap: wrap;
@@ -513,20 +519,6 @@ $psD = (!in_array($currentStaffRole, array(2, 4))) ? 'disabled' : '';
                             </div>
                         </div>
 
-                        <!-- Recommended Add Ons (shown only when consent is Obtained); wrapped in its
-                             own nested row so it gets its own line at half width, matching the same
-                             reflow-isolation trick used for the Consent Status + Reason row above. -->
-                        <div class="col-md-12 conditional-field" data-condition="consent_obtained">
-                            <div class="row g-4">
-                                <div class="col-md-6">
-                                    <label class="form-label">Recommended Add Ons</label>
-                                    <select class="form-select" name="add_on_id" id="add_on_id" <?php echo $eD; ?>>
-                                        <option value="">Select Add On</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-
                         <!-- Conditional fields when consent = obtained -->
                         <div class="col-md-6 conditional-field" data-condition="consent_obtained">
                             <label class="form-label">Consent Date<span style="color:red;"> *</span></label>
@@ -590,6 +582,56 @@ $psD = (!in_array($currentStaffRole, array(2, 4))) ? 'disabled' : '';
                                     style="color:red;"> *</span></label>
                             <textarea class="form-control" name="refusal_remarks" id="refusal_remarks" rows="3"
                                 placeholder="Enter remarks" <?php echo $eD; ?>></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section: Add On Recommendation (shown only when consent is Obtained AND
+                 advise type is AO or CC + AO -- hidden entirely for CC, see updateAddOnRecommendationVisibility() -->
+            <div class="bento-card section-card conditional-field" id="addon-recommendation-section" data-condition="consent_obtained">
+                <div class="section-header" data-section="addon-recommendation">
+                    <h5><i class="bi bi-bag-plus me-2"></i>Add On Recommendation
+                        <?php if ($eD): ?>
+                        <span style="font-size:11px;font-weight:400;color:#888;margin-left:8px;">
+                            <i class="bi bi-lock-fill"></i> View only
+                        </span>
+                        <?php endif; ?>
+                    </h5>
+                    <i class="bi bi-chevron-up"></i>
+                </div>
+                <div class="form-section" id="section-addon-recommendation">
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <label class="form-label">Recommended Add Ons</label>
+                            <div class="cc-ms-wrap" id="addon-ms-wrap">
+                                <div class="cc-ms-selection" id="addon-ms-btn" tabindex="0">Select Add On(s)</div>
+                                <div class="cc-ms-dropdown" id="addon-ms-dropdown">
+                                    <ul class="cc-ms-list" id="addon-ms-list">
+                                        <li class="cc-ms-empty">Loading...</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Invoice ID</label>
+                            <input type="text" class="form-control" name="invoice_id" id="invoice_id"
+                                placeholder="Enter invoice ID" <?php echo $eD; ?>>
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label">Invoice Status</label>
+                            <div class="radio-group">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="invoice_status"
+                                        id="invoice_status_confirmed" value="1" <?php echo $eD; ?>>
+                                    <label class="form-check-label" for="invoice_status_confirmed">Confirmed</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="invoice_status"
+                                        id="invoice_status_completed" value="2" <?php echo $eD; ?>>
+                                    <label class="form-check-label" for="invoice_status_completed">Completed</label>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

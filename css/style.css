@@ -234,21 +234,21 @@ h1, h2, h3, h4, h5, h6 {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-/* Overview Card specific styling */
-.col-md-4 .bento-card {
-    border-top: 3px solid #0d6efd;
+/* Colored divider line between the card value and its status rows */
+.card-divider {
+    height: 1px;
+    margin: 10px 0 4px;
+    border: none;
 }
 
-.col-md-4:nth-child(1) .bento-card {
-    border-top-color: #0d6efd;
-}
+.card-divider-1 { background-color: #0d6efd; }
+.card-divider-2 { background-color: #198754; }
+.card-divider-3 { background-color: #0dcaf0; }
+.card-divider-4 { background-color: #6f42c1; }
 
-.col-md-4:nth-child(2) .bento-card {
-    border-top-color: #198754;
-}
-
-.col-md-4:nth-child(3) .bento-card {
-    border-top-color: #0dcaf0;
+.card-icon-purple {
+    background-color: rgba(111, 66, 193, 0.1);
+    color: #6f42c1;
 }
 
 /* Card Icon Styling */
@@ -280,17 +280,12 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* Status breakdown section in cards */
-.col-md-4 .bento-card > .d-flex.justify-content-between {
+.overview-card .bento-card > .d-flex.justify-content-between {
     border-bottom: 1px solid #f1f3f4;
 }
 
-.col-md-4 .bento-card > .d-flex.justify-content-between:last-child {
+.overview-card .bento-card > .d-flex.justify-content-between:last-child {
     border-bottom: none;
-}
-
-.col-md-4 .bento-card > .d-flex.justify-content-between:first-of-type {
-    margin-top: 12px;
-    border-top: 1px solid #e9ecef;
 }
 
 /* Clickable card filter rows */
@@ -432,6 +427,104 @@ h1, h2, h3, h4, h5, h6 {
     color: #fff !important;
 }
 
+.table .badge.rounded-pill,
+.badge.rounded-pill {
+    border-radius: 50rem !important;
+}
+
+/* Multi-select checkbox dropdown (Recommended Add Ons picker on edit.php) */
+.cc-ms-wrap {
+    position: relative;
+}
+
+.cc-ms-selection {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 38px;
+    padding: 0.375rem 2.25rem 0.375rem 0.75rem;
+    font-size: 14px;
+    color: #495057;
+    background-color: #fff;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 16px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    cursor: pointer;
+    user-select: none;
+    outline: none;
+    box-sizing: border-box;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.cc-ms-selection:focus,
+.cc-ms-selection:hover {
+    outline: none;
+    box-shadow: none;
+    border-color: #ced4da;
+}
+
+.cc-ms-wrap.cc-ms-disabled .cc-ms-selection {
+    background-color: #e9ecef;
+    color: #6c757d;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.cc-ms-dropdown {
+    position: absolute;
+    top: calc(100% + 2px);
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, .1);
+    z-index: 1000;
+    display: none;
+}
+
+.cc-ms-dropdown.open {
+    display: block;
+}
+
+.cc-ms-list {
+    list-style: none;
+    margin: 0;
+    padding: 4px 0;
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.cc-ms-list li {
+    padding: 0;
+}
+
+.cc-ms-list label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 6px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    margin: 0;
+}
+
+.cc-ms-list label:hover {
+    background: #f8f9fa;
+}
+
+.cc-ms-empty {
+    padding: 8px 12px;
+    font-size: 13px;
+    color: #6c757d;
+}
+
 /* Button Styling */
 .btn {
     font-size: 14px;
@@ -520,10 +613,6 @@ h1, h2, h3, h4, h5, h6 {
 
     .bento-card {
         padding: 1rem;
-    }
-
-    .col-md-3 .bento-card {
-        border-top-width: 3px;
     }
 
     .table th,
