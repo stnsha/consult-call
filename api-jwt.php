@@ -138,7 +138,7 @@ function getApiHost()
         // return 'http://127.0.0.1:8000/api/v1/consult-call/';
          return 'http://127.0.0.1:8001/api/v1/consult-call/';
     } else {
-        return 'http://mytotalhealth.com.my/staging/api/v1/consult-call/'; //staging
+        return 'http://mytotalhealth.com.my/production/api/v1/consult-call/'; //staging
     }
 }
 
