@@ -52,6 +52,18 @@
     var previousDetailClinicalConditionId = null;
     var previousDetailTestResultId = null;
 
+    // Whether the AI review for the latest detail's linked test result is on
+    // hold pending doctor release (add-on clinical condition). Set from the
+    // loaded consult call data; gates the "Release Doctor Review?" control.
+    var aiReviewOnHold = false;
+
+    // Whether the Add-On Invoice ID on the latest detail is already synced to
+    // ODB blood_test_sales. Set from loaded data; recomputed after a sync run.
+    var invoiceSynced = false;
+    // Value to persist as is_invoice_synced on the next save (set by the submit
+    // handler after attempting a sync; falls back to invoiceSynced).
+    var invoiceSyncedForSave = false;
+
     // Consent status integer constants
     var CONSENT_PENDING = '0';
     var CONSENT_OBTAINED = '1';
@@ -400,11 +412,25 @@
                 valid = false;
             } else { clearFieldError('consult_status'); }
 
-            var consultationType = getRadioValue('consultation_type');
-            if (!consultationType) {
-                showFieldError('consultation_type', 'Please select a consultation type.');
-                valid = false;
+            // Consultation Type is only shown/required when Consult Status = Completed.
+            if (consultStatus === '1') {
+                var consultationType = getRadioValue('consultation_type');
+                if (!consultationType) {
+                    showFieldError('consultation_type', 'Please select a consultation type.');
+                    valid = false;
+                } else { clearFieldError('consultation_type'); }
             } else { clearFieldError('consultation_type'); }
+
+            // Release Doctor Review? is shown/required whenever the linked test
+            // result's AI review is on hold -- independent of consult status
+            // (the review must be released regardless of the consult outcome).
+            var releaseContainer = document.getElementById('release-doctor-review-container');
+            if (releaseContainer && releaseContainer.classList.contains('visible')) {
+                if (!getRadioValue('release_doctor_review')) {
+                    showFieldError('release_doctor_review', 'Please choose whether to release the doctor review.');
+                    valid = false;
+                } else { clearFieldError('release_doctor_review'); }
+            } else { clearFieldError('release_doctor_review'); }
 
             if (consultStatus === '1') {
                 var documentation = getInputValue('documentation');
@@ -603,6 +629,9 @@
                 completedFields[i].classList.remove('visible');
             }
         }
+        // "Release Doctor Review?" is independent of consult status -- its own
+        // toggle (applyReleaseReviewVisibility) drives it off aiReviewOnHold.
+        applyReleaseReviewVisibility();
         // Claim the detail record for this doctor as soon as Completed is selected.
         // This prevents a second doctor from editing the same pending record.
         // Safe to re-run: if consulted_by is already this doctor the backend is a no-op.
@@ -651,6 +680,21 @@
                     setRadioValue('consent_status', '2');
                 }
             }
+        }
+    }
+
+    /**
+     * Show the "Release Doctor Review?" control whenever the linked test result's
+     * AI review is on hold -- regardless of consult status. Global within the
+     * Consultation Details section, like Remarks.
+     */
+    function applyReleaseReviewVisibility() {
+        var el = document.getElementById('release-doctor-review-container');
+        if (!el) return;
+        if (aiReviewOnHold) {
+            el.classList.add('visible');
+        } else {
+            el.classList.remove('visible');
         }
     }
 
@@ -813,9 +857,10 @@
 
     /**
      * Show/hide and optionally auto-populate Next Follow Up Date.
-     * Date is shown only when a month option (1/2/3) is selected.
-     * Auto-populates the date when autoPopulate is true (user interaction).
-     * @param {string} value next_followup radio value ('0'=None, '1'=1M, '2'=3M, '3'=6M)
+     * Date is shown when a month option (1/2/3) or "Others" (4) is selected.
+     * Month options auto-populate the date (on user interaction); "Others" shows
+     * the field blank for a manually chosen date.
+     * @param {string} value next_followup radio value ('0'=None, '1'=1M, '2'=3M, '3'=6M, '4'=Others)
      * @param {boolean} autoPopulate Whether to auto-fill the date field
      */
     function handleNextFollowUpChange(value, autoPopulate) {
@@ -824,10 +869,11 @@
 
         var monthsMap = { '1': 1, '2': 3, '3': 6 };
         var months = monthsMap[value];
+        var isOthers = value === '4';
 
-        if (months) {
+        if (months || isOthers) {
             container.style.display = '';
-            if (autoPopulate) {
+            if (months && autoPopulate) {
                 // Use the current follow-up's scheduled date as the base when available,
                 // so the next follow-up is calculated from that visit, not from today.
                 var d = followUpBaseDateStr ? new Date(followUpBaseDateStr) : new Date();
@@ -1321,7 +1367,7 @@
 
             html += '<div class="col-md-6"><label class="form-label">Next Follow Up</label>'
                 + historyRadioGroup('next_followup', idx, [
-                    { value: '0', label: 'None' }, { value: '1', label: '1 Month' }, { value: '2', label: '3 Months' }, { value: '3', label: '6 Months' }
+                    { value: '0', label: 'None' }, { value: '1', label: '1 Month' }, { value: '2', label: '3 Months' }, { value: '3', label: '6 Months' }, { value: '4', label: 'Others' }
                 ], fu.next_followup) + '</div>';
 
             html += '<div class="col-md-6"><label class="form-label">Next Follow Up Date</label>'
@@ -1807,6 +1853,8 @@
         setInputValue('invoice_id', (latestDetailForSection && latestDetailForSection.invoice_id) || '');
         setRadioValue('invoice_status', (latestDetailForSection && latestDetailForSection.invoice_status)
             ? String(latestDetailForSection.invoice_status) : '');
+        invoiceSynced = !!(latestDetailForSection && latestDetailForSection.is_invoice_synced);
+        renderInvoiceSyncStatus();
 
         // Add On Recommendation section only makes sense when the advise type calls for
         // an add-on (AO or CC + AO) -- hidden entirely when the clinical condition's
@@ -1876,7 +1924,7 @@
         setInputValue('remarks', '');
         setRadioValue('followup_type', '0');
         setRadioValue('next_followup', '0');
-        var detailFieldsToDeselect = ['consult_status', 'rx_issued', 'mode_of_conversion', 'action', 'process_status', 'consultation_type'];
+        var detailFieldsToDeselect = ['consult_status', 'rx_issued', 'mode_of_conversion', 'action', 'process_status', 'consultation_type', 'release_doctor_review'];
         for (var dfi = 0; dfi < detailFieldsToDeselect.length; dfi++) {
             var dfRads = document.querySelectorAll('input[name="' + detailFieldsToDeselect[dfi] + '"]');
             for (var dfj = 0; dfj < dfRads.length; dfj++) { dfRads[dfj].checked = false; }
@@ -1899,6 +1947,7 @@
         // and new records must be created rather than the previous ones overwritten.
         previousDetailClinicalConditionId = null;
         previousDetailTestResultId = null;
+        aiReviewOnHold = false;
         if (details.length > 0) {
             var lastDetail = details[details.length - 1];
             // Always carry forward clinical_condition_id and test_result_id from the
@@ -1906,6 +1955,8 @@
             // TODO [DEPLOY]: remove this carry-forward once the UI collects these values.
             previousDetailClinicalConditionId = lastDetail.clinical_condition_id || null;
             previousDetailTestResultId = lastDetail.test_result_id || null;
+            aiReviewOnHold = !!(lastDetail.test_result && lastDetail.test_result.ai_review_on_hold);
+            applyReleaseReviewVisibility();
             var lastIsCompleted = String(lastDetail.consult_status) === '1';
             var lastIsByCurrentDoctor = !!(lastDetail.consulted_by &&
                 parseInt(EDIT_CONFIG.currentStaffId, 10) === lastDetail.consulted_by);
@@ -2262,12 +2313,22 @@
             rx_issued: getRadioValue('rx_issued') === '1',
             invoice_id: getInputValue('invoice_id') || null,
             invoice_status: toIntOrNull(getRadioValue('invoice_status')),
+            is_invoice_synced: (getInputValue('invoice_id') || '').trim() ? !!invoiceSyncedForSave : false,
             action: actionValue,
             // process_status is no longer part of this form -- it's managed independently
             // via the header pill toggle's own update-detail call. Sending null here would
             // overwrite the existing value and violate the column's NOT NULL constraint.
             remarks: getInputValue('remarks') || null
         };
+
+        // Release Doctor Review: sent whenever the control is shown (AI review on
+        // hold) and set to Yes, regardless of consult status -- the review must be
+        // released even for a no-show / cancelled consult.
+        var releaseReviewEl = document.getElementById('release-doctor-review-container');
+        if (releaseReviewEl && releaseReviewEl.classList.contains('visible') &&
+            getRadioValue('release_doctor_review') === '1') {
+            detailData.release_doctor_review = true;
+        }
 
         detailData.is_draft = isDraft ? 1 : 2;
 
@@ -2323,7 +2384,8 @@
             }
 
             // HQ (role 4): automatically update the detail when consent is refused/others
-            // or when the scheduled appointment is cancelled.
+            // or when the scheduled appointment is cancelled. Also persists the Add On
+            // Recommendation section's invoice fields, which live on the detail record.
             if (EDIT_CONFIG.currentStaffRole === 4) {
                 var hqDetailData = null;
                 if (consultCallData.consent_call_status === 2 || consultCallData.consent_call_status === 3) {
@@ -2335,6 +2397,18 @@
                     hqDetailData.consult_status = 3;
                     // process_status will be forced to Closed by the backend's statusForcesClose rule
                 }
+
+                // Add On Recommendation section (HQ-owned): invoice_id / invoice_status /
+                // is_invoice_synced are columns on consult_call_details.
+                var hqInvoiceId = getInputValue('invoice_id') || null;
+                var hqInvoiceStatus = toIntOrNull(getRadioValue('invoice_status'));
+                if (hqInvoiceId !== null || hqInvoiceStatus !== null) {
+                    hqDetailData = hqDetailData || {};
+                    hqDetailData.invoice_id = hqInvoiceId;
+                    hqDetailData.invoice_status = hqInvoiceStatus;
+                    hqDetailData.is_invoice_synced = (hqInvoiceId && String(hqInvoiceId).trim()) ? !!invoiceSyncedForSave : false;
+                }
+
                 if (hqDetailData) {
                     if (currentDetailId) {
                         promises.push(apiCall('update-detail', {
@@ -2343,6 +2417,10 @@
                             data: hqDetailData
                         }));
                     } else {
+                        // No detail row yet -- carry the linkage columns forward like the
+                        // doctor create path does, so the insert satisfies the schema.
+                        hqDetailData.clinical_condition_id = previousDetailClinicalConditionId;
+                        hqDetailData.test_result_id = previousDetailTestResultId;
                         promises.push(apiCall('create-detail', {
                             consult_call_id: EDIT_CONFIG.consultCallId,
                             data: hqDetailData
@@ -2446,25 +2524,173 @@
     }
 
     /**
+     * Show/refresh the "Invoice ID" sync marker under the field.
+     */
+    function renderInvoiceSyncStatus() {
+        applyInvoiceSyncLock();
+        var el = document.getElementById('invoice-sync-status');
+        var manualLink = document.getElementById('invoice-manual-link');
+        if (!el) return;
+        var invId = (getInputValue('invoice_id') || '').trim();
+        if (!invId) {
+            el.style.display = 'none';
+            el.textContent = '';
+            if (manualLink) manualLink.style.display = 'none';
+            return;
+        }
+        el.style.display = 'block';
+        if (invoiceSynced) {
+            el.style.color = '#198754';
+            el.textContent = 'Synced to Blood Test.';
+            if (manualLink) manualLink.style.display = 'none';
+        } else {
+            el.style.color = '#dc3545';
+            el.textContent = 'Not synced to Blood Test yet; will sync on Submit Changes.';
+            // Fallback: sync did not go through -- offer the manual Xilnex sync page.
+            if (manualLink) manualLink.style.display = 'block';
+        }
+    }
+
+    /**
+     * Once an invoice is synced, lock the field and the Sync button so a synced
+     * invoice ID can no longer be changed. HQ (role 4) only -- other roles are
+     * already disabled by the PHP $eD gate.
+     */
+    function applyInvoiceSyncLock() {
+        if (EDIT_CONFIG.currentStaffRole !== 4) return;
+        var inp = document.getElementById('invoice_id');
+        var btn = document.getElementById('invoice-sync-btn');
+        // Use disabled (not readonly) so it picks up the same grey styling as the
+        // other locked fields.
+        if (inp) inp.disabled = !!invoiceSynced;
+        if (btn) btn.disabled = !!invoiceSynced;
+    }
+
+    /**
+     * Pull the entered invoice from Xilnex into ODB blood_test_sales.
+     * Resolves to the endpoint's JSON ({ success, synced, message }).
+     */
+    function syncInvoiceToBloodTestSales(invoiceId) {
+        return fetch('/odb/blood_test/ajax_sync_invoice.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'invoice=' + encodeURIComponent(invoiceId),
+            credentials: 'same-origin'
+        }).then(function(r) { return r.json(); });
+    }
+
+    /**
      * Initialize form submission handler.
-     * Delegates to runSaveFlow; shows success alert and reloads on completion.
+     * On Submit Changes, HQ (role 4) invoice entries are first synced to
+     * blood_test_sales; the result is persisted as is_invoice_synced on the
+     * detail. Sync failures do not block the save -- the marker stays "not
+     * synced" and the next submit retries.
      */
     function initFormSubmission() {
         var form = document.getElementById('editPatientForm');
         if (!form) return;
 
+        var reloadOnSuccess = function() {
+            alert('Changes saved successfully.');
+            sessionStorage.setItem('scrollToMyReferral', '1');
+            window.location.reload();
+        };
+
         form.addEventListener('submit', function(e) {
             e.preventDefault();
-            runSaveFlow(function() {
-                alert('Changes saved successfully.');
-                sessionStorage.setItem('scrollToMyReferral', '1');
-                window.location.reload();
+
+            var invId = (getInputValue('invoice_id') || '').trim();
+            var isHQ = EDIT_CONFIG.currentStaffRole === 4;
+            var needSync = isHQ && invId && !invoiceSynced;
+
+            if (!needSync) {
+                invoiceSyncedForSave = invoiceSynced;
+                runSaveFlow(reloadOnSuccess);
+                return;
+            }
+
+            var saveBtn = document.getElementById('saveBtn');
+            var saveBtnText = saveBtn ? saveBtn.innerHTML : '';
+            if (saveBtn) {
+                saveBtn.disabled = true;
+                saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>Syncing invoice to Blood Test...';
+            }
+            var statusEl = document.getElementById('invoice-sync-status');
+            if (statusEl) {
+                statusEl.style.display = 'block';
+                statusEl.style.color = '#6c757d';
+                statusEl.textContent = 'Processing sync to Blood Test...';
+            }
+
+            syncInvoiceToBloodTestSales(invId).then(function(res) {
+                invoiceSyncedForSave = !!(res && res.synced);
+                invoiceSynced = invoiceSyncedForSave;
+                renderInvoiceSyncStatus();
+                if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = saveBtnText; }
+                if (!invoiceSyncedForSave) {
+                    alert('Invoice sync: ' + ((res && res.message) || 'could not sync') +
+                        '\nSaving anyway; it will retry on the next Submit Changes.');
+                }
+                runSaveFlow(reloadOnSuccess);
+            }).catch(function() {
+                invoiceSyncedForSave = false;
+                if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = saveBtnText; }
+                renderInvoiceSyncStatus();
+                alert('Invoice sync request failed. Saving anyway; it will retry on the next Submit Changes.');
+                runSaveFlow(reloadOnSuccess);
             });
         });
+
+        var invoiceEl = document.getElementById('invoice_id');
+        if (invoiceEl) {
+            invoiceEl.addEventListener('input', function() {
+                // Editing the invoice invalidates any prior sync state.
+                invoiceSynced = false;
+                renderInvoiceSyncStatus();
+            });
+        }
+
+        // Manual "Sync" button: pull the invoice into blood_test_sales now,
+        // without waiting for Submit Changes. The is_invoice_synced flag is
+        // still persisted on the next save.
+        var invoiceSyncBtn = document.getElementById('invoice-sync-btn');
+        if (invoiceSyncBtn) {
+            invoiceSyncBtn.addEventListener('click', function() {
+                var v = (getInputValue('invoice_id') || '').trim();
+                var st = document.getElementById('invoice-sync-status');
+                if (!v) {
+                    if (st) { st.style.display = 'block'; st.style.color = '#dc3545'; st.textContent = 'Enter an invoice ID first.'; }
+                    return;
+                }
+                var btnText = invoiceSyncBtn.innerHTML;
+                invoiceSyncBtn.disabled = true;
+                invoiceSyncBtn.innerHTML = 'Syncing...';
+                if (st) { st.style.display = 'block'; st.style.color = '#6c757d'; st.textContent = 'Processing sync to Blood Test...'; }
+                syncInvoiceToBloodTestSales(v).then(function(res) {
+                    invoiceSynced = !!(res && res.synced);
+                    invoiceSyncedForSave = invoiceSynced;
+                    renderInvoiceSyncStatus();
+                    if (st && !invoiceSynced && res && res.message) {
+                        st.style.color = '#dc3545';
+                        st.textContent = res.message;
+                    }
+                    invoiceSyncBtn.disabled = false;
+                    invoiceSyncBtn.innerHTML = btnText;
+                }).catch(function() {
+                    invoiceSynced = false;
+                    invoiceSyncedForSave = false;
+                    invoiceSyncBtn.disabled = false;
+                    invoiceSyncBtn.innerHTML = btnText;
+                    renderInvoiceSyncStatus();
+                    if (st) { st.style.display = 'block'; st.style.color = '#dc3545'; st.textContent = 'Sync request failed. Try again.'; }
+                });
+            });
+        }
 
         var draftBtn = document.getElementById('draftBtn');
         if (draftBtn) {
             draftBtn.addEventListener('click', function() {
+                invoiceSyncedForSave = invoiceSynced;
                 runSaveFlow(function() {
                     alert('Saved as draft. You can continue editing.');
                     window.location.reload();

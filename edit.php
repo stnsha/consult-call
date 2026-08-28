@@ -615,8 +615,17 @@ $psD = (!in_array($currentStaffRole, array(2, 4))) ? 'disabled' : '';
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Invoice ID</label>
-                            <input type="text" class="form-control" name="invoice_id" id="invoice_id"
-                                placeholder="Enter invoice ID" <?php echo $eD; ?>>
+                            <div class="input-group">
+                                <input type="text" class="form-control" name="invoice_id" id="invoice_id"
+                                    placeholder="Enter invoice ID" <?php echo $eD; ?>>
+                                <button type="button" class="btn btn-outline-primary" id="invoice-sync-btn"
+                                    <?php echo $eD; ?>>Sync</button>
+                            </div>
+                            <small id="invoice-sync-status" class="d-block mt-1" style="display:none;"></small>
+                            <small id="invoice-manual-link" class="d-block mt-1" style="display:none;">
+                                <a href="<?php echo CONSULTCALL_BASE; ?>../blood_test/manual_integration.php"
+                                    target="_blank" rel="noopener">Xilnex Sales Inv</a>
+                            </small>
                         </div>
                         <div class="col-md-12">
                             <label class="form-label">Invoice Status</label>
@@ -755,8 +764,8 @@ $psD = (!in_array($currentStaffRole, array(2, 4))) ? 'disabled' : '';
                             </div>
                         </div>
 
-                        <!-- Consultation Type -->
-                        <div class="col-md-6">
+                        <!-- Consultation Type (shown only when Consult Status = Completed) -->
+                        <div class="col-md-6 conditional-field" data-condition="consult_completed">
                             <label class="form-label">Consultation Type<span style="color:red;"> *</span></label>
                             <div class="radio-group">
                                 <div class="form-check">
@@ -856,6 +865,11 @@ $psD = (!in_array($currentStaffRole, array(2, 4))) ? 'disabled' : '';
                                         id="followup_6months" value="3" <?php echo $dD; ?>>
                                     <label class="form-check-label" for="followup_6months">6 Months</label>
                                 </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="next_followup"
+                                        id="followup_others" value="4" <?php echo $dD; ?>>
+                                    <label class="form-check-label" for="followup_others">Others</label>
+                                </div>
                             </div>
                         </div>
 
@@ -914,6 +928,25 @@ $psD = (!in_array($currentStaffRole, array(2, 4))) ? 'disabled' : '';
                             <label class="form-label">Remarks<span style="color:red;"> *</span></label>
                             <textarea class="form-control" name="remarks" id="remarks" rows="3"
                                 placeholder="Enter any additional remarks" <?php echo $dD; ?>></textarea>
+                        </div>
+
+                        <!-- Release Doctor Review? (global within Consultation Details -- shown
+                             whenever the linked test result's AI review is on hold, regardless
+                             of consult status: the review must be released either way). -->
+                        <div class="col-md-6 conditional-field" id="release-doctor-review-container">
+                            <label class="form-label">Release Doctor Review?<span style="color:red;"> *</span></label>
+                            <div class="radio-group">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="release_doctor_review"
+                                        id="release_review_yes" value="1" <?php echo $dD; ?>>
+                                    <label class="form-check-label" for="release_review_yes">Yes</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="release_doctor_review"
+                                        id="release_review_no" value="0" <?php echo $dD; ?>>
+                                    <label class="form-check-label" for="release_review_no">No</label>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
