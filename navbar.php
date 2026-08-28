@@ -74,6 +74,13 @@ $report_active     = ($current_page == 'report.php' && $current_dir == $_navbar_
 $cc_active         = ($current_dir == 'clinical_condition')                                    ? 'active' : '';
 $ao_active         = ($current_dir == 'add_ons')                                               ? 'active' : '';
 $admin_active      = ($current_page == 'index.php'  && $current_dir == 'admin')               ? 'active' : '';
+
+$_navbar_role = 0;
+if (isset($consult_call_permission)) {
+    $_navbar_role = (int)$consult_call_permission;
+} elseif (isset($currentStaffRole)) {
+    $_navbar_role = (int)$currentStaffRole;
+}
 ?>
 <nav class="consultcall-nav navbar navbar-expand-lg navbar-light mb-3">
     <div class="container-fluid">
@@ -92,17 +99,11 @@ $admin_active      = ($current_page == 'index.php'  && $current_dir == 'admin') 
                 <li class="nav-item">
                     <a class="nav-link <?php echo $cc_active; ?>" href="<?php echo CONSULTCALL_BASE; ?>clinical_condition/index.php">Clinical Conditions</a>
                 </li>
+                <?php if ($_navbar_role === 1 || $_navbar_role === 6 || (isset($id_user) && (int)$id_user === 5138)): ?>
                 <li class="nav-item">
                     <a class="nav-link <?php echo $ao_active; ?>" href="<?php echo CONSULTCALL_BASE; ?>add_ons/index.php">Add Ons</a>
                 </li>
-                <?php
-                $_navbar_role = 0;
-                if (isset($consult_call_permission)) {
-                    $_navbar_role = (int)$consult_call_permission;
-                } elseif (isset($currentStaffRole)) {
-                    $_navbar_role = (int)$currentStaffRole;
-                }
-                ?>
+                <?php endif; ?>
                 <?php if ($_navbar_role === 1): ?>
                 <li class="nav-item">
                     <a class="nav-link <?php echo $admin_active; ?>" href="<?php echo CONSULTCALL_BASE; ?>admin/index.php">Admin</a>

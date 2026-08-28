@@ -47,7 +47,8 @@ if ($_ao_is_local && isset($_SESSION['dev_role_override'])) {
     $consult_call_permission = (int)$_SESSION['dev_role_override'];
 }
 
-if ($consult_call_permission === 0) {
+// Add Ons is visible to Super Admin (1), Admin (6), and hardcoded staff 5138 only.
+if ($consult_call_permission !== 1 && $consult_call_permission !== 6 && (int)$id_user !== 5138) {
     header('Location: ' . CONSULTCALL_BASE . 'unauthorized.php');
     exit;
 }

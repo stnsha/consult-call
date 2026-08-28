@@ -88,10 +88,19 @@ $can_toggle_condition_status = ($consult_call_permission === 1)
             <?php endif; ?>
 
             <div class="row g-2 mb-3">
-                <div class="col-8">
+                <div class="col-6">
                     <input type="text" id="filter-description" class="form-control form-control-sm" placeholder="Search description..." style="font-size: 13px;">
                 </div>
-                <div class="col-4">
+                <div class="col-3">
+                    <select id="filter-type" class="form-select form-select-sm" style="font-size: 13px;">
+                        <option value="">All Types</option>
+                        <option value="CC">CC</option>
+                        <option value="AO">AO</option>
+                        <option value="CC + AO">CC + AO</option>
+                        <option value="__none__">- (no type)</option>
+                    </select>
+                </div>
+                <div class="col-3">
                     <select id="filter-status" class="form-select form-select-sm" style="font-size: 13px;">
                         <option value="">All Status</option>
                         <option value="active">Active</option>

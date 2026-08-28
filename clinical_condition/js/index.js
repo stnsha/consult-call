@@ -77,6 +77,7 @@
     }
 
     var TYPE_OPTIONS = ['CC', 'AO', 'CC + AO'];
+    var TYPE_BADGES = { 'CC': 'bg-primary', 'AO': 'bg-warning text-dark', 'CC + AO': 'bg-info text-dark' };
 
     function findConditionById(id) {
         for (var i = 0; i < allConditions.length; i++) {
@@ -89,7 +90,9 @@
     // gating), read-only text for everyone else.
     function renderTypeCell(row) {
         if (!CC_CONFIG.isSuperAdmin) {
-            return row.type ? escapeHtml(row.type) : '-';
+            if (!row.type) return '<span class="text-muted">-</span>';
+            var badge = TYPE_BADGES[row.type] || 'bg-secondary';
+            return '<span class="badge ' + badge + '">' + escapeHtml(row.type) + '</span>';
         }
         var html = '<select class="form-select form-select-sm type-select" data-id="' + escapeHtml(row.id) + '" style="font-size:11px;">';
         html += '<option value=""' + (!row.type ? ' selected' : '') + '>-</option>';
@@ -251,8 +254,10 @@
     function applyFilters() {
         var descEl = document.getElementById('filter-description');
         var statusEl = document.getElementById('filter-status');
+        var typeEl = document.getElementById('filter-type');
         var descTerm = descEl ? descEl.value.trim().toLowerCase() : '';
         var statusTerm = statusEl ? statusEl.value : '';
+        var typeTerm = typeEl ? typeEl.value : '';
 
         filteredConditions = allConditions.filter(function (row) {
             if (descTerm && String(row.description || '').toLowerCase().indexOf(descTerm) === -1) {
@@ -262,6 +267,14 @@
                 var active = isConditionActive(row);
                 if (statusTerm === 'active' && !active) return false;
                 if (statusTerm === 'inactive' && active) return false;
+            }
+            if (typeTerm) {
+                var rowType = row.type || '';
+                if (typeTerm === '__none__') {
+                    if (rowType !== '') return false;
+                } else if (rowType !== typeTerm) {
+                    return false;
+                }
             }
             return true;
         });
@@ -497,6 +510,11 @@
     var filterStatusEl = document.getElementById('filter-status');
     if (filterStatusEl) {
         filterStatusEl.addEventListener('change', applyFilters);
+    }
+
+    var filterTypeEl = document.getElementById('filter-type');
+    if (filterTypeEl) {
+        filterTypeEl.addEventListener('change', applyFilters);
     }
 
     loadConditions();
