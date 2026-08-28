@@ -691,7 +691,9 @@
     function applyReleaseReviewVisibility() {
         var el = document.getElementById('release-doctor-review-container');
         if (!el) return;
-        if (aiReviewOnHold) {
+        // Feature not live until 2026-09-16 (month index 8 = September).
+        var releaseLiveFrom = new Date(2026, 8, 16);
+        if (aiReviewOnHold && new Date() >= releaseLiveFrom) {
             el.classList.add('visible');
         } else {
             el.classList.remove('visible');
