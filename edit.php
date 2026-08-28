@@ -623,7 +623,7 @@ $psD = (!in_array($currentStaffRole, array(2, 4))) ? 'disabled' : '';
                             </div>
                             <small id="invoice-sync-status" class="d-block mt-1" style="display:none;"></small>
                             <small id="invoice-manual-link" class="d-block mt-1" style="display:none;">
-                                <a href="<?php echo CONSULTCALL_BASE; ?>../blood_test/manual_integration.php"
+                                <a href="<?php echo CONSULTCALL_BASE; ?>../blood_test/manual_integration.php?consult_call_id=<?php echo (int) $consult_call_id; ?>"
                                     target="_blank" rel="noopener">Xilnex Sales Inv</a>
                             </small>
                         </div>
