@@ -527,24 +527,8 @@
         showTableLoading();
         var params = getFilterParams();
 
-        var addOnVal = document.getElementById('addOnFilter').value;
-        var adviseTypeVal = document.getElementById('adviseTypeFilter').value;
-        var bloodTestDateFromVal = document.getElementById('bloodTestDateFrom').value;
-        var bloodTestDateToVal = document.getElementById('bloodTestDateTo').value;
-        var needsClientFilter = (addOnVal !== '' || adviseTypeVal !== '' ||
-            bloodTestDateFromVal !== '' || bloodTestDateToVal !== '');
-        var requestedPage = params.page;
-        var requestedPerPage = params.per_page;
-
-        if (needsClientFilter) {
-            delete params.has_add_on;
-            delete params.advise_type;
-            delete params.blood_test_date_from;
-            delete params.blood_test_date_to;
-            params.per_page = 9999;
-            params.page = 1;
-        }
-
+        // Add-On / Advise Type / Blood Test Date are all filtered server-side now
+        // (correlated subqueries on the latest detail) -- no more full-table fetch.
         apiCall('all-consult-call', params).then(function(result) {
             if (!result.success) {
                 renderEmptyTable(result.message || 'Failed to load data');
@@ -554,24 +538,9 @@
 
             var data = result.data;
             var records = data.data || [];
-            var totalPages, total;
-
-            if (needsClientFilter) {
-                records = records.filter(function(r) {
-                    return recordMatchesAddOn(r, addOnVal) &&
-                        recordMatchesAdviseType(r, adviseTypeVal) &&
-                        recordMatchesBloodTestDate(r, bloodTestDateFromVal, bloodTestDateToVal);
-                });
-                total = records.length;
-                totalPages = Math.max(1, Math.ceil(total / requestedPerPage));
-                currentPage = Math.min(requestedPage, totalPages);
-                var startIdx = (currentPage - 1) * requestedPerPage;
-                records = records.slice(startIdx, startIdx + requestedPerPage);
-            } else {
-                totalPages = data.last_page || 1;
-                total = data.total || 0;
-                currentPage = data.current_page || 1;
-            }
+            var totalPages = data.last_page || 1;
+            var total = data.total || 0;
+            currentPage = data.current_page || 1;
 
             if (records.length === 0) {
                 renderEmptyTable('No records found');
@@ -734,7 +703,21 @@
         var today = new Date(); today.setHours(0, 0, 0, 0);
         var cutoff = new Date(today); cutoff.setDate(today.getDate() + 7);
 
-        apiCall('all-consult-call', { followup_reminder: 0, per_page: 9999, page: 1 })
+        var ymd = function(d) {
+            return d.getFullYear() + '-' +
+                String(d.getMonth() + 1).padStart(2, '0') + '-' +
+                String(d.getDate()).padStart(2, '0');
+        };
+
+        // Narrow to the 7-day window server-side (latest follow-up's followup_date)
+        // instead of pulling every pending-reminder consult call.
+        apiCall('all-consult-call', {
+            followup_reminder: 0,
+            followup_date_from: ymd(today),
+            followup_date_to: ymd(cutoff),
+            per_page: 500,
+            page: 1
+        })
             .then(function(result) {
                 if (!result.success || !result.data) { renderBannerEmpty(); return; }
 
@@ -875,6 +858,8 @@
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Exporting...';
 
+        // Export honours the same server-side filters as the table. per_page is
+        // raised so a single request covers the whole filtered result set.
         var params = getFilterParams();
         params.per_page = 10000;
         params.page = 1;
@@ -887,18 +872,6 @@
             }
 
             var records = result.data.data || [];
-
-            // add_on / advise_type / blood test report date are relation-derived and not
-            // filterable server-side -- apply the same client-side filtering used by the table.
-            var addOnVal = document.getElementById('addOnFilter').value;
-            var adviseTypeVal = document.getElementById('adviseTypeFilter').value;
-            var bloodTestDateFromVal = document.getElementById('bloodTestDateFrom').value;
-            var bloodTestDateToVal = document.getElementById('bloodTestDateTo').value;
-            records = records.filter(function(r) {
-                return recordMatchesAddOn(r, addOnVal) &&
-                    recordMatchesAdviseType(r, adviseTypeVal) &&
-                    recordMatchesBloodTestDate(r, bloodTestDateFromVal, bloodTestDateToVal);
-            });
 
             if (records.length === 0) {
                 alert('No records match the current filters. Nothing to export.');
