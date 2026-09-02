@@ -2323,6 +2323,26 @@
             var referralNotYetCreated = !latestFollowUp || !latestFollowUp.my_referral_id;
             var showMyReferral = !!(actionRequiresReferral && referralNotYetCreated);
             myReferralSection.style.display = showMyReferral ? '' : 'none';
+
+            // Carry the consult call / consultation / follow-up ids into the
+            // referral form so the created MyReferral links straight back to this
+            // consultation instead of the doctor re-keying it. create.js reads
+            // these URL params.
+            var createBtn = document.getElementById('myreferral-create-btn');
+            if (createBtn && showMyReferral) {
+                var refParams = ['consult_call_id=' + encodeURIComponent(EDIT_CONFIG.consultCallId)];
+                if (latestDetail && latestDetail.id) {
+                    refParams.push('consult_call_detail_id=' + encodeURIComponent(latestDetail.id));
+                }
+                if (latestFollowUp && latestFollowUp.id) {
+                    refParams.push('follow_up_id=' + encodeURIComponent(latestFollowUp.id));
+                }
+                if (currentCustomerId) {
+                    refParams.push('customer_id=' + encodeURIComponent(currentCustomerId));
+                }
+                createBtn.href = '/odb/referral/create.php?' + refParams.join('&');
+            }
+
             if (showMyReferral && sessionStorage.getItem('scrollToMyReferral')) {
                 sessionStorage.removeItem('scrollToMyReferral');
                 setTimeout(function() {
