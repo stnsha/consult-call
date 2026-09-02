@@ -1558,6 +1558,9 @@ if (!defined('API_JWT_INCLUDED')) {
                         if (isset($jsonData['referral_to']) && (int)$jsonData['referral_to'] > 0) {
                             $data['referral_to'] = (int)$jsonData['referral_to'];
                         }
+                        if (isset($jsonData['consult_call_detail_id']) && (int)$jsonData['consult_call_detail_id'] > 0) {
+                            $data['consult_call_detail_id'] = (int)$jsonData['consult_call_detail_id'];
+                        }
                         $endpoint  = $ccId . '/link-referral-by-call';
                         $result    = getApiDataWithJWT($endpoint, $data, 'PATCH', $staff_id);
                         $decoded   = json_decode($result['response'], true);
