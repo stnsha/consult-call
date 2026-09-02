@@ -40,6 +40,14 @@
     // Doctor-specific follow-up ID: null when latest detail is completed (forces create)
     var doctorFollowUpId = null;
 
+    // MyReferral link already present on any follow-up of the loaded consult call.
+    // link-referral-by-call (triggered from the outer odb referral module) stores
+    // my_referral_id / referral_to on a follow-up row, sometimes before the doctor
+    // has saved any follow-up fields. When the doctor later creates the follow-up
+    // from the Consultation History inline editor, this is carried forward so the
+    // referral link is not lost. { id, to, followUpId } or null.
+    var historyLinkedReferral = null;
+
     // Base date for next follow-up auto-population. Set to the current follow-up's
     // scheduled date when a follow-up consultation is being entered, so that the
     // "add N months" calculation starts from the scheduled visit date, not today.
@@ -1069,6 +1077,23 @@
         var modeConversionMap = buildRadioLabelMap('mode_of_conversion');
         var isGlobalView = !!EDIT_CONFIG.globalView;
 
+        // Resolve any MyReferral link already stored on a follow-up. It may sit on a
+        // bare row (referral set, follow-up fields still NULL) created by
+        // link-referral-by-call. Used both to show the link in the view for
+        // completed entries that have no usable follow-up, and to carry the link
+        // forward when the doctor creates the follow-up from the inline editor.
+        historyLinkedReferral = null;
+        for (var lr = 0; lr < (followUps || []).length; lr++) {
+            if (followUps[lr] && followUps[lr].my_referral_id) {
+                historyLinkedReferral = {
+                    id: followUps[lr].my_referral_id,
+                    to: followUps[lr].referral_to || null,
+                    followUpId: followUps[lr].id || null
+                };
+                break;
+            }
+        }
+
         // Build index-paired list and reverse for newest-first display.
         // All entries are included; pending entries (consult_status 0) show only
         // the blood test report without consultation fields.
@@ -1166,25 +1191,42 @@
                 // Follow Up Type | Next Follow Up, Next Follow Up Date | Mode of Conversion) --
                 // not shown in global view. Blood Test Required removed to match Consultation
                 // Details; Action stays full-width for its My Referral link/unlink controls.
-                if (isCompleted && fu && !isGlobalView) {
+                // Follow-up section is shown for any completed entry whose action is
+                // Refer Internal (1) or Refer External (2), even when no follow-up
+                // record exists yet -- the fields render blank and the doctor can add
+                // them via Edit. Entries that already have a follow-up record keep
+                // showing it regardless of action.
+                var showFollowUp = isCompleted && !isGlobalView && (fu || d.action === 1 || d.action === 2);
+                if (showFollowUp) {
+                    var fuv = fu || {};
+                    // Referral link may live on this entry's follow-up or on a bare
+                    // follow-up row created by link-referral-by-call.
+                    var referralId = fuv.my_referral_id || (historyLinkedReferral && historyLinkedReferral.id) || null;
+                    var referralFollowUpId = fuv.my_referral_id ? fuv.id : (historyLinkedReferral && historyLinkedReferral.followUpId) || null;
+
                     html += '<hr class="my-2">';
                     html += '<div class="mb-1"><strong>Follow-up</strong></div>';
+                    if (!fu) {
+                        html += '<div class="text-muted small mb-2">No follow-up recorded yet. Use Edit to add the follow-up details.</div>';
+                    }
                     html += '<div class="row g-2">';
 
-                    html += '<div class="col-6">' + renderHistoryField('Follow Up Type', statusMaps.followupTypes[String(fu.followup_type)] || null) + '</div>';
-                    html += '<div class="col-6">' + renderHistoryField('Next Follow Up', statusMaps.nextFollowups[String(fu.next_followup)] || null) + '</div>';
+                    html += '<div class="col-6">' + renderHistoryField('Follow Up Type', fu ? (statusMaps.followupTypes[String(fu.followup_type)] || null) : null) + '</div>';
+                    html += '<div class="col-6">' + renderHistoryField('Next Follow Up', fu ? (statusMaps.nextFollowups[String(fu.next_followup)] || null) : null) + '</div>';
 
-                    html += '<div class="col-6">' + renderHistoryField('Next Follow Up Date', (fu.next_followup && String(fu.next_followup) !== '0') ? formatDate(fu.followup_date) : null) + '</div>';
-                    html += '<div class="col-6">' + renderHistoryField('Mode of Conversion', modeConversionMap[String(fu.mode_of_conversion)] || null) + '</div>';
+                    html += '<div class="col-6">' + renderHistoryField('Next Follow Up Date', (fu && fu.next_followup && String(fu.next_followup) !== '0') ? formatDate(fu.followup_date) : null) + '</div>';
+                    html += '<div class="col-6">' + renderHistoryField('Mode of Conversion', fu ? (modeConversionMap[String(fu.mode_of_conversion)] || null) : null) + '</div>';
 
                     var actionLabel = statusMaps.actions[String(d.action)] || null;
                     var actionCell = '<div class="mb-2"><div class="history-label">Action</div>'
                         + '<div class="history-value">' + escapeHtml(actionLabel || '') + '</div>';
-                    if (fu.my_referral_id) {
+                    if (referralId) {
                         actionCell += '<div class="d-flex gap-1 mt-1">';
-                        actionCell += '<a href="/odb/referral/view.php?id=' + encodeURIComponent(fu.my_referral_id) + '"'
+                        actionCell += '<a href="/odb/referral/view.php?id=' + encodeURIComponent(referralId) + '"'
                             + ' target="_blank" class="btn btn-sm btn-outline-primary">View MyReferral</a>';
-                        actionCell += '<button type="button" class="btn btn-sm btn-outline-danger" onclick="unlinkMyReferral(' + fu.id + ')">Unlink</button>';
+                        if (referralFollowUpId) {
+                            actionCell += '<button type="button" class="btn btn-sm btn-outline-danger" onclick="unlinkMyReferral(' + referralFollowUpId + ')">Unlink</button>';
+                        }
                         actionCell += '</div>';
                     }
                     actionCell += '</div>';
@@ -1361,26 +1403,31 @@
         html += '<div class="col-md-12"><label class="form-label">Remarks</label>'
             + '<textarea class="form-control form-control-sm" id="hist_remarks_' + idx + '" rows="2">' + escapeHtml(d.remarks || '') + '</textarea></div>';
 
-        if (fu) {
+        // Follow-up fields are editable when a follow-up record already exists, or
+        // when this is a completed entry with a Refer Internal / Refer External
+        // action but no follow-up record yet (backfill case -- Save will create it).
+        var allowFollowUpEdit = fu || (String(d.consult_status) === '1' && (String(d.action) === '1' || String(d.action) === '2'));
+        if (allowFollowUpEdit) {
+            var fuv = fu || {};
             html += '<div class="col-12"><hr class="my-2"><strong>Follow-up</strong></div>';
 
             html += '<div class="col-md-6"><label class="form-label">Follow Up Type</label>'
                 + historyRadioGroup('followup_type', idx, [
                     { value: '0', label: 'No' }, { value: '1', label: 'Blood Test + Review' }, { value: '2', label: 'Review Only' }
-                ], fu.followup_type) + '</div>';
+                ], fu ? fuv.followup_type : '0') + '</div>';
 
             html += '<div class="col-md-6"><label class="form-label">Next Follow Up</label>'
                 + historyRadioGroup('next_followup', idx, [
                     { value: '0', label: 'None' }, { value: '1', label: '1 Month' }, { value: '2', label: '3 Months' }, { value: '3', label: '6 Months' }, { value: '4', label: 'Others' }
-                ], fu.next_followup) + '</div>';
+                ], fu ? fuv.next_followup : '0') + '</div>';
 
             html += '<div class="col-md-6"><label class="form-label">Next Follow Up Date</label>'
-                + '<input type="date" class="form-control form-control-sm" id="hist_followup_date_' + idx + '" value="' + escapeHtml(toDateValue(fu.followup_date)) + '"></div>';
+                + '<input type="date" class="form-control form-control-sm" id="hist_followup_date_' + idx + '" value="' + escapeHtml(toDateValue(fuv.followup_date)) + '"></div>';
 
             html += '<div class="col-md-6"><label class="form-label">Mode of Conversion</label>'
                 + historyRadioGroup('mode_of_conversion', idx, [
                     { value: '0', label: 'None' }, { value: '1', label: 'Outlet' }, { value: '2', label: 'Clinic' }
-                ], fu.mode_of_conversion) + '</div>';
+                ], fu ? fuv.mode_of_conversion : '0') + '</div>';
         }
 
         html += '</div>'; // row
@@ -1443,18 +1490,61 @@
             data: detailData
         })];
 
-        if (followUpId) {
+        // Follow-up fields are only present in the DOM when the edit form allowed
+        // them (existing follow-up, or completed Refer Internal/External entry).
+        var hasFollowUpFields = document.getElementById('hist_followup_date_' + idx) !== null;
+        if (hasFollowUpFields) {
             var followUpData = {
                 followup_type: toIntOrNull(getHistRadioValue(idx, 'followup_type')),
                 next_followup: toIntOrNull(getHistRadioValue(idx, 'next_followup')),
                 followup_date: getHistInputValue(idx, 'followup_date') || null,
                 mode_of_conversion: toIntOrNull(getHistRadioValue(idx, 'mode_of_conversion'))
             };
-            promises.push(apiCall('update-follow-up', {
-                consult_call_id: EDIT_CONFIG.consultCallId,
-                follow_up_id: followUpId,
-                data: followUpData
-            }));
+
+            // Update an existing follow-up row: this entry's own, or a bare row that
+            // link-referral-by-call created to hold a MyReferral link. Only fall back
+            // to create-follow-up when there is no follow-up row at all.
+            var targetFollowUpId = followUpId ||
+                (historyLinkedReferral && historyLinkedReferral.followUpId) || null;
+
+            var followUpHasData = followUpData.followup_type !== null ||
+                followUpData.next_followup !== null ||
+                followUpData.followup_date ||
+                followUpData.mode_of_conversion !== null;
+
+            if (targetFollowUpId) {
+                promises.push(apiCall('update-follow-up', {
+                    consult_call_id: EDIT_CONFIG.consultCallId,
+                    follow_up_id: targetFollowUpId,
+                    data: followUpData
+                }));
+            } else if (followUpHasData && (detailData.action === 1 || detailData.action === 2)) {
+                promises.push(apiCall('create-follow-up', {
+                    consult_call_id: EDIT_CONFIG.consultCallId,
+                    data: followUpData
+                }).then(function(res) {
+                    if (!res || !res.success) return res;
+                    var newFollowUpId = (res.data && res.data.id) ? res.data.id : null;
+                    // Carry a pre-existing MyReferral link onto the new follow-up so
+                    // it is not orphaned. A link failure does not fail the save.
+                    if (newFollowUpId && historyLinkedReferral && historyLinkedReferral.id &&
+                        historyLinkedReferral.followUpId !== newFollowUpId) {
+                        var linkData = { my_referral_id: historyLinkedReferral.id };
+                        if (historyLinkedReferral.to) { linkData.referral_to = historyLinkedReferral.to; }
+                        return apiCall('link-referral', {
+                            consult_call_id: EDIT_CONFIG.consultCallId,
+                            follow_up_id: newFollowUpId,
+                            data: linkData
+                        }).then(function(linkRes) {
+                            if (linkRes && !linkRes.success) {
+                                console.warn('Follow-up created but referral link failed:', linkRes.message);
+                            }
+                            return res;
+                        });
+                    }
+                    return res;
+                }));
+            }
         }
 
         var saveBtn = document.getElementById('history-save-btn-' + idx);
