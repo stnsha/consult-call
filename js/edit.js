@@ -1094,12 +1094,63 @@
             }
         }
 
-        // Build index-paired list and reverse for newest-first display.
+        // Pair each detail with a follow-up. consult_call_follow_ups has no
+        // consult_call_detail_id, so match on time proximity: the follow-up whose
+        // created_at is nearest a detail's consult_date is treated as that
+        // consultation's follow-up. Nearest global distance wins first; each
+        // follow-up is used once. Details/follow-ups without a usable date fall
+        // back to positional (index) pairing on whatever is left.
+        var dList = details || [];
+        var fList = followUps || [];
+
+        var tsOf = function(s) {
+            if (!s) return null;
+            var t = new Date(String(s).replace(' ', 'T')).getTime();
+            return isNaN(t) ? null : t;
+        };
+
+        var pairMap = {};        // detail index -> follow-up index
+        var usedFollowUp = {};   // follow-up index -> true
+
+        var candidates = [];
+        for (var di = 0; di < dList.length; di++) {
+            var dTs = tsOf(dList[di] && dList[di].consult_date);
+            if (dTs === null) continue;
+            for (var fi = 0; fi < fList.length; fi++) {
+                var fTs = tsOf(fList[fi] && fList[fi].created_at);
+                if (fTs === null) continue;
+                candidates.push({ di: di, fi: fi, dist: Math.abs(dTs - fTs) });
+            }
+        }
+        candidates.sort(function(a, b) { return a.dist - b.dist; });
+        for (var ci = 0; ci < candidates.length; ci++) {
+            var cand = candidates[ci];
+            if (pairMap[cand.di] !== undefined || usedFollowUp[cand.fi]) continue;
+            pairMap[cand.di] = cand.fi;
+            usedFollowUp[cand.fi] = true;
+        }
+
+        // Positional fallback for details still unpaired (null dates, or fewer
+        // follow-ups with dates than details).
+        var nextFi = 0;
+        for (var dj = 0; dj < dList.length; dj++) {
+            if (pairMap[dj] !== undefined) continue;
+            while (nextFi < fList.length && usedFollowUp[nextFi]) nextFi++;
+            if (nextFi < fList.length) {
+                pairMap[dj] = nextFi;
+                usedFollowUp[nextFi] = true;
+            }
+        }
+
+        // Build paired list and reverse for newest-first display.
         // All entries are included; pending entries (consult_status 0) show only
         // the blood test report without consultation fields.
         var pairs = [];
-        for (var i = 0; i < (details || []).length; i++) {
-            pairs.push({ detail: details[i], followUp: followUps[i] || null });
+        for (var pi = 0; pi < dList.length; pi++) {
+            pairs.push({
+                detail: dList[pi],
+                followUp: (pairMap[pi] !== undefined) ? (fList[pairMap[pi]] || null) : null
+            });
         }
         pairs.reverse();
 
