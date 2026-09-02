@@ -1094,12 +1094,15 @@
             }
         }
 
-        // Pair each detail with a follow-up. consult_call_follow_ups has no
-        // consult_call_detail_id, so match on time proximity: the follow-up whose
-        // created_at is nearest a detail's consult_date is treated as that
-        // consultation's follow-up. Nearest global distance wins first; each
-        // follow-up is used once. Details/follow-ups without a usable date fall
-        // back to positional (index) pairing on whatever is left.
+        // Pair each detail with its follow-up.
+        //
+        // Primary key: consult_call_follow_ups.consult_call_detail_id (added
+        // 2026-09), an explicit FK to the consultation the follow-up belongs to.
+        //
+        // Fallback for legacy rows where that column is null: match on time
+        // proximity -- the follow-up whose created_at is nearest a detail's
+        // consult_date. Nearest global distance wins first; each follow-up is
+        // used once. Anything still unmatched falls back to positional order.
         var dList = details || [];
         var fList = followUps || [];
 
@@ -1112,11 +1115,30 @@
         var pairMap = {};        // detail index -> follow-up index
         var usedFollowUp = {};   // follow-up index -> true
 
+        // 1. Explicit FK match.
+        var detailIdToIndex = {};
+        for (var dk = 0; dk < dList.length; dk++) {
+            if (dList[dk] && dList[dk].id !== undefined && dList[dk].id !== null) {
+                detailIdToIndex[String(dList[dk].id)] = dk;
+            }
+        }
+        for (var fk = 0; fk < fList.length; fk++) {
+            var fkDetailId = fList[fk] && fList[fk].consult_call_detail_id;
+            if (fkDetailId === undefined || fkDetailId === null) continue;
+            var mappedDi = detailIdToIndex[String(fkDetailId)];
+            if (mappedDi === undefined || pairMap[mappedDi] !== undefined) continue;
+            pairMap[mappedDi] = fk;
+            usedFollowUp[fk] = true;
+        }
+
+        // 2. Date-proximity match for details/follow-ups still unpaired.
         var candidates = [];
         for (var di = 0; di < dList.length; di++) {
+            if (pairMap[di] !== undefined) continue;
             var dTs = tsOf(dList[di] && dList[di].consult_date);
             if (dTs === null) continue;
             for (var fi = 0; fi < fList.length; fi++) {
+                if (usedFollowUp[fi]) continue;
                 var fTs = tsOf(fList[fi] && fList[fi].created_at);
                 if (fTs === null) continue;
                 candidates.push({ di: di, fi: fi, dist: Math.abs(dTs - fTs) });
@@ -1130,7 +1152,7 @@
             usedFollowUp[cand.fi] = true;
         }
 
-        // Positional fallback for details still unpaired (null dates, or fewer
+        // 3. Positional fallback for details still unpaired (null dates, or fewer
         // follow-ups with dates than details).
         var nextFi = 0;
         for (var dj = 0; dj < dList.length; dj++) {
@@ -1546,6 +1568,9 @@
         var hasFollowUpFields = document.getElementById('hist_followup_date_' + idx) !== null;
         if (hasFollowUpFields) {
             var followUpData = {
+                // Tie the follow-up to the consultation being edited so it pairs
+                // back to this entry on reload rather than by date proximity.
+                consult_call_detail_id: toIntOrNull(detailId),
                 followup_type: toIntOrNull(getHistRadioValue(idx, 'followup_type')),
                 next_followup: toIntOrNull(getHistRadioValue(idx, 'next_followup')),
                 followup_date: getHistInputValue(idx, 'followup_date') || null,
@@ -2515,6 +2540,7 @@
         // Closure variables set inside the first .then() and read in the second
         var followUpPromiseIndex = -1;
         var isFollowUpCreate = false;
+        var savedFollowUpId = null;
 
         consultCallPromise.then(function(result) {
             if (!result.success) {
@@ -2616,36 +2642,58 @@
                     )
                 );
 
+                var detailPromise = null;
                 if (hasDetail) {
                     if (currentDetailId) {
-                        promises.push(apiCall('update-detail', {
+                        detailPromise = apiCall('update-detail', {
                             consult_call_id: EDIT_CONFIG.consultCallId,
                             detail_id: currentDetailId,
                             data: detailData
-                        }));
+                        });
                     } else {
-                        promises.push(apiCall('create-detail', {
+                        detailPromise = apiCall('create-detail', {
                             consult_call_id: EDIT_CONFIG.consultCallId,
                             data: detailData
-                        }));
+                        });
                     }
+                    promises.push(detailPromise);
                 }
 
                 if (hasFollowUp) {
-                    followUpPromiseIndex = promises.length;
                     isFollowUpCreate = !doctorFollowUpId;
-                    if (doctorFollowUpId) {
-                        promises.push(apiCall('update-follow-up', {
+                    if (doctorFollowUpId) { savedFollowUpId = doctorFollowUpId; }
+
+                    // The follow-up must carry consult_call_detail_id. When the
+                    // detail is created in this same save, wait for it so the new
+                    // detail id is available; otherwise use the known id.
+                    followUpPromiseIndex = promises.length;
+                    promises.push((detailPromise || Promise.resolve(null)).then(function(dRes) {
+                        if (dRes && dRes.success === false) {
+                            // Detail write failed -- skip the follow-up; the
+                            // aggregate check surfaces the detail error.
+                            return dRes;
+                        }
+                        var resolvedDetailId = currentDetailId ||
+                            (dRes && dRes.data && dRes.data.id ? dRes.data.id : null);
+                        followUpData.consult_call_detail_id = resolvedDetailId;
+
+                        if (doctorFollowUpId) {
+                            return apiCall('update-follow-up', {
+                                consult_call_id: EDIT_CONFIG.consultCallId,
+                                follow_up_id: doctorFollowUpId,
+                                data: followUpData
+                            });
+                        }
+                        return apiCall('create-follow-up', {
                             consult_call_id: EDIT_CONFIG.consultCallId,
-                            follow_up_id: doctorFollowUpId,
                             data: followUpData
-                        }));
-                    } else {
-                        promises.push(apiCall('create-follow-up', {
-                            consult_call_id: EDIT_CONFIG.consultCallId,
-                            data: followUpData
-                        }));
-                    }
+                        }).then(function(cRes) {
+                            if (cRes && cRes.success && cRes.data && cRes.data.id) {
+                                savedFollowUpId = cRes.data.id;
+                            }
+                            return cRes;
+                        });
+                    }));
                 }
             }
 
@@ -2664,17 +2712,9 @@
                 }
             }
 
-            // Extract the follow-up ID from the create response, or use existing ID for updates
-            var followUpId = null;
-            if (followUpPromiseIndex >= 0 && results[followUpPromiseIndex]) {
-                if (isFollowUpCreate) {
-                    followUpId = (results[followUpPromiseIndex].data && results[followUpPromiseIndex].data.id)
-                        ? results[followUpPromiseIndex].data.id
-                        : null;
-                } else {
-                    followUpId = doctorFollowUpId;
-                }
-            }
+            // Follow-up ID captured in the follow-up chain above (create response
+            // id, or the existing doctorFollowUpId for updates).
+            var followUpId = savedFollowUpId;
 
             if (activeBtn) { activeBtn.disabled = false; activeBtn.innerHTML = originalText; }
             if (onSuccess) onSuccess(followUpId);
