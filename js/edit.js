@@ -1093,8 +1093,10 @@
             var isPending   = String(d.consult_status) === '0';
             var isCompleted = String(d.consult_status) === '1';
 
-            // Build accordion header: always use updated_at of the detail record
-            var headerCreatedAt = d.updated_at ? formatDate(d.updated_at) : '';
+            // Build accordion header: use the detail record's created date
+            // (falls back to updated_at if created_at is missing on older rows)
+            var headerDateSource = d.created_at || d.updated_at;
+            var headerCreatedAt = headerDateSource ? formatDate(headerDateSource) : '';
             var headerLabel = isPending
                 ? 'Pending Consultation'
                 : (statusMaps.consultStatuses[String(d.consult_status)] || '');
@@ -2209,6 +2211,19 @@
     }
 
     /**
+     * Current process status as an integer (1 = Active, 3 = Closed), read from the
+     * header pill toggle. Process status used to be a form radio named
+     * "process_status"; it was moved to the header pill (#header-process-status),
+     * so getRadioValue('process_status') and detailData.process_status no longer
+     * carry a value. Returns null when the pill is hidden (no detail record yet).
+     * @returns {number|null}
+     */
+    function getCurrentProcessStatus() {
+        var active = document.querySelector('#header-process-status .segmented-toggle-btn.active');
+        return active ? toIntOrNull(active.getAttribute('data-value')) : null;
+    }
+
+    /**
      * Run the full save flow: validates, then saves consult call, detail, and follow-up.
      * onSuccess is called with the saved follow-up ID (int or null) after all API calls succeed.
      * onFailure is called (no args) after an error alert when any API call fails.
@@ -2441,10 +2456,19 @@
                 // Exception: draft saves may create/update a follow-up to persist mode of conversion,
                 // a follow-up field not present on the detail record.
                 var draftHasFollowUpData = isDraft && getRadioValue('mode_of_conversion') !== '';
+                // process_status moved from a form radio to the header pill toggle, so it is
+                // no longer a key on detailData (the old `detailData.process_status === 1`
+                // check was always false). Treat the process as Active unless the doctor
+                // explicitly set the header pill to Closed (3). null (no detail row yet, e.g.
+                // a brand-new completed consult) counts as Active since the backend defaults
+                // a new detail to Active. Without this, hasFollowUp was always false on
+                // Submit Changes and the follow-up record (next follow-up, follow-up date,
+                // follow-up type, mode of conversion) was never persisted.
+                var processStatusActive = getCurrentProcessStatus() !== 3;
                 var hasFollowUp = draftHasFollowUpData || (!isDraft &&
                     detailData.consult_status === 1 &&
                     actionValue === 1 &&
-                    detailData.process_status === 1 && (
+                    processStatusActive && (
                         followUpData.followup_type !== null ||
                         followUpData.next_followup !== null ||
                         followUpData.followup_date
