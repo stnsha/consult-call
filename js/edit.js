@@ -26,6 +26,11 @@
     var currentDetailId = null;
     var currentFollowUpId = null;
 
+    // Normalized (YYYY-MM-DD) consult_date of the detail currentDetailId points at.
+    // Used on save to detect that the doctor changed the Consult Date, which means a
+    // new consultation rather than an edit of the existing record.
+    var loadedDetailConsultDate = null;
+
     // Detail ID targeted by the header Process Status pill toggle -- always the
     // latest detail record, independent of currentDetailId's update-vs-create semantics.
     var headerProcessStatusDetailId = null;
@@ -2068,6 +2073,7 @@
         var details = data.details || [];
         var followUps = data.follow_ups || [];
         currentDetailId = null;
+        loadedDetailConsultDate = null;
         doctorFollowUpId = null;
         currentFollowUpId = null;
         isDetailClaimedByCurrentDoctor = false;
@@ -2130,7 +2136,28 @@
             var lastIsCompleted = String(lastDetail.consult_status) === '1';
             var lastIsByCurrentDoctor = !!(lastDetail.consulted_by &&
                 parseInt(EDIT_CONFIG.currentStaffId, 10) === lastDetail.consulted_by);
-            var pairedFollowUp = followUps[details.length - 1] || null;
+            // Pair the follow-up to the last detail by consult_call_detail_id (the FK
+            // added for this purpose), not by array position. Details and follow-ups are
+            // not 1:1 positionally -- e.g. a call can have 2 details but 1 follow-up, in
+            // which case followUps[details.length - 1] was undefined and the checkpoint
+            // force-CREATE flags below silently never fired.
+            var pairedFollowUp = null;
+            for (var pfi = 0; pfi < followUps.length; pfi++) {
+                if (followUps[pfi].consult_call_detail_id != null &&
+                    String(followUps[pfi].consult_call_detail_id) === String(lastDetail.id)) {
+                    pairedFollowUp = followUps[pfi];
+                    break;
+                }
+            }
+            // Legacy fallback: follow-up rows created before consult_call_detail_id
+            // existed have a null FK. Pair positionally only when no FK match exists
+            // anywhere and the row counts line up 1:1.
+            if (!pairedFollowUp && followUps.length === details.length) {
+                var posFollowUp = followUps[details.length - 1];
+                if (posFollowUp && posFollowUp.consult_call_detail_id == null) {
+                    pairedFollowUp = posFollowUp;
+                }
+            }
             // When HQ has marked the follow-up checkpoint as completed (followup_reminder = 1),
             // the previous consultation cycle is closed. The doctor must start a fresh record.
             var followUpCheckpointDone = pairedFollowUp && String(pairedFollowUp.followup_reminder) === '1';
@@ -2145,6 +2172,12 @@
             // When followUpCheckpointDone or pairedFollowUpIsRescheduled, always enter CREATE mode.
             if ((!lastIsCompleted || lastIsByCurrentDoctor) && !followUpCheckpointDone && !pairedFollowUpIsRescheduled) {
                 currentDetailId = lastDetail.id || null;
+                // Arm the "changed Consult Date => new consultation" guard only when the
+                // same doctor re-opens their own already-completed record. For a pending
+                // record the doctor is simply filling in the date, not starting a new one.
+                if (lastIsCompleted && lastIsByCurrentDoctor && lastDetail.consult_date) {
+                    loadedDetailConsultDate = toDateValue(lastDetail.consult_date);
+                }
                 if (pairedFollowUp) {
                     doctorFollowUpId = pairedFollowUp.id || null;
                 }
@@ -2636,6 +2669,29 @@
             if (EDIT_CONFIG.currentStaffRole === 2) {
                 var hasDetail = detailData.consult_date || detailData.diagnosis ||
                     detailData.treatment_plan || detailData.consult_status !== null;
+
+                // Same doctor re-opening their own completed detail defaults to UPDATE
+                // (edit, not duplicate). A changed Consult Date means this is a new
+                // consultation on a different day -- confirm, then downgrade to CREATE so
+                // the previous record is not overwritten. The follow-up follows: clearing
+                // doctorFollowUpId routes it through create-follow-up against the new
+                // detail id. clinical_condition_id / test_result_id are already carried
+                // forward on detailData.
+                if (!isDraft && currentDetailId && hasDetail && loadedDetailConsultDate &&
+                    detailData.consult_date && detailData.consult_date !== loadedDetailConsultDate) {
+                    if (confirm('Consult Date differs from the saved consultation (' +
+                            loadedDetailConsultDate + '). Save this as a NEW consultation ' +
+                            'instead of editing the existing record?')) {
+                        currentDetailId = null;
+                        doctorFollowUpId = null;
+                        // Mirror the create-path rule at detailData assembly: a completed
+                        // consult with no Consulted By falls back to the current doctor.
+                        if (detailData.consult_status === 1 && !detailData.consulted_by &&
+                            EDIT_CONFIG.currentStaffId) {
+                            detailData.consulted_by = parseInt(EDIT_CONFIG.currentStaffId, 10);
+                        }
+                    }
+                }
 
                 // Follow-up is only created when consultation is completed (status 1),
                 // action is Refer Internal (1), process_status is Active (1), and follow-up data is present.
