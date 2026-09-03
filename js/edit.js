@@ -2672,24 +2672,20 @@
 
                 // Same doctor re-opening their own completed detail defaults to UPDATE
                 // (edit, not duplicate). A changed Consult Date means this is a new
-                // consultation on a different day -- confirm, then downgrade to CREATE so
-                // the previous record is not overwritten. The follow-up follows: clearing
-                // doctorFollowUpId routes it through create-follow-up against the new
-                // detail id. clinical_condition_id / test_result_id are already carried
-                // forward on detailData.
+                // consultation on a different day, so downgrade to CREATE: the previous
+                // record is preserved and a new detail is inserted. The follow-up follows
+                // -- clearing doctorFollowUpId routes it through create-follow-up against
+                // the new detail id. clinical_condition_id / test_result_id are already
+                // carried forward on detailData.
                 if (!isDraft && currentDetailId && hasDetail && loadedDetailConsultDate &&
                     detailData.consult_date && detailData.consult_date !== loadedDetailConsultDate) {
-                    if (confirm('Consult Date differs from the saved consultation (' +
-                            loadedDetailConsultDate + '). Save this as a NEW consultation ' +
-                            'instead of editing the existing record?')) {
-                        currentDetailId = null;
-                        doctorFollowUpId = null;
-                        // Mirror the create-path rule at detailData assembly: a completed
-                        // consult with no Consulted By falls back to the current doctor.
-                        if (detailData.consult_status === 1 && !detailData.consulted_by &&
-                            EDIT_CONFIG.currentStaffId) {
-                            detailData.consulted_by = parseInt(EDIT_CONFIG.currentStaffId, 10);
-                        }
+                    currentDetailId = null;
+                    doctorFollowUpId = null;
+                    // Mirror the create-path rule at detailData assembly: a completed
+                    // consult with no Consulted By falls back to the current doctor.
+                    if (detailData.consult_status === 1 && !detailData.consulted_by &&
+                        EDIT_CONFIG.currentStaffId) {
+                        detailData.consulted_by = parseInt(EDIT_CONFIG.currentStaffId, 10);
                     }
                 }
 
