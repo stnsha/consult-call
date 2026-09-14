@@ -2276,9 +2276,13 @@
             setSelectValue('consulted_by', String(EDIT_CONFIG.currentStaffId));
         }
 
-        // Show Follow-up Checkpoint section only when the latest follow-up has a type that is not None (0)
+        // Show Follow-up Checkpoint section whenever the latest follow-up has a scheduled
+        // date to check on. This must match the dashboard reminder banner's own criterion
+        // (js/main.js loadFollowupBanner) -- gating on followup_type here instead left
+        // records with a real due-today reminder but followup_type = None (0) unreachable
+        // for Customer Service.
         var latestFollowUp = followUps.length > 0 ? followUps[followUps.length - 1] : null;
-        var hasActiveFollowUp = latestFollowUp && String(latestFollowUp.followup_type) !== '0';
+        var hasActiveFollowUp = !!(latestFollowUp && latestFollowUp.followup_date);
 
         // When a new consultation is being entered (latest detail completed), use the
         // current follow-up's scheduled date as the base for next-follow-up auto-population.
