@@ -137,6 +137,7 @@ if (!defined('CONSULTCALL_BASE')) {
             margin: 0;
         }
         .select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
+            position: static;
             order: 2;
             color: #6c757d;
             margin-right: 0;
