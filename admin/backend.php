@@ -78,7 +78,9 @@ if ($action === 'getActiveStaff' && $_request_method === 'GET') {
                      cc.active_from, cc.active_to
               FROM staff s
               LEFT JOIN staff_department d ON s.department = d.id
-              LEFT JOIN staff_cc cc ON cc.staff_id = s.id
+              LEFT JOIN (SELECT staff_id, MAX(id) AS latest_id FROM staff_cc GROUP BY staff_id) latest_cc
+                ON latest_cc.staff_id = s.id
+              LEFT JOIN staff_cc cc ON cc.id = latest_cc.latest_id
               WHERE s.consult_call > 0 AND s.recycle != 1
               ORDER BY s.consult_call ASC, s.nama_staff ASC
               LIMIT $perPage OFFSET $offset";
@@ -123,7 +125,9 @@ if ($action === 'searchStaff' && $_request_method === 'POST') {
                      cc.active_from, cc.active_to
               FROM staff s
               LEFT JOIN staff_department d ON s.department = d.id
-              LEFT JOIN staff_cc cc ON cc.staff_id = s.id
+              LEFT JOIN (SELECT staff_id, MAX(id) AS latest_id FROM staff_cc GROUP BY staff_id) latest_cc
+                ON latest_cc.staff_id = s.id
+              LEFT JOIN staff_cc cc ON cc.id = latest_cc.latest_id
               WHERE s.nama_staff LIKE '%$search_term%'
               AND s.recycle != 1
               ORDER BY s.nama_staff ASC
@@ -194,6 +198,12 @@ if ($action === 'updateAccess' && $_request_method === 'POST') {
     $active_from = isset($_POST['active_from']) ? trim($_POST['active_from']) : '';
     $active_to   = isset($_POST['active_to'])   ? trim($_POST['active_to'])   : '';
 
+    // Normal User has no access to time-box -- always clear any existing timeline.
+    if ($permission === 0) {
+        $active_from = '';
+        $active_to   = '';
+    }
+
     $date_re = '/^\d{4}-\d{2}-\d{2}$/';
     if ($active_from !== '' && !preg_match($date_re, $active_from)) {
         echo json_encode(array('success' => false, 'message' => 'Invalid active_from date.'));
@@ -216,18 +226,20 @@ if ($action === 'updateAccess' && $_request_method === 'POST') {
     }
 
     // Timeline is optional: only keep a staff_cc row when both dates are filled.
+    // Delete-then-insert instead of INSERT ... ON DUPLICATE KEY UPDATE so this stays
+    // correct (one row per staff_id) even if staff_cc's UNIQUE KEY on staff_id is
+    // missing/not applied on a given environment -- ON DUPLICATE KEY silently degrades
+    // into always-insert without that constraint, producing duplicate rows.
+    mysqli_query($conn, "DELETE FROM staff_cc WHERE staff_id = $target_id");
     if ($active_from !== '' && $active_to !== '') {
         $from_escaped = mysqli_real_escape_string($conn, $active_from);
         $to_escaped   = mysqli_real_escape_string($conn, $active_to);
-        $cc_upsert = "INSERT INTO staff_cc (staff_id, active_from, active_to)
-                      VALUES ($target_id, '$from_escaped', '$to_escaped')
-                      ON DUPLICATE KEY UPDATE active_from = '$from_escaped', active_to = '$to_escaped'";
-        if (!mysqli_query($conn, $cc_upsert)) {
+        $cc_insert = "INSERT INTO staff_cc (staff_id, active_from, active_to)
+                      VALUES ($target_id, '$from_escaped', '$to_escaped')";
+        if (!mysqli_query($conn, $cc_insert)) {
             echo json_encode(array('success' => false, 'message' => 'Database error: ' . mysqli_error($conn)));
             exit;
         }
-    } else {
-        mysqli_query($conn, "DELETE FROM staff_cc WHERE staff_id = $target_id");
     }
 
     echo json_encode(array('success' => true, 'message' => 'Access updated successfully.'));

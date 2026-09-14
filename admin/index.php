@@ -483,9 +483,25 @@ $role_badges = array(
             $('#active-from').val(staff.active_from || '');
             $('#active-to').val(staff.active_to || '');
             $('#timeline-section').show();
+            applyTimelineLockForPermission(role);
 
             $('#submit-section').css('display', 'flex');
         }
+
+        // Normal User (0) has no access to time-box -- clear and lock the Active Period
+        // fields client-side too, mirroring the server-side reset in updateAccess.
+        function applyTimelineLockForPermission(permission) {
+            var isNormalUser = parseInt(permission, 10) === 0;
+            if (isNormalUser) {
+                $('#active-from').val('');
+                $('#active-to').val('');
+            }
+            $('#active-from, #active-to').prop('disabled', isNormalUser);
+        }
+
+        $(document).on('change', 'input[name="permission"]', function() {
+            applyTimelineLockForPermission($(this).val());
+        });
 
         // Edit button from table pre-fills the form
         $(document).on('click', '.edit-btn', function() {
