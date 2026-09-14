@@ -111,24 +111,37 @@ if (!defined('CONSULTCALL_BASE')) {
             border: 1px solid #dee2e6;
             border-radius: 6px;
             min-height: 38px;
+            height: auto;
             padding: 2px 4px;
         }
         .select2-container--default .select2-selection--multiple .select2-selection__rendered {
-            padding: 0 4px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            padding: 2px;
+            margin: 0;
         }
         .select2-container--default .select2-selection--multiple .select2-selection__choice {
+            display: flex;
+            align-items: center;
             background-color: #e9ecef;
             border: 1px solid #ced4da;
             border-radius: 4px;
-            padding: 1px 6px;
+            padding: 2px 6px;
             font-size: 12px;
             font-family: 'Inter', sans-serif;
             color: #212529;
-            margin: 3px 3px 3px 0;
+            white-space: normal;
+            word-break: break-word;
+            max-width: 100%;
+            margin: 0;
         }
         .select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
+            order: 2;
             color: #6c757d;
-            margin-right: 4px;
+            margin-right: 0;
+            margin-left: 6px;
+            flex-shrink: 0;
         }
         .select2-container--default .select2-selection--multiple .select2-selection__choice__remove:hover {
             color: #dc3545;
@@ -162,7 +175,12 @@ if ($_adm_is_local && isset($_SESSION['dev_role_override'])) {
     $consult_call_permission = (int)$_SESSION['dev_role_override'];
 }
 
-if ($consult_call_permission !== 1) {
+$_adm_is_full_super_admin = ($consult_call_permission === 1);
+$_adm_can_access_admin = $_adm_is_full_super_admin
+    || $consult_call_permission === 6
+    || (int)$id_user === 5138;
+
+if (!$_adm_can_access_admin) {
     header('Location: ' . CONSULTCALL_BASE . 'index.php');
     exit;
 }
@@ -172,7 +190,7 @@ $role_labels = array(
     1 => 'Super Admin',
     2 => 'Doctor',
     3 => 'Pharmacy',
-    4 => 'HQ',
+    4 => 'Customer Service',
     5 => 'Outlet',
     6 => 'Admin',
 );
@@ -217,12 +235,14 @@ $role_badges = array(
                                     <th>Staff Name</th>
                                     <th>Department</th>
                                     <th>Role</th>
+                                    <th>Active From</th>
+                                    <th>Active To</th>
                                     <th></th>
                                 </tr>
                             </thead>
                             <tbody id="active-staff-tbody">
                                 <tr>
-                                    <td colspan="4" class="text-center text-muted py-3">Loading...</td>
+                                    <td colspan="6" class="text-center text-muted py-3">Loading...</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -260,14 +280,28 @@ $role_badges = array(
                     <div class="mb-3 permission-list" id="permission-section" style="display:none;">
                         <label class="form-label" style="font-size: 13px;">Permission</label>
                         <?php foreach ($role_labels as $val => $label): ?>
+                        <?php if (($val === 1 || $val === 6) && !$_adm_is_full_super_admin) continue; ?>
                         <div class="form-check">
                             <input class="form-check-input" type="radio" name="permission"
                                 id="perm-<?php echo $val; ?>" value="<?php echo $val; ?>">
                             <label class="form-check-label" for="perm-<?php echo $val; ?>">
-                                <?php echo htmlspecialchars($label); ?> (<?php echo $val; ?>)
+                                <?php echo htmlspecialchars($label); ?><?php echo $_adm_is_full_super_admin ? ' (' . $val . ')' : ''; ?>
                             </label>
                         </div>
                         <?php endforeach; ?>
+                    </div>
+
+                    <div class="mb-3" id="timeline-section" style="display:none;">
+                        <label class="form-label" style="font-size: 13px;">Active Period <span class="text-muted" style="font-size: 13px;">(optional)</span></label>
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <input type="date" class="form-control form-control-sm" id="active-from" placeholder="Active From">
+                            </div>
+                            <div class="col-6">
+                                <input type="date" class="form-control form-control-sm" id="active-to" placeholder="Active To">
+                            </div>
+                        </div>
+                        <div class="form-text" style="font-size: 11px;">Leave both blank for permanent access. Fill both to limit access to this date range.</div>
                     </div>
 
                     <div class="mb-3" id="outlet-section" style="display:none;">
@@ -279,7 +313,8 @@ $role_badges = array(
                         <select id="outlet-select" multiple style="width:100%;"></select>
                     </div>
 
-                    <div class="d-flex justify-content-end" id="submit-section" style="display:none !important;">
+                    <div class="d-flex justify-content-end gap-2" id="submit-section" style="display:none !important;">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="cancel-btn">Cancel</button>
                         <button type="button" class="btn btn-primary btn-sm" id="update-btn">Update Access</button>
                     </div>
                 </div>
@@ -290,6 +325,7 @@ $role_badges = array(
 
     <script>
     var ROLE_LABELS = <?php echo json_encode($role_labels); ?>;
+    var IS_FULL_SUPER_ADMIN = <?php echo $_adm_is_full_super_admin ? 'true' : 'false'; ?>;
     var ROLE_BADGES = <?php echo json_encode($role_badges); ?>;
     var BACKEND_URL = <?php echo json_encode(CONSULTCALL_BASE . 'admin/backend.php'); ?>;
     </script>
@@ -392,23 +428,41 @@ $role_badges = array(
         });
 
         $('#staff-search').on('select2:clear', function() {
+            resetForm();
+        });
+
+        function resetForm() {
             selectedStaffId = null;
             $('#staff-info').hide();
             $('#permission-section').hide();
             applyOutletSelect([]);
             $('#outlet-section').hide();
+            $('#timeline-section').hide();
+            $('#active-from').val('');
+            $('#active-to').val('');
             $('#submit-section').css('display', 'none');
-        });
+        }
 
         function showStaffInfo(staff) {
-            selectedStaffId = staff.id;
             var role = staff.consult_call;
-            var roleLabel = ROLE_LABELS[role] !== undefined ? ROLE_LABELS[role] + ' (' + role + ')' : 'Unknown';
+
+            if (role === 1 && !IS_FULL_SUPER_ADMIN) {
+                showAlert('You are not allowed to edit a Super Admin.', false);
+                $('#staff-search').val(null).trigger('change');
+                resetForm();
+                return;
+            }
+
+            selectedStaffId = staff.id;
+            var roleLabel = ROLE_LABELS[role] !== undefined ? ROLE_LABELS[role] + (IS_FULL_SUPER_ADMIN ? ' (' + role + ')' : '') : 'Unknown';
 
             $('#info-name').text(staff.nama_staff);
             $('#info-dept').text(staff.department_name || '-');
             $('#info-status').text(staff.status_semasa || '-');
             $('#info-role').text(roleLabel);
+            if (parseInt(staff.id, 10) === 5138) {
+                $('#info-role').append(' <span class="badge bg-dark">Admin</span>');
+            }
             $('#staff-info').show();
 
             $('input[name="permission"][value="' + role + '"]').prop('checked', true);
@@ -424,6 +478,10 @@ $role_badges = array(
             }
             $('#outlet-section').show();
             applyOutletSelect(selectedIds);
+
+            $('#active-from').val(staff.active_from || '');
+            $('#active-to').val(staff.active_to || '');
+            $('#timeline-section').show();
 
             $('#submit-section').css('display', 'flex');
         }
@@ -447,7 +505,9 @@ $role_badges = array(
                 department_name: staffDept,
                 status_semasa: $(this).data('staff-status') || '-',
                 consult_call: staffRole,
-                outlet: $(this).attr('data-staff-outlet') || ''
+                outlet: $(this).attr('data-staff-outlet') || '',
+                active_from: $(this).attr('data-staff-active-from') || '',
+                active_to: $(this).attr('data-staff-active-to') || ''
             });
 
             $('#access-form-area')[0] && $('#access-form-area')[0].scrollIntoView({ behavior: 'smooth' });
@@ -458,7 +518,7 @@ $role_badges = array(
 
         function loadActiveStaff(page) {
             currentPage = page || 1;
-            $('#active-staff-tbody').html('<tr><td colspan="4" class="text-center text-muted py-3">Loading...</td></tr>');
+            $('#active-staff-tbody').html('<tr><td colspan="6" class="text-center text-muted py-3">Loading...</td></tr>');
 
             $.ajax({
                 url: BACKEND_URL + '?action=getActiveStaff&page=' + currentPage,
@@ -466,21 +526,21 @@ $role_badges = array(
                 dataType: 'json',
                 success: function(response) {
                     if (!response.success) {
-                        $('#active-staff-tbody').html('<tr><td colspan="4" class="text-center text-muted py-3">Failed to load.</td></tr>');
+                        $('#active-staff-tbody').html('<tr><td colspan="6" class="text-center text-muted py-3">Failed to load.</td></tr>');
                         return;
                     }
                     renderTable(response.data);
                     renderPagination(response.page, response.total_pages, response.total, response.per_page);
                 },
                 error: function() {
-                    $('#active-staff-tbody').html('<tr><td colspan="4" class="text-center text-muted py-3">Error loading data.</td></tr>');
+                    $('#active-staff-tbody').html('<tr><td colspan="6" class="text-center text-muted py-3">Error loading data.</td></tr>');
                 }
             });
         }
 
         function renderTable(data) {
             if (!data || data.length === 0) {
-                $('#active-staff-tbody').html('<tr><td colspan="4" class="text-center text-muted py-3">No staff with active roles.</td></tr>');
+                $('#active-staff-tbody').html('<tr><td colspan="6" class="text-center text-muted py-3">No staff with active roles.</td></tr>');
                 return;
             }
             var html = '';
@@ -488,17 +548,27 @@ $role_badges = array(
                 var role      = s.consult_call;
                 var roleLabel = ROLE_LABELS[role] !== undefined ? ROLE_LABELS[role] : 'Unknown';
                 var roleBadge = ROLE_BADGES[role] !== undefined ? ROLE_BADGES[role] : 'bg-secondary';
+                var hasTimeline = !!(s.active_from && s.active_to);
+                var activeFromCell = hasTimeline ? $('<span>').text(s.active_from).html() : '<span class="text-muted fst-italic">Permanent</span>';
+                var activeToCell   = hasTimeline ? $('<span>').text(s.active_to).html()   : '<span class="text-muted fst-italic">Permanent</span>';
+                var editLocked = (role === 1 && !IS_FULL_SUPER_ADMIN);
+                var adminBadge = (parseInt(s.id, 10) === 5138) ? ' <span class="badge bg-dark">Admin</span>' : '';
                 html += '<tr>' +
                     '<td>' + $('<span>').text(s.nama_staff).html() + '</td>' +
                     '<td class="text-muted">' + $('<span>').text(s.department_name).html() + '</td>' +
-                    '<td><span class="badge ' + roleBadge + '">' + roleLabel + '</span></td>' +
+                    '<td><span class="badge ' + roleBadge + '">' + roleLabel + '</span>' + adminBadge + '</td>' +
+                    '<td>' + activeFromCell + '</td>' +
+                    '<td>' + activeToCell + '</td>' +
                     '<td><button type="button" class="btn btn-sm btn-outline-secondary edit-btn"' +
+                        (editLocked ? ' disabled title="Cannot edit a Super Admin"' : '') +
                         ' data-staff-id="' + s.id + '"' +
                         ' data-staff-name="' + $('<span>').text(s.nama_staff).html() + '"' +
                         ' data-staff-dept="' + $('<span>').text(s.department_name).html() + '"' +
                         ' data-staff-status="' + $('<span>').text(s.status_semasa).html() + '"' +
                         ' data-staff-role="' + role + '"' +
-                        ' data-staff-outlet="' + $('<span>').text(s.outlet || '').html() + '">Edit</button></td>' +
+                        ' data-staff-outlet="' + $('<span>').text(s.outlet || '').html() + '"' +
+                        ' data-staff-active-from="' + $('<span>').text(s.active_from || '').html() + '"' +
+                        ' data-staff-active-to="' + $('<span>').text(s.active_to || '').html() + '">Edit</button></td>' +
                     '</tr>';
             });
             $('#active-staff-tbody').html(html);
@@ -542,12 +612,28 @@ $role_badges = array(
         loadOutlets();
 
         // Submit update
+        $('#cancel-btn').on('click', function() {
+            $('#staff-search').val(null).trigger('change');
+            resetForm();
+        });
+
         $('#update-btn').on('click', function() {
             if (!selectedStaffId) return;
 
             var permission = $('input[name="permission"]:checked').val();
             if (permission === undefined) {
                 showAlert('Please select a permission level.', false);
+                return;
+            }
+
+            var activeFrom = $('#active-from').val();
+            var activeTo   = $('#active-to').val();
+            if ((activeFrom && !activeTo) || (!activeFrom && activeTo)) {
+                showAlert('Fill both Active From and Active To, or leave both blank.', false);
+                return;
+            }
+            if (activeFrom && activeTo && activeFrom > activeTo) {
+                showAlert('Active From cannot be after Active To.', false);
                 return;
             }
 
@@ -561,12 +647,16 @@ $role_badges = array(
                 url: BACKEND_URL + '?action=updateAccess',
                 type: 'POST',
                 dataType: 'json',
-                data: { staff_id: selectedStaffId, permission: permission, outlet_ids: outletIds },
+                data: { staff_id: selectedStaffId, permission: permission, outlet_ids: outletIds, active_from: activeFrom, active_to: activeTo },
                 success: function(response) {
                     if (response.success) {
                         showAlert(response.message, true);
                         loadActiveStaff(currentPage);
-                        $('#info-role').text(ROLE_LABELS[parseInt(permission, 10)] + ' (' + permission + ')');
+                        var updatedRoleLabel = ROLE_LABELS[parseInt(permission, 10)] + (IS_FULL_SUPER_ADMIN ? ' (' + permission + ')' : '');
+                        $('#info-role').text(updatedRoleLabel);
+                        if (parseInt(selectedStaffId, 10) === 5138) {
+                            $('#info-role').append(' <span class="badge bg-dark">Admin</span>');
+                        }
                     } else {
                         showAlert(response.message || 'Update failed.', false);
                     }

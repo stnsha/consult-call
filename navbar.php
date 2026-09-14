@@ -28,7 +28,7 @@ if ($_navbar_isLocal) {
         1 => 'Super Admin',
         2 => 'Doctor',
         3 => 'Pharmacy',
-        4 => 'HQ',
+        4 => 'Customer Service',
         5 => 'Outlet',
         6 => 'Admin',
     );
@@ -104,7 +104,7 @@ if (isset($consult_call_permission)) {
                     <a class="nav-link <?php echo $ao_active; ?>" href="<?php echo CONSULTCALL_BASE; ?>add_ons/index.php">Add Ons</a>
                 </li>
                 <?php endif; ?>
-                <?php if ($_navbar_role === 1): ?>
+                <?php if ($_navbar_role === 1 || $_navbar_role === 6 || (isset($id_user) && (int)$id_user === 5138)): ?>
                 <li class="nav-item">
                     <a class="nav-link <?php echo $admin_active; ?>" href="<?php echo CONSULTCALL_BASE; ?>admin/index.php">Admin</a>
                 </li>

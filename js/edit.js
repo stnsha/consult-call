@@ -925,7 +925,7 @@
     }
 
     // -- Recommended Add Ons: multi-select checkbox dropdown --
-    // Only HQ (role 4) may check/uncheck; disabled entirely for other roles and in
+    // Only Customer Service (role 4) may check/uncheck; disabled entirely for other roles and in
     // view-only mode (native checkboxes also get caught by disableAllFormFields()).
     var addOnDropdownDisabled = (EDIT_CONFIG.viewOnly === true) || (EDIT_CONFIG.currentStaffRole !== 4);
 
@@ -2024,7 +2024,7 @@
 
         // Invoice ID/Status live on the consultation detail record (nullable), not the
         // consult call itself -- pre-fill from the latest detail regardless of who saved it,
-        // since this is HQ-owned data shown in the Add On Recommendation section.
+        // since this is Customer Service-owned data shown in the Add On Recommendation section.
         setInputValue('invoice_id', (latestDetailForSection && latestDetailForSection.invoice_id) || '');
         setRadioValue('invoice_status', (latestDetailForSection && latestDetailForSection.invoice_status)
             ? String(latestDetailForSection.invoice_status) : '');
@@ -2059,7 +2059,7 @@
             setSelectValue('handled_by', data.handled_by);
             originalHandledBy = data.handled_by;
         }
-        // Auto-select current staff for Handled By if no saved value and user is HQ (role 4)
+        // Auto-select current staff for Handled By if no saved value and user is Customer Service (role 4)
         if (!data.handled_by && EDIT_CONFIG.currentStaffRole === 4 && EDIT_CONFIG.currentStaffId) {
             setSelectValue('handled_by', String(EDIT_CONFIG.currentStaffId));
         }
@@ -2113,7 +2113,7 @@
         handleActionChange('');
         prevConsultStatus = CONSULT_PENDING;
 
-        // HQ checkpoint always targets the latest follow-up record
+        // Customer Service checkpoint always targets the latest follow-up record
         if (followUps.length > 0) {
             currentFollowUpId = followUps[followUps.length - 1].id || null;
         }
@@ -2158,7 +2158,7 @@
                     pairedFollowUp = posFollowUp;
                 }
             }
-            // When HQ has marked the follow-up checkpoint as completed (followup_reminder = 1),
+            // When Customer Service has marked the follow-up checkpoint as completed (followup_reminder = 1),
             // the previous consultation cycle is closed. The doctor must start a fresh record.
             var followUpCheckpointDone = pairedFollowUp && String(pairedFollowUp.followup_reminder) === '1';
             // A rescheduled follow-up (reminder = 2) opens a new consultation cycle just like
@@ -2579,7 +2579,7 @@
             mode_of_conversion: toIntOrNull(getRadioValue('mode_of_conversion'))
         };
 
-        // Only HQ (role 4) can update consult call eligibility fields
+        // Only Customer Service (role 4) can update consult call eligibility fields
         var consultCallPromise;
         if (EDIT_CONFIG.currentStaffRole === 4) {
             consultCallPromise = apiCall('update-consult-call', {
@@ -2607,7 +2607,7 @@
             // Only Doctor (role 2) can save Consultation Details and Follow-Up fields
             var promises = [];
 
-            // HQ (role 4) saves Follow-up Checkpoint to the existing follow-up record
+            // Customer Service (role 4) saves Follow-up Checkpoint to the existing follow-up record
             if (EDIT_CONFIG.currentStaffRole === 4 && isFollowUpCheckpointVisible && currentFollowUpId) {
                 promises.push(apiCall('update-follow-up', {
                     consult_call_id: EDIT_CONFIG.consultCallId,
@@ -2620,47 +2620,47 @@
                 }));
             }
 
-            // HQ (role 4): automatically update the detail when consent is refused/others
+            // Customer Service (role 4): automatically update the detail when consent is refused/others
             // or when the scheduled appointment is cancelled. Also persists the Add On
             // Recommendation section's invoice fields, which live on the detail record.
             if (EDIT_CONFIG.currentStaffRole === 4) {
-                var hqDetailData = null;
+                var csDetailData = null;
                 if (consultCallData.consent_call_status === 2 || consultCallData.consent_call_status === 3) {
-                    hqDetailData = hqDetailData || {};
-                    hqDetailData.process_status = 3;
+                    csDetailData = csDetailData || {};
+                    csDetailData.process_status = 3;
                 }
                 if (consultCallData.scheduled_status === 3) {
-                    hqDetailData = hqDetailData || {};
-                    hqDetailData.consult_status = 3;
+                    csDetailData = csDetailData || {};
+                    csDetailData.consult_status = 3;
                     // process_status will be forced to Closed by the backend's statusForcesClose rule
                 }
 
-                // Add On Recommendation section (HQ-owned): invoice_id / invoice_status /
+                // Add On Recommendation section (Customer Service-owned): invoice_id / invoice_status /
                 // is_invoice_synced are columns on consult_call_details.
-                var hqInvoiceId = getInputValue('invoice_id') || null;
-                var hqInvoiceStatus = toIntOrNull(getRadioValue('invoice_status'));
-                if (hqInvoiceId !== null || hqInvoiceStatus !== null) {
-                    hqDetailData = hqDetailData || {};
-                    hqDetailData.invoice_id = hqInvoiceId;
-                    hqDetailData.invoice_status = hqInvoiceStatus;
-                    hqDetailData.is_invoice_synced = (hqInvoiceId && String(hqInvoiceId).trim()) ? !!invoiceSyncedForSave : false;
+                var csInvoiceId = getInputValue('invoice_id') || null;
+                var csInvoiceStatus = toIntOrNull(getRadioValue('invoice_status'));
+                if (csInvoiceId !== null || csInvoiceStatus !== null) {
+                    csDetailData = csDetailData || {};
+                    csDetailData.invoice_id = csInvoiceId;
+                    csDetailData.invoice_status = csInvoiceStatus;
+                    csDetailData.is_invoice_synced = (csInvoiceId && String(csInvoiceId).trim()) ? !!invoiceSyncedForSave : false;
                 }
 
-                if (hqDetailData) {
+                if (csDetailData) {
                     if (currentDetailId) {
                         promises.push(apiCall('update-detail', {
                             consult_call_id: EDIT_CONFIG.consultCallId,
                             detail_id: currentDetailId,
-                            data: hqDetailData
+                            data: csDetailData
                         }));
                     } else {
                         // No detail row yet -- carry the linkage columns forward like the
                         // doctor create path does, so the insert satisfies the schema.
-                        hqDetailData.clinical_condition_id = previousDetailClinicalConditionId;
-                        hqDetailData.test_result_id = previousDetailTestResultId;
+                        csDetailData.clinical_condition_id = previousDetailClinicalConditionId;
+                        csDetailData.test_result_id = previousDetailTestResultId;
                         promises.push(apiCall('create-detail', {
                             consult_call_id: EDIT_CONFIG.consultCallId,
-                            data: hqDetailData
+                            data: csDetailData
                         }));
                     }
                 }
@@ -2832,7 +2832,7 @@
 
     /**
      * Once an invoice is synced, lock the field and the Sync button so a synced
-     * invoice ID can no longer be changed. HQ (role 4) only -- other roles are
+     * invoice ID can no longer be changed. Customer Service (role 4) only -- other roles are
      * already disabled by the PHP $eD gate.
      */
     function applyInvoiceSyncLock() {
@@ -2860,7 +2860,7 @@
 
     /**
      * Initialize form submission handler.
-     * On Submit Changes, HQ (role 4) invoice entries are first synced to
+     * On Submit Changes, Customer Service (role 4) invoice entries are first synced to
      * blood_test_sales; the result is persisted as is_invoice_synced on the
      * detail. Sync failures do not block the save -- the marker stays "not
      * synced" and the next submit retries.
@@ -2879,8 +2879,8 @@
             e.preventDefault();
 
             var invId = (getInputValue('invoice_id') || '').trim();
-            var isHQ = EDIT_CONFIG.currentStaffRole === 4;
-            var needSync = isHQ && invId && !invoiceSynced;
+            var isCustomerService = EDIT_CONFIG.currentStaffRole === 4;
+            var needSync = isCustomerService && invId && !invoiceSynced;
 
             if (!needSync) {
                 invoiceSyncedForSave = invoiceSynced;

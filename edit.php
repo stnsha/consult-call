@@ -279,13 +279,13 @@ if ($or2) {
     }
 }
 
-// HQ staff only (consult_call = 4) for the Handled By dropdown
-$hqStaffList = array();
-$hq_q = "SELECT id, nama_staff FROM staff WHERE consult_call = 4 AND recycle != 1 ORDER BY nama_staff";
-$hq_r = mysqli_query($conn, $hq_q);
-if ($hq_r) {
-    while ($row = mysqli_fetch_assoc($hq_r)) {
-        $hqStaffList[] = array('id' => $row['id'], 'name' => $row['nama_staff']);
+// Customer Service staff only (consult_call = 4) for the Handled By dropdown
+$csStaffList = array();
+$csStaff_q = "SELECT id, nama_staff FROM staff WHERE consult_call = 4 AND recycle != 1 ORDER BY nama_staff";
+$csStaff_r = mysqli_query($conn, $csStaff_q);
+if ($csStaff_r) {
+    while ($row = mysqli_fetch_assoc($csStaff_r)) {
+        $csStaffList[] = array('id' => $row['id'], 'name' => $row['nama_staff']);
     }
 }
 
@@ -328,13 +328,13 @@ if ($isGlobalViewOnly) {
     $view_only = 'true';
 }
 
-// Eligibility section controls are disabled for non-HQ roles
+// Eligibility section controls are disabled for non-Customer Service roles
 $eD = ($currentStaffRole !== 4) ? 'disabled' : '';
 
 // Consultation Details controls are disabled for non-Doctor roles
 $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
 
-// Header Process Status toggle: visible to everyone, but only Doctor and HQ can update it
+// Header Process Status toggle: visible to everyone, but only Doctor and Customer Service can update it
 $psD = (!in_array($currentStaffRole, array(2, 4))) ? 'disabled' : '';
 ?>
 
@@ -565,7 +565,7 @@ $psD = (!in_array($currentStaffRole, array(2, 4))) ? 'disabled' : '';
                             <label class="form-label">Handled By<span style="color:red;"> *</span></label>
                             <select class="form-select" name="handled_by" id="handled_by" <?php echo $eD; ?>>
                                 <option value="">Select Staff</option>
-                                <?php foreach ($hqStaffList as $staff): ?>
+                                <?php foreach ($csStaffList as $staff): ?>
                                 <option value="<?php echo htmlspecialchars($staff['id']); ?>"
                                     <?php echo ($currentStaffRole === 4 && $staff['id'] == $currentStaffId) ? 'selected' : ''; ?>>
                                     <?php echo htmlspecialchars($staff['name'] ?? ''); ?>
