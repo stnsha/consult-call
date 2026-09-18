@@ -925,7 +925,7 @@
     }
 
     // -- Recommended Add Ons: multi-select checkbox dropdown --
-    // Only Customer Service (role 4) may check/uncheck; disabled entirely for other roles and in
+    // Only Customer Support (role 4) may check/uncheck; disabled entirely for other roles and in
     // view-only mode (native checkboxes also get caught by disableAllFormFields()).
     var addOnDropdownDisabled = (EDIT_CONFIG.viewOnly === true) || (EDIT_CONFIG.currentStaffRole !== 4);
 
@@ -1074,7 +1074,7 @@
         setText('elig-remarks', data.final_remarks || '');
     }
 
-    function renderConsultationHistory(details, followUps) {
+    function renderConsultationHistory(details, followUps, enrollmentDate) {
         var container = document.getElementById('consultation-history-container');
         if (!container) return;
 
@@ -1196,9 +1196,12 @@
             var isPending   = String(d.consult_status) === '0';
             var isCompleted = String(d.consult_status) === '1';
 
-            // Build accordion header: use the detail record's created date
-            // (falls back to updated_at if created_at is missing on older rows)
-            var headerDateSource = d.created_at || d.updated_at;
+            // Build accordion header date: completed entries follow the consult
+            // date (falls back to created/updated_at if missing); pending entries
+            // follow the enrollment date instead, since no consult has happened yet.
+            var headerDateSource = isCompleted
+                ? (d.consult_date || d.created_at || d.updated_at)
+                : (enrollmentDate || d.created_at || d.updated_at);
             var headerCreatedAt = headerDateSource ? formatDate(headerDateSource) : '';
             var headerLabel = isPending
                 ? 'Pending Consultation'
@@ -1229,7 +1232,7 @@
 
             // Base info is always shown (blood test report, risk tier, clinical condition).
             // Global view (blood_test campaign link) only gets blood test report + risk tier.
-            html += renderAccordionBaseInfo(d, isGlobalView);
+            html += renderAccordionBaseInfo(d, isGlobalView, enrollmentDate);
 
             // Edit is only offered once the consultation is completed, and never in global view
             if (isCompleted && !isGlobalView) {
@@ -1334,8 +1337,11 @@
         container.innerHTML = html;
     }
 
-    function renderAccordionBaseInfo(detail, isGlobalView) {
+    function renderAccordionBaseInfo(detail, isGlobalView, enrollmentDate) {
         var html = '<div class="mt-2">';
+
+        // Enrollment date
+        html += renderHistoryField('Enrollment Date', enrollmentDate ? formatDate(enrollmentDate) : null);
 
         // Blood test report
         html += '<div class="mb-2">';
@@ -2024,7 +2030,7 @@
 
         // Invoice ID/Status live on the consultation detail record (nullable), not the
         // consult call itself -- pre-fill from the latest detail regardless of who saved it,
-        // since this is Customer Service-owned data shown in the Add On Recommendation section.
+        // since this is Customer Support-owned data shown in the Add On Recommendation section.
         setInputValue('invoice_id', (latestDetailForSection && latestDetailForSection.invoice_id) || '');
         setRadioValue('invoice_status', (latestDetailForSection && latestDetailForSection.invoice_status)
             ? String(latestDetailForSection.invoice_status) : '');
@@ -2059,7 +2065,7 @@
             setSelectValue('handled_by', data.handled_by);
             originalHandledBy = data.handled_by;
         }
-        // Auto-select current staff for Handled By if no saved value and user is Customer Service (role 4)
+        // Auto-select current staff for Handled By if no saved value and user is Customer Support (role 4)
         if (!data.handled_by && EDIT_CONFIG.currentStaffRole === 4 && EDIT_CONFIG.currentStaffId) {
             setSelectValue('handled_by', String(EDIT_CONFIG.currentStaffId));
         }
@@ -2113,7 +2119,7 @@
         handleActionChange('');
         prevConsultStatus = CONSULT_PENDING;
 
-        // Customer Service checkpoint always targets the latest follow-up record
+        // Customer Support checkpoint always targets the latest follow-up record
         if (followUps.length > 0) {
             currentFollowUpId = followUps[followUps.length - 1].id || null;
         }
@@ -2158,7 +2164,7 @@
                     pairedFollowUp = posFollowUp;
                 }
             }
-            // When Customer Service has marked the follow-up checkpoint as completed (followup_reminder = 1),
+            // When Customer Support has marked the follow-up checkpoint as completed (followup_reminder = 1),
             // the previous consultation cycle is closed. The doctor must start a fresh record.
             var followUpCheckpointDone = pairedFollowUp && String(pairedFollowUp.followup_reminder) === '1';
             // A rescheduled follow-up (reminder = 2) opens a new consultation cycle just like
@@ -2280,7 +2286,7 @@
         // date to check on. This must match the dashboard reminder banner's own criterion
         // (js/main.js loadFollowupBanner) -- gating on followup_type here instead left
         // records with a real due-today reminder but followup_type = None (0) unreachable
-        // for Customer Service.
+        // for Customer Support.
         var latestFollowUp = followUps.length > 0 ? followUps[followUps.length - 1] : null;
         var hasActiveFollowUp = !!(latestFollowUp && latestFollowUp.followup_date);
 
@@ -2389,7 +2395,7 @@
         }
 
         // Render read-only consultation history accordion
-        renderConsultationHistory(data.details || [], data.follow_ups || []);
+        renderConsultationHistory(data.details || [], data.follow_ups || [], data.enrollment_date || null);
 
         // Apply view-only mode
         if (EDIT_CONFIG.viewOnly) {
@@ -2583,7 +2589,7 @@
             mode_of_conversion: toIntOrNull(getRadioValue('mode_of_conversion'))
         };
 
-        // Only Customer Service (role 4) can update consult call eligibility fields
+        // Only Customer Support (role 4) can update consult call eligibility fields
         var consultCallPromise;
         if (EDIT_CONFIG.currentStaffRole === 4) {
             consultCallPromise = apiCall('update-consult-call', {
@@ -2611,7 +2617,7 @@
             // Only Doctor (role 2) can save Consultation Details and Follow-Up fields
             var promises = [];
 
-            // Customer Service (role 4) saves Follow-up Checkpoint to the existing follow-up record
+            // Customer Support (role 4) saves Follow-up Checkpoint to the existing follow-up record
             if (EDIT_CONFIG.currentStaffRole === 4 && isFollowUpCheckpointVisible && currentFollowUpId) {
                 promises.push(apiCall('update-follow-up', {
                     consult_call_id: EDIT_CONFIG.consultCallId,
@@ -2624,7 +2630,7 @@
                 }));
             }
 
-            // Customer Service (role 4): automatically update the detail when consent is refused/others
+            // Customer Support (role 4): automatically update the detail when consent is refused/others
             // or when the scheduled appointment is cancelled. Also persists the Add On
             // Recommendation section's invoice fields, which live on the detail record.
             if (EDIT_CONFIG.currentStaffRole === 4) {
@@ -2639,7 +2645,7 @@
                     // process_status will be forced to Closed by the backend's statusForcesClose rule
                 }
 
-                // Add On Recommendation section (Customer Service-owned): invoice_id / invoice_status /
+                // Add On Recommendation section (Customer Support-owned): invoice_id / invoice_status /
                 // is_invoice_synced are columns on consult_call_details.
                 var csInvoiceId = getInputValue('invoice_id') || null;
                 var csInvoiceStatus = toIntOrNull(getRadioValue('invoice_status'));
@@ -2836,7 +2842,7 @@
 
     /**
      * Once an invoice is synced, lock the field and the Sync button so a synced
-     * invoice ID can no longer be changed. Customer Service (role 4) only -- other roles are
+     * invoice ID can no longer be changed. Customer Support (role 4) only -- other roles are
      * already disabled by the PHP $eD gate.
      */
     function applyInvoiceSyncLock() {
@@ -2864,7 +2870,7 @@
 
     /**
      * Initialize form submission handler.
-     * On Submit Changes, Customer Service (role 4) invoice entries are first synced to
+     * On Submit Changes, Customer Support (role 4) invoice entries are first synced to
      * blood_test_sales; the result is persisted as is_invoice_synced on the
      * detail. Sync failures do not block the save -- the marker stays "not
      * synced" and the next submit retries.

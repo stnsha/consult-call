@@ -279,7 +279,7 @@ if ($or2) {
     }
 }
 
-// Customer Service staff only (consult_call = 4) for the Handled By dropdown
+// Customer Support staff only (consult_call = 4) for the Handled By dropdown
 $csStaffList = array();
 $csStaff_q = "SELECT id, nama_staff FROM staff WHERE consult_call = 4 AND recycle != 1 ORDER BY nama_staff";
 $csStaff_r = mysqli_query($conn, $csStaff_q);
@@ -328,13 +328,13 @@ if ($isGlobalViewOnly) {
     $view_only = 'true';
 }
 
-// Eligibility section controls are disabled for non-Customer Service roles
+// Eligibility section controls are disabled for non-Customer Support roles
 $eD = ($currentStaffRole !== 4) ? 'disabled' : '';
 
 // Consultation Details controls are disabled for non-Doctor roles
 $dD = ($currentStaffRole !== 2) ? 'disabled' : '';
 
-// Header Process Status toggle: visible to everyone, but only Doctor and Customer Service can update it
+// Header Process Status toggle: visible to everyone, but only Doctor and Customer Support can update it
 $psD = (!in_array($currentStaffRole, array(2, 4))) ? 'disabled' : '';
 ?>
 

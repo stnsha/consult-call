@@ -191,7 +191,7 @@ $role_labels = array(
     1 => 'Super Admin',
     2 => 'Doctor',
     3 => 'Pharmacy',
-    4 => 'Customer Service',
+    4 => 'Customer Support',
     5 => 'Outlet',
     6 => 'Admin',
 );
