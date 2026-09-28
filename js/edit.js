@@ -2339,14 +2339,9 @@
             setRadioValue('followup_reminder', reminderVal);
             handleFollowUpReminderChange(reminderVal);
 
-            // Populate follow-up date and lock the minimum to the originally scheduled date
+            // Populate follow-up date; no minimum is enforced so backdated dates are allowed
             if (latestFollowUp.followup_date) {
-                var originalFollowupDate = toDateValue(latestFollowUp.followup_date);
-                setInputValue('checkpoint_followup_date', originalFollowupDate);
-                var dateEl = document.getElementById('checkpoint_followup_date');
-                if (dateEl) {
-                    dateEl.min = originalFollowupDate;
-                }
+                setInputValue('checkpoint_followup_date', toDateValue(latestFollowUp.followup_date));
             }
 
             if (latestFollowUp.rescheduled_date) {
