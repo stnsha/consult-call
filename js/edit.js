@@ -87,6 +87,12 @@
     var addOnItemCodes = {};
     var addOnNameById = {};
 
+    // True when the latest detail's advise type is AO-only. No consultation is needed in
+    // that case: Customer Support calls the customer to offer the add-on directly, so
+    // consent_call_status is reused as the customer's add-on response (1 = Accepted,
+    // 2 = Refused) and the scheduling fields are hidden. Set in populateForm().
+    var isAddOnOnly = false;
+
     // Consent status integer constants
     var CONSENT_PENDING = '0';
     var CONSENT_OBTAINED = '1';
@@ -353,24 +359,27 @@
                     valid = false;
                 } else { clearFieldError('consent_call_date'); }
 
-                var scheduledDate = getInputValue('scheduled_call_date');
-                if (!scheduledDate) {
-                    showFieldError('scheduled_call_date', 'Scheduled consult date is required.');
-                    valid = false;
-                } else { clearFieldError('scheduled_call_date'); }
+                // AO-only has no consultation to schedule -- the scheduling fields are hidden.
+                if (!isAddOnOnly) {
+                    var scheduledDate = getInputValue('scheduled_call_date');
+                    if (!scheduledDate) {
+                        showFieldError('scheduled_call_date', 'Scheduled consult date is required.');
+                        valid = false;
+                    } else { clearFieldError('scheduled_call_date'); }
 
-                var scheduledStatus = getRadioValue('scheduled_status');
-                if (!scheduledStatus) {
-                    showFieldError('scheduled_status', 'Please select a scheduled status.');
-                    valid = false;
-                } else {
-                    clearFieldError('scheduled_status');
-                    if (scheduledStatus === '2') {
-                        var updatedDate = getInputValue('updated_scheduled_date');
-                        if (!updatedDate) {
-                            showFieldError('updated_scheduled_date', 'Updated scheduled date is required.');
-                            valid = false;
-                        } else { clearFieldError('updated_scheduled_date'); }
+                    var scheduledStatus = getRadioValue('scheduled_status');
+                    if (!scheduledStatus) {
+                        showFieldError('scheduled_status', 'Please select a scheduled status.');
+                        valid = false;
+                    } else {
+                        clearFieldError('scheduled_status');
+                        if (scheduledStatus === '2') {
+                            var updatedDate = getInputValue('updated_scheduled_date');
+                            if (!updatedDate) {
+                                showFieldError('updated_scheduled_date', 'Updated scheduled date is required.');
+                                valid = false;
+                            } else { clearFieldError('updated_scheduled_date'); }
+                        }
                     }
                 }
 
@@ -532,7 +541,10 @@
     function handleConsentChange(value) {
         var consentFields = document.querySelectorAll('[data-condition="consent_obtained"]');
         for (var i = 0; i < consentFields.length; i++) {
-            if (value === CONSENT_OBTAINED) {
+            // AO-only: the Add On Recommendation card is what Customer Support offers on
+            // the call, so it stays visible whatever the response is.
+            var alwaysShown = isAddOnOnly && consentFields[i].id === 'addon-recommendation-section';
+            if (value === CONSENT_OBTAINED || alwaysShown) {
                 consentFields[i].classList.add('visible');
             } else {
                 consentFields[i].classList.remove('visible');
@@ -988,6 +1000,39 @@
         section.classList.toggle('cc-hidden-by-advise-type', !shouldShow);
     }
 
+    /**
+     * Switch the Eligibility card between the consultation flow (CC, CC + AO) and the
+     * AO-only flow: relabel [data-ao-label] elements, hide [data-cc-only] scheduling
+     * fields, and place the Add On Recommendation card before the Eligibility card.
+     * Safe to call repeatedly -- the original label text is kept in data-cc-label.
+     * @param {boolean} aoOnly
+     */
+    function applyAddOnOnlyLayout(aoOnly) {
+        var labelEls = document.querySelectorAll('[data-ao-label]');
+        for (var i = 0; i < labelEls.length; i++) {
+            var el = labelEls[i];
+            if (!el.hasAttribute('data-cc-label')) {
+                el.setAttribute('data-cc-label', el.textContent);
+            }
+            el.textContent = aoOnly ? el.getAttribute('data-ao-label') : el.getAttribute('data-cc-label');
+        }
+
+        var ccOnlyEls = document.querySelectorAll('[data-cc-only]');
+        for (var j = 0; j < ccOnlyEls.length; j++) {
+            ccOnlyEls[j].classList.toggle('cc-hidden-by-advise-type', aoOnly);
+        }
+
+        var eligCard = document.getElementById('eligibility-card');
+        var addOnCard = document.getElementById('addon-recommendation-section');
+        if (eligCard && addOnCard && eligCard.parentNode === addOnCard.parentNode) {
+            if (aoOnly) {
+                eligCard.parentNode.insertBefore(addOnCard, eligCard);
+            } else {
+                eligCard.parentNode.insertBefore(addOnCard, eligCard.nextSibling);
+            }
+        }
+    }
+
     function initAddOnDropdown() {
         var btnEl  = document.getElementById('addon-ms-btn');
         var dropEl = document.getElementById('addon-ms-dropdown');
@@ -1077,7 +1122,11 @@
     function populateEligibilitySummary(data) {
         var consentStatus = (data.consent_call_status !== undefined && data.consent_call_status !== null)
             ? String(data.consent_call_status) : null;
-        setText('elig-consent-status', consentStatus !== null ? (CONSENT_STATUS_LABELS[consentStatus] || '') : '');
+        var consentLabel = consentStatus !== null ? (CONSENT_STATUS_LABELS[consentStatus] || '') : '';
+        if (isAddOnOnly && consentStatus === CONSENT_OBTAINED) {
+            consentLabel = 'Accepted';
+        }
+        setText('elig-consent-status', consentLabel);
         setText('elig-reason', data.reason || '');
         var addOnNames = [];
         var addOnRows = data.addOns || [];
@@ -2044,6 +2093,18 @@
         setText('patient-age', customer.age);
         setText('patient-gender', customer.gender);
 
+        // Advise type drives the AO-only layout, so resolve it before any consent-dependent
+        // rendering. It isn't user-editable on this form; it's read off the latest detail's
+        // linked clinical condition.
+        var detailsForAdviseType = data.details || [];
+        var latestDetailForAdviseType = detailsForAdviseType.length > 0
+            ? detailsForAdviseType[detailsForAdviseType.length - 1] : null;
+        var adviseTypeForSection = (latestDetailForAdviseType && latestDetailForAdviseType.clinical_condition)
+            ? latestDetailForAdviseType.clinical_condition.type
+            : null;
+        isAddOnOnly = (adviseTypeForSection === 'AO');
+        applyAddOnOnlyLayout(isAddOnOnly);
+
         // Global view's read-only Eligibility card (Consent Status + Remarks only);
         // no-op elsewhere since #elig-consent-status/#elig-remarks aren't in the DOM.
         populateEligibilitySummary(data);
@@ -2067,7 +2128,9 @@
         var rawDetails = data.details || [];
         var latestDetailForSection = rawDetails.length > 0 ? rawDetails[rawDetails.length - 1] : null;
         var detailHasAction = !!(latestDetailForSection && String(latestDetailForSection.consult_status) !== '0');
-        toggleConsultationSection(String(data.consent_call_status) === CONSENT_OBTAINED || detailHasAction);
+        // AO-only "Accepted" (consent 1) is an add-on response, not consent to consult.
+        var consentOpensConsultation = !isAddOnOnly && String(data.consent_call_status) === CONSENT_OBTAINED;
+        toggleConsultationSection(consentOpensConsultation || detailHasAction);
 
         // Invoice ID/Status live on the consultation detail record (nullable), not the
         // consult call itself -- pre-fill from the latest detail regardless of who saved it,
@@ -2091,11 +2154,7 @@
 
         // Add On Recommendation section only makes sense when the advise type calls for
         // an add-on (AO or CC + AO) -- hidden entirely when the clinical condition's
-        // advise type is CC-only. Advise type isn't user-editable on this form; it's
-        // read off the latest detail's linked clinical condition.
-        var adviseTypeForSection = (latestDetailForSection && latestDetailForSection.clinical_condition)
-            ? latestDetailForSection.clinical_condition.type
-            : null;
+        // advise type is CC-only.
         updateAddOnRecommendationVisibility(adviseTypeForSection);
 
         // Consent obtained fields
@@ -2581,6 +2640,14 @@
             handled_by: toIntOrNull(getSelectValue('handled_by')) || originalHandledBy || null,
             final_remarks: getInputValue('refusal_remarks') || null
         };
+        // AO-only has no consultation schedule. Omit the scheduling keys (rather than
+        // sending null) so the API's partial update leaves any existing values untouched
+        // -- the hidden Scheduled Status radio defaults to Confirmed and must not be saved.
+        if (isAddOnOnly) {
+            delete consultCallData.scheduled_status;
+            delete consultCallData.scheduled_call_date;
+            delete consultCallData.updated_scheduled_date;
+        }
 
         // Detail level data (matches API 3.1 Create Detail fields)
         // When consult_status is completed (1) and no existing detail record exists yet,

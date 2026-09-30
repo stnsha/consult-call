@@ -432,13 +432,13 @@ $psD = (!in_array($currentStaffRole, array(2, 4))) ? 'disabled' : '';
             <!-- Section 3: ConsultCall Eligibility (global view - Consent Status/Remarks only) -->
             <div class="bento-card section-card">
                 <div class="section-header" data-section="eligibility">
-                    <h5><i class="bi bi-clipboard-check me-2"></i>ConsultCall Eligibility</h5>
+                    <h5><i class="bi bi-clipboard-check me-2"></i><span data-ao-label="Add On Response">ConsultCall Eligibility</span></h5>
                     <i class="bi bi-chevron-up"></i>
                 </div>
                 <div class="form-section" id="section-eligibility">
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label class="form-label">Consent Status</label>
+                            <label class="form-label"><span data-ao-label="Customer Response">Consent Status</span></label>
                             <div class="readonly-field" id="elig-consent-status">--</div>
                         </div>
                         <div class="col-md-6">
@@ -457,10 +457,12 @@ $psD = (!in_array($currentStaffRole, array(2, 4))) ? 'disabled' : '';
                 </div>
             </div>
             <?php else: ?>
-            <!-- Section 3: ConsultCall Eligibility -->
-            <div class="bento-card section-card">
+            <!-- Section 3: ConsultCall Eligibility. For AO-only advise type, js/edit.js relabels it to
+                 "Add On Response" (data-ao-label), hides the scheduling fields (data-cc-only) and moves
+                 the Add On Recommendation card above it -- see applyAddOnOnlyLayout(). -->
+            <div class="bento-card section-card" id="eligibility-card">
                 <div class="section-header" data-section="eligibility">
-                    <h5><i class="bi bi-clipboard-check me-2"></i>ConsultCall Eligibility
+                    <h5><i class="bi bi-clipboard-check me-2"></i><span data-ao-label="Add On Response">ConsultCall Eligibility</span>
                         <?php if ($eD): ?>
                         <span style="font-size:11px;font-weight:400;color:#888;margin-left:8px;">
                             <i class="bi bi-lock-fill"></i> View only
@@ -477,7 +479,7 @@ $psD = (!in_array($currentStaffRole, array(2, 4))) ? 'disabled' : '';
                             <div class="row g-4">
                                 <!-- Consent Status -->
                                 <div class="col-md-6">
-                                    <label class="form-label">Consent Status<span style="color:red;"> *</span></label>
+                                    <label class="form-label"><span data-ao-label="Customer Response">Consent Status</span><span style="color:red;"> *</span></label>
                                     <div class="radio-group">
                                         <div class="form-check">
                                             <input class="form-check-input" type="radio" name="consent_status"
@@ -487,7 +489,7 @@ $psD = (!in_array($currentStaffRole, array(2, 4))) ? 'disabled' : '';
                                         <div class="form-check">
                                             <input class="form-check-input" type="radio" name="consent_status"
                                                 id="consent_obtained" value="1" <?php echo $eD; ?>>
-                                            <label class="form-check-label" for="consent_obtained">Obtained</label>
+                                            <label class="form-check-label" for="consent_obtained" data-ao-label="Accepted">Obtained</label>
                                         </div>
                                         <div class="form-check">
                                             <input class="form-check-input" type="radio" name="consent_status"
@@ -521,19 +523,19 @@ $psD = (!in_array($currentStaffRole, array(2, 4))) ? 'disabled' : '';
 
                         <!-- Conditional fields when consent = obtained -->
                         <div class="col-md-6 conditional-field" data-condition="consent_obtained">
-                            <label class="form-label">Consent Date<span style="color:red;"> *</span></label>
+                            <label class="form-label"><span data-ao-label="Response Date">Consent Date</span><span style="color:red;"> *</span></label>
                             <input type="date" class="form-control" name="consent_call_date" id="consent_call_date"
                                 <?php echo $eD; ?>>
                         </div>
 
-                        <div class="col-md-6 conditional-field" data-condition="consent_obtained">
+                        <div class="col-md-6 conditional-field" data-condition="consent_obtained" data-cc-only>
                             <label class="form-label">Scheduled Consult Date &amp; Time<span style="color:red;">
                                     *</span></label>
                             <input type="date" class="form-control" name="scheduled_call_date" id="scheduled_call_date"
                                 <?php echo $eD; ?>>
                         </div>
 
-                        <div class="col-md-12 conditional-field" data-condition="consent_obtained">
+                        <div class="col-md-12 conditional-field" data-condition="consent_obtained" data-cc-only>
                             <label class="form-label">Scheduled Status<span style="color:red;"> *</span></label>
                             <div class="radio-group">
                                 <div class="form-check">
@@ -555,7 +557,7 @@ $psD = (!in_array($currentStaffRole, array(2, 4))) ? 'disabled' : '';
                         </div>
 
                         <!-- Conditional field when scheduled_status = reschedule -->
-                        <div class="col-md-6 conditional-field" data-condition="scheduled_reschedule">
+                        <div class="col-md-6 conditional-field" data-condition="scheduled_reschedule" data-cc-only>
                             <label class="form-label">Updated Scheduled Date<span style="color:red;"> *</span></label>
                             <input type="date" class="form-control" name="updated_scheduled_date"
                                 id="updated_scheduled_date" <?php echo $eD; ?>>
@@ -587,8 +589,10 @@ $psD = (!in_array($currentStaffRole, array(2, 4))) ? 'disabled' : '';
                 </div>
             </div>
 
-            <!-- Section: Add On Recommendation (shown only when consent is Obtained AND
-                 advise type is AO or CC + AO -- hidden entirely for CC, see updateAddOnRecommendationVisibility() -->
+            <!-- Section: Add On Recommendation. CC + AO: shown only when consent is Obtained.
+                 AO-only: always shown and moved above the Eligibility card, since Customer Support
+                 offers the add-on directly with no consultation (see applyAddOnOnlyLayout()).
+                 CC: hidden entirely, see updateAddOnRecommendationVisibility(). -->
             <div class="bento-card section-card conditional-field" id="addon-recommendation-section" data-condition="consent_obtained">
                 <div class="section-header" data-section="addon-recommendation">
                     <h5><i class="bi bi-bag-plus me-2"></i>Add On Recommendation
