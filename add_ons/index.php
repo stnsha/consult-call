@@ -105,13 +105,14 @@ $can_manage_add_ons = ($consult_call_permission === 1)
                         <tr>
                             <th style="width: 40px;">#</th>
                             <th>Name</th>
+                            <th style="width: 140px;">Item Code</th>
                             <th style="width: 90px;">Status</th>
                             <th style="width: 160px;">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="add-ons-tbody">
                         <tr>
-                            <td colspan="4" class="text-center text-muted py-4">Loading...</td>
+                            <td colspan="5" class="text-center text-muted py-4">Loading...</td>
                         </tr>
                     </tbody>
                 </table>
@@ -143,6 +144,10 @@ $can_manage_add_ons = ($consult_call_permission === 1)
                             <label for="add-on-name" class="form-label" style="font-size: 13px; font-weight: 500;">Name <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" id="add-on-name" maxlength="255" required style="font-size: 13px;">
                         </div>
+                        <div class="mb-3">
+                            <label for="add-on-item-code" class="form-label" style="font-size: 13px; font-weight: 500;">Item Code</label>
+                            <input type="text" class="form-control" id="add-on-item-code" maxlength="50" style="font-size: 13px;">
+                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
@@ -160,7 +165,7 @@ $can_manage_add_ons = ($consult_call_permission === 1)
         baseUrl: <?php echo json_encode(CONSULTCALL_BASE); ?>,
         apiUrl: '<?php echo CONSULTCALL_BASE; ?>api-jwt.php',
         canManage: <?php echo $can_manage_add_ons ? 'true' : 'false'; ?>,
-        colSpan: 4
+        colSpan: 5
     };
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>

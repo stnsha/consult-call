@@ -627,7 +627,7 @@ $psD = (!in_array($currentStaffRole, array(2, 4))) ? 'disabled' : '';
                                     target="_blank" rel="noopener">Xilnex Sales Inv</a>
                             </small>
                         </div>
-                        <div class="col-md-12">
+                        <div class="col-md-6">
                             <label class="form-label">Invoice Status</label>
                             <div class="radio-group">
                                 <div class="form-check">
@@ -640,6 +640,13 @@ $psD = (!in_array($currentStaffRole, array(2, 4))) ? 'disabled' : '';
                                         id="invoice_status_completed" value="2" <?php echo $eD; ?>>
                                     <label class="form-check-label" for="invoice_status_completed">Completed</label>
                                 </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Blood Test</label>
+                            <!-- Button(s) to the synced add-on sale(s) in Blood Test (blood_test_sales.id), filled by edit.js -->
+                            <div id="invoice-blood-test-links" class="d-flex flex-wrap gap-2">
+                                <span class="text-muted" style="font-size: 13px;">-</span>
                             </div>
                         </div>
                     </div>

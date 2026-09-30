@@ -1062,7 +1062,7 @@ function getAllAddOns($staff_id)
 
 /**
  * Create a new add-on
- * @param array $data Fields: name
+ * @param array $data Fields: name, item_code
  * @param int $staff_id Staff ID for authentication
  * @return array Create result
  */
@@ -1090,7 +1090,7 @@ function createAddOn($data, $staff_id)
 /**
  * Update an add-on's name
  * @param int $id Add-on ID
- * @param array $data Fields: name
+ * @param array $data Fields: name, item_code
  * @param int $staff_id Staff ID for authentication
  * @return array Update result
  */
@@ -1111,6 +1111,34 @@ function updateAddOn($id, $data, $staff_id)
             'success' => false,
             'message' => isset($decoded['message']) ? $decoded['message'] : 'Failed to update add-on',
             'errors' => isset($decoded['errors']) ? $decoded['errors'] : null
+        );
+    }
+}
+
+/**
+ * Record a synced Add-On invoice on the consult call's recommended add-ons it contains
+ * @param int $consultCallId Consult call ID
+ * @param array $data Fields: invoice_id, blood_test_sales_id, matched_item_codes, consult_call_detail_id
+ * @param int $staff_id Staff ID for authentication
+ * @return array Result with the consult call's add-on rows
+ */
+function syncAddOnInvoice($consultCallId, $data, $staff_id)
+{
+    $result = getApiDataWithJWT((int)$consultCallId . '/add-on-invoice', $data, 'POST', $staff_id);
+    $httpCode = $result['httpCode'];
+    $decoded = json_decode($result['response'], true);
+
+    if ($httpCode == 200) {
+        return array(
+            'success' => true,
+            'data' => isset($decoded['data']) ? $decoded['data'] : array(),
+            'message' => isset($decoded['message']) ? $decoded['message'] : 'Add-on invoice recorded successfully'
+        );
+    } else {
+        return array(
+            'success' => false,
+            'message' => isset($decoded['message']) ? $decoded['message'] : 'Failed to record add-on invoice',
+            'errors' => isset($decoded['data']) ? $decoded['data'] : null
         );
     }
 }
@@ -1615,6 +1643,14 @@ if (!defined('API_JWT_INCLUDED')) {
                         $response = toggleAddOn($jsonData['id'], $staff_id);
                     } else {
                         $response = array('success' => false, 'message' => 'Missing add-on ID');
+                    }
+                    break;
+
+                case 'sync-add-on-invoice':
+                    if (isset($jsonData['consult_call_id']) && isset($jsonData['data'])) {
+                        $response = syncAddOnInvoice($jsonData['consult_call_id'], $jsonData['data'], $staff_id);
+                    } else {
+                        $response = array('success' => false, 'message' => 'Missing consult call ID or add-on invoice data');
                     }
                     break;
 

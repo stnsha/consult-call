@@ -80,12 +80,14 @@
             html += '<tr id="row-' + escapeHtml(row.id) + '">';
             html += '<td class="text-muted">' + rowNum + '</td>';
             html += '<td>' + escapeHtml(row.name) + '</td>';
+            html += '<td>' + (row.item_code ? escapeHtml(row.item_code) : '<span class="text-muted">-</span>') + '</td>';
             html += '<td><span class="badge ' + statusBadge + '">' + statusLabel + '</span></td>';
 
             html += '<td>';
             if (AO_CONFIG.canManage) {
                 html += '<button type="button" class="btn btn-sm btn-outline-primary me-1 edit-btn" '
-                      + 'data-id="' + escapeHtml(row.id) + '" data-name="' + escapeHtml(row.name) + '" style="font-size:11px;">Edit</button>';
+                      + 'data-id="' + escapeHtml(row.id) + '" data-name="' + escapeHtml(row.name) + '" '
+                      + 'data-item-code="' + escapeHtml(row.item_code) + '" style="font-size:11px;">Edit</button>';
                 html += '<button type="button" class="btn btn-sm ' + toggleClass + ' toggle-btn" '
                       + 'data-id="' + escapeHtml(row.id) + '" style="font-size:11px;">' + escapeHtml(toggleLabel) + '</button>';
             }
@@ -243,14 +245,16 @@
     var addOnModalEl = document.getElementById('add-on-modal');
     var addOnModal = addOnModalEl ? new bootstrap.Modal(addOnModalEl) : null;
 
-    function openModal(id, name) {
+    function openModal(id, name, itemCode) {
         var titleEl = document.getElementById('add-on-modal-title');
         var idEl = document.getElementById('add-on-id');
         var nameEl = document.getElementById('add-on-name');
+        var itemCodeEl = document.getElementById('add-on-item-code');
         var alertEl = document.getElementById('modal-alert');
         if (alertEl) alertEl.style.display = 'none';
         if (idEl) idEl.value = id || '';
         if (nameEl) nameEl.value = name || '';
+        if (itemCodeEl) itemCodeEl.value = itemCode || '';
         if (titleEl) titleEl.textContent = id ? 'Edit Add On' : 'Add New Add On';
         if (addOnModal) addOnModal.show();
     }
@@ -258,7 +262,7 @@
     var addNewBtn = document.getElementById('add-new-btn');
     if (addNewBtn) {
         addNewBtn.addEventListener('click', function () {
-            openModal('', '');
+            openModal('', '', '');
         });
     }
 
@@ -269,8 +273,10 @@
 
             var idEl = document.getElementById('add-on-id');
             var nameEl = document.getElementById('add-on-name');
+            var itemCodeEl = document.getElementById('add-on-item-code');
             var id = idEl ? idEl.value : '';
             var name = nameEl ? nameEl.value.trim() : '';
+            var itemCode = itemCodeEl ? itemCodeEl.value.trim() : '';
 
             var alertEl = document.getElementById('modal-alert');
             if (alertEl) alertEl.style.display = 'none';
@@ -287,7 +293,9 @@
             }
 
             var action = id ? 'update-add-on' : 'create-add-on';
-            var payload = id ? { id: id, data: { name: name } } : { data: { name: name } };
+            // An empty item code is sent as null so clearing the field removes the stored value
+            var formData = { name: name, item_code: itemCode || null };
+            var payload = id ? { id: id, data: formData } : { data: formData };
 
             apiCall(action, payload).then(function (result) {
                 if (saveBtn) {
@@ -312,7 +320,11 @@
 
     document.addEventListener('click', function (e) {
         if (e.target && e.target.classList.contains('edit-btn')) {
-            openModal(e.target.getAttribute('data-id'), e.target.getAttribute('data-name'));
+            openModal(
+                e.target.getAttribute('data-id'),
+                e.target.getAttribute('data-name'),
+                e.target.getAttribute('data-item-code')
+            );
             return;
         }
 

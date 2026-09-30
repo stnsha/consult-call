@@ -76,6 +76,16 @@
     // Value to persist as is_invoice_synced on the next save (set by the submit
     // handler after attempting a sync; falls back to invoiceSynced).
     var invoiceSyncedForSave = false;
+    // Recommended add-on rows of this consult call (consult_call_add_ons): each one
+    // records the invoice / ODB blood_test_sales.id that bought it (several add-ons
+    // can share one invoice) and its lab report(s). Set from loaded data, refreshed
+    // after each invoice sync.
+    var consultCallAddOns = [];
+    // Detail the Add On Recommendation section belongs to (latest detail).
+    var addOnSectionDetailId = null;
+    // Add-on id -> Xilnex item_code, from the add_ons lookup (get-add-ons).
+    var addOnItemCodes = {};
+    var addOnNameById = {};
 
     // Consent status integer constants
     var CONSENT_PENDING = '0';
@@ -1003,6 +1013,8 @@
         dropEl.addEventListener('change', function(e) {
             if (e.target && e.target.type === 'checkbox') {
                 updateAddOnButtonLabel();
+                // Ticking another add-on can re-open the Invoice field for a second invoice.
+                renderAddOnStatusList();
             }
         });
     }
@@ -1019,6 +1031,8 @@
             }
             var html = '';
             for (var i = 0; i < result.data.length; i++) {
+                addOnItemCodes[String(result.data[i].id)] = result.data[i].item_code || '';
+                addOnNameById[String(result.data[i].id)] = result.data[i].name || '';
                 var id = escapeHtml(result.data[i].id);
                 var name = escapeHtml(result.data[i].name);
                 html += '<li><label><input type="checkbox" value="' + id + '"' +
@@ -1026,6 +1040,8 @@
             }
             listEl.innerHTML = html;
             updateAddOnButtonLabel();
+            applyBoughtAddOnLock();
+            renderAddOnStatusList();
         }).catch(function() {
             listEl.innerHTML = '<li class="cc-ms-empty">Failed to load add ons</li>';
         });
@@ -1357,6 +1373,31 @@
             html += '</div>';
         }
         html += '</div></div>';
+
+        // Add-On report(s): lab reports of the add-on invoice(s) synced on this detail
+        // (consult_call_add_on_results, linked by blood_test_sales_id).
+        var addOnResults = detail.add_on_results || [];
+        var detailHasAddOnInvoice = consultCallAddOns.some(function(row) {
+            return row.blood_test_sales_id && String(row.consult_call_detail_id) === String(detail.id);
+        });
+        if (addOnResults.length > 0 || detailHasAddOnInvoice) {
+            html += '<div class="mb-2">';
+            html += '<div class="history-label">Add-On Report</div>';
+            html += '<div class="history-value">';
+            if (addOnResults.length === 0) {
+                html += '<span class="text-muted small">Pending result.</span>';
+            }
+            for (var ar = 0; ar < addOnResults.length; ar++) {
+                var addOnResult = addOnResults[ar];
+                var addOnTestResult = addOnResult.test_result || {};
+                html += '<div class="d-flex align-items-center gap-2' + (ar > 0 ? ' mt-1' : '') + '">';
+                html += '<span>' + escapeHtml(formatDate(addOnTestResult.reported_date)) + '</span>';
+                html += '<button type="button" class="btn btn-sm btn-outline-danger" onclick="openPdfReport(' + parseInt(addOnResult.test_result_id, 10) + ')">';
+                html += '<i class="bi bi-file-earmark-pdf me-1"></i>View PDF</button>';
+                html += '</div>';
+            }
+            html += '</div></div>';
+        }
 
         // Risk tier
         var cc = detail.clinical_condition || null;
@@ -2035,7 +2076,18 @@
         setRadioValue('invoice_status', (latestDetailForSection && latestDetailForSection.invoice_status)
             ? String(latestDetailForSection.invoice_status) : '');
         invoiceSynced = !!(latestDetailForSection && latestDetailForSection.is_invoice_synced);
+        addOnSectionDetailId = latestDetailForSection ? latestDetailForSection.id : null;
+        consultCallAddOns = data.add_ons || [];
         renderInvoiceSyncStatus();
+        renderAddOnStatusList();
+        applyBoughtAddOnLock();
+        // Invoice Status is system-owned (overall of the recommended add-ons): Confirmed
+        // once an invoice is synced, Completed when every bought add-on has its report.
+        // Radios are display-only.
+        var invoiceStatusRadios = document.querySelectorAll('input[name="invoice_status"]');
+        for (var isr = 0; isr < invoiceStatusRadios.length; isr++) {
+            invoiceStatusRadios[isr].disabled = true;
+        }
 
         // Add On Recommendation section only makes sense when the advise type calls for
         // an add-on (AO or CC + AO) -- hidden entirely when the clinical condition's
@@ -2836,31 +2888,191 @@
     }
 
     /**
-     * Once an invoice is synced, lock the field and the Sync button so a synced
-     * invoice ID can no longer be changed. Customer Support (role 4) only -- other roles are
+     * Recommended add-on row (consult_call_add_ons) for an add-on id, or null.
+     */
+    function findConsultCallAddOn(addOnId) {
+        for (var i = 0; i < consultCallAddOns.length; i++) {
+            if (String(consultCallAddOns[i].add_on_id) === String(addOnId)) return consultCallAddOns[i];
+        }
+        return null;
+    }
+
+    function isAddOnBought(addOnId) {
+        var row = findConsultCallAddOn(addOnId);
+        return !!(row && row.blood_test_sales_id);
+    }
+
+    function isAddOnCompleted(row) {
+        return !!(row && row.blood_test_sales_id && row.results && row.results.length > 0);
+    }
+
+    /**
+     * True while at least one ticked add-on is still not bought, so another invoice
+     * can be synced for it.
+     */
+    function hasUnboughtSelectedAddOn() {
+        var ids = getSelectedAddOnIds();
+        for (var i = 0; i < ids.length; i++) {
+            if (!isAddOnBought(ids[i])) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Lock the Invoice ID field and Sync button once the invoice is synced AND every
+     * ticked add-on is bought; while any ticked add-on is not bought, another invoice
+     * can still be entered for it. Customer Support (role 4) only -- other roles are
      * already disabled by the PHP $eD gate.
      */
     function applyInvoiceSyncLock() {
         if (EDIT_CONFIG.currentStaffRole !== 4) return;
         var inp = document.getElementById('invoice_id');
         var btn = document.getElementById('invoice-sync-btn');
+        var locked = !!invoiceSynced && !hasUnboughtSelectedAddOn();
         // Use disabled (not readonly) so it picks up the same grey styling as the
         // other locked fields.
-        if (inp) inp.disabled = !!invoiceSynced;
-        if (btn) btn.disabled = !!invoiceSynced;
+        if (inp) inp.disabled = locked;
+        if (btn) btn.disabled = locked;
     }
 
     /**
-     * Pull the entered invoice from Xilnex into ODB blood_test_sales.
-     * Resolves to the endpoint's JSON ({ success, synced, message }).
+     * A bought add-on carries its invoice, so it cannot be unticked.
+     */
+    function applyBoughtAddOnLock() {
+        var listEl = document.getElementById('addon-ms-list');
+        if (!listEl) return;
+        var boxes = listEl.querySelectorAll('input[type=checkbox]');
+        for (var i = 0; i < boxes.length; i++) {
+            if (isAddOnBought(boxes[i].value)) {
+                boxes[i].checked = true;
+                boxes[i].disabled = true;
+            }
+        }
+        updateAddOnButtonLabel();
+    }
+
+    /**
+     * Overall invoice status for the radios: '' nothing bought, '1' Confirmed,
+     * '2' Completed (every bought add-on has its lab report).
+     */
+    function computeOverallInvoiceStatus() {
+        var bought = consultCallAddOns.filter(function(row) { return !!row.blood_test_sales_id; });
+        if (bought.length === 0) return '';
+        return bought.every(isAddOnCompleted) ? '2' : '1';
+    }
+
+    /**
+     * Refresh the add-on invoice state on the form: the display-only Invoice Status
+     * radios (overall of the recommended add-ons) and the Invoice field lock.
+     */
+    function renderAddOnStatusList() {
+        var overall = computeOverallInvoiceStatus();
+        if (overall) {
+            setRadioValue('invoice_status', overall);
+        }
+        applyInvoiceSyncLock();
+        renderInvoiceBloodTestLinks();
+    }
+
+    /**
+     * Button(s) to the synced add-on sale(s) in Blood Test
+     * (blood_test/index_specific.php?id=<blood_test_sales.id>), one per invoice.
+     * Shown in the "Blood Test" column next to Invoice Status; "-" when none synced.
+     */
+    function renderInvoiceBloodTestLinks() {
+        var el = document.getElementById('invoice-blood-test-links');
+        if (!el) return;
+        var seen = {};
+        var buttons = [];
+        for (var i = 0; i < consultCallAddOns.length; i++) {
+            var salesId = parseInt(consultCallAddOns[i].blood_test_sales_id, 10);
+            if (!salesId || seen[salesId]) continue;
+            seen[salesId] = true;
+            buttons.push('<a class="btn btn-sm btn-outline-primary" href="/odb/blood_test/index_specific.php?id=' + salesId +
+                '" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right me-1"></i>Inv ' +
+                escapeHtml(consultCallAddOns[i].invoice_id || String(salesId)) + '</a>');
+        }
+        el.innerHTML = buttons.length > 0
+            ? buttons.join('')
+            : '<span class="text-muted" style="font-size: 13px;">-</span>';
+    }
+
+    /**
+     * Item codes of the ticked Recommended Add Ons that are not bought yet. The invoice
+     * must contain at least one of them. Returns { codes: [...], error: string|null }.
+     * Matching is by Xilnex item code only; add-on names differ from the blood
+     * test item names (e.g. "Anemia Profile (ALPRO4)" vs "INNOQUEST - IRON PROFILE (ALPRO4)").
+     */
+    function getRequiredAddOnItemCodes() {
+        var ids = getSelectedAddOnIds();
+        if (ids.length === 0) {
+            return { codes: [], error: 'Select the Recommended Add On before syncing the invoice.' };
+        }
+        var codes = [];
+        var missing = [];
+        for (var i = 0; i < ids.length; i++) {
+            if (isAddOnBought(ids[i])) continue;
+            var code = addOnItemCodes[String(ids[i])] || '';
+            if (code) {
+                codes.push(code);
+            } else {
+                missing.push(addOnNameById[String(ids[i])] || ('Add-on #' + ids[i]));
+            }
+        }
+        if (codes.length === 0 && missing.length === 0) {
+            return { codes: [], error: 'All selected add-ons are already purchased.' };
+        }
+        if (codes.length === 0) {
+            return { codes: [], error: 'Recommended add-on has no item code configured: ' + missing.join(', ') + '.' };
+        }
+        return { codes: codes, error: null };
+    }
+
+    /**
+     * Pull the entered invoice from Xilnex into ODB blood_test_sales, then record it on
+     * the ticked add-ons it contains (consult_call_add_ons). The invoice must contain one
+     * of the not-yet-bought ticked add-ons' item codes, otherwise the sync is blocked
+     * (locally, or by the endpoint).
+     * Resolves to the endpoint's JSON ({ success, synced, message, blood_test_sales_id, matched_item_codes }).
      */
     function syncInvoiceToBloodTestSales(invoiceId) {
+        var required = getRequiredAddOnItemCodes();
+        if (required.error) {
+            return Promise.resolve({ success: true, synced: false, message: required.error });
+        }
         return fetch('/odb/blood_test/ajax_sync_invoice.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: 'invoice=' + encodeURIComponent(invoiceId),
+            body: 'invoice=' + encodeURIComponent(invoiceId) +
+                '&required_item_codes=' + encodeURIComponent(required.codes.join(',')),
             credentials: 'same-origin'
-        }).then(function(r) { return r.json(); });
+        }).then(function(r) { return r.json(); }).then(function(res) {
+            if (!res || !res.synced) return res;
+
+            return apiCall('sync-add-on-invoice', {
+                consult_call_id: EDIT_CONFIG.consultCallId,
+                data: {
+                    invoice_id: invoiceId,
+                    blood_test_sales_id: res.blood_test_sales_id,
+                    matched_item_codes: res.matched_item_codes || required.codes,
+                    consult_call_detail_id: addOnSectionDetailId,
+                    selected_add_on_ids: getSelectedAddOnIds()
+                }
+            }).then(function(assign) {
+                if (assign && assign.success) {
+                    consultCallAddOns = assign.data || consultCallAddOns;
+                    applyBoughtAddOnLock();
+                    renderAddOnStatusList();
+                    return res;
+                }
+                // Synced to Blood Test but not recorded on the consult call: report as not synced.
+                return {
+                    success: true,
+                    synced: false,
+                    message: (assign && assign.message) || 'Invoice synced to Blood Test but could not be recorded on this consult call.'
+                };
+            });
+        });
     }
 
     /**
