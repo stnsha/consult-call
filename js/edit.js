@@ -3056,7 +3056,7 @@
             if (!salesId || seen[salesId]) continue;
             seen[salesId] = true;
             buttons.push('<a class="btn btn-sm btn-outline-primary" href="/odb/blood_test/index_specific.php?id=' + salesId +
-                '" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right me-1"></i>Inv ' +
+                '&from_cc=1" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right me-1"></i>Inv ' +
                 escapeHtml(consultCallAddOns[i].invoice_id || String(salesId)) + '</a>');
         }
         el.innerHTML = buttons.length > 0
