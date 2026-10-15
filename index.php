@@ -256,16 +256,56 @@ if ($doctor_result) {
                             </select>
                         </div>
                     </div>
-                    <!-- Filter row 2: Follow Up Reminder | Enrollment Type | Enrollment From | Enrollment To -->
+                    <!-- Filter row 2: Consulted Date From | Consulted Date To | Consulted By | Consult Status -->
                     <div class="row g-3 align-items-end mt-1">
                         <div class="col-md-3">
-                            <label for="reminderFilter" class="form-label">Follow Up Reminder</label>
-                            <select class="form-select" id="reminderFilter">
+                            <label for="consultDateFrom" class="form-label">Consulted Date From</label>
+                            <input type="date" class="form-control" id="consultDateFrom">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="consultDateTo" class="form-label">Consulted Date To</label>
+                            <input type="date" class="form-control" id="consultDateTo">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="consultedByFilter" class="form-label">Consulted By</label>
+                            <select class="form-select" id="consultedByFilter">
+                                <option value="">All</option>
+                                <?php foreach ($doctor_list as $doctor): ?>
+                                <option value="<?php echo (int)$doctor['id']; ?>">
+                                    <?php echo htmlspecialchars($doctor['nama_staff'] ?? ''); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="consultStatusFilter" class="form-label">Consult Status</label>
+                            <select class="form-select" id="consultStatusFilter">
                                 <option value="">All</option>
                                 <option value="0">Pending</option>
                                 <option value="1">Completed</option>
-                                <option value="2">Rescheduled</option>
+                                <option value="2">No-show</option>
                                 <option value="3">Cancelled</option>
+                            </select>
+                        </div>
+                    </div>
+                    <!-- Filter rows 3-5 (4 per line): Consultation Type | Advise Type | Enrollment Type | Enrollment From |
+                         Enrollment To | Blood Test Report Date From | Blood Test Report Date To | Follow Up Reminder |
+                         Scheduled From | Scheduled To | Add On | Rx Issued | buttons -->
+                    <div class="row g-3 align-items-end mt-1">
+                        <div class="col-md-3">
+                            <label for="consultationTypeFilter" class="form-label">Consultation Type</label>
+                            <select class="form-select" id="consultationTypeFilter">
+                                <option value="">All</option>
+                                <option value="1">New Case</option>
+                                <option value="2">Follow-Up</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="adviseTypeFilter" class="form-label">Advise Type</label>
+                            <select class="form-select" id="adviseTypeFilter">
+                                <option value="">All</option>
+                                <option value="CC">CC</option>
+                                <option value="AO">AO</option>
+                                <option value="CC + AO">CC + AO</option>
                             </select>
                         </div>
                         <div class="col-md-3">
@@ -284,17 +324,6 @@ if ($doctor_result) {
                             <label for="dateTo" class="form-label">Enrollment To</label>
                             <input type="date" class="form-control" id="dateTo">
                         </div>
-                    </div>
-                    <!-- Filter row 3: Scheduled From | Scheduled To | Blood Test Report Date From | Blood Test Report Date To -->
-                    <div class="row g-3 align-items-end mt-1">
-                        <div class="col-md-3">
-                            <label for="scheduledFrom" class="form-label">Scheduled From</label>
-                            <input type="date" class="form-control" id="scheduledFrom">
-                        </div>
-                        <div class="col-md-3">
-                            <label for="scheduledTo" class="form-label">Scheduled To</label>
-                            <input type="date" class="form-control" id="scheduledTo">
-                        </div>
                         <div class="col-md-3">
                             <label for="bloodTestDateFrom" class="form-label">Blood Test Report Date From</label>
                             <input type="date" class="form-control" id="bloodTestDateFrom">
@@ -303,18 +332,23 @@ if ($doctor_result) {
                             <label for="bloodTestDateTo" class="form-label">Blood Test Report Date To</label>
                             <input type="date" class="form-control" id="bloodTestDateTo">
                         </div>
-                    </div>
-                    <!-- Filter row 4: Consulted By | Add-on | Advise Type | buttons -->
-                    <div class="row g-3 align-items-end mt-1">
                         <div class="col-md-3">
-                            <label for="consultedByFilter" class="form-label">Consulted By</label>
-                            <select class="form-select" id="consultedByFilter">
+                            <label for="reminderFilter" class="form-label">Follow Up Reminder</label>
+                            <select class="form-select" id="reminderFilter">
                                 <option value="">All</option>
-                                <?php foreach ($doctor_list as $doctor): ?>
-                                <option value="<?php echo (int)$doctor['id']; ?>">
-                                    <?php echo htmlspecialchars($doctor['nama_staff'] ?? ''); ?></option>
-                                <?php endforeach; ?>
+                                <option value="0">Pending</option>
+                                <option value="1">Completed</option>
+                                <option value="2">Rescheduled</option>
+                                <option value="3">Cancelled</option>
                             </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="scheduledFrom" class="form-label">Scheduled From</label>
+                            <input type="date" class="form-control" id="scheduledFrom">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="scheduledTo" class="form-label">Scheduled To</label>
+                            <input type="date" class="form-control" id="scheduledTo">
                         </div>
                         <div class="col-md-3">
                             <label for="addOnFilter" class="form-label">Add On</label>
@@ -325,15 +359,14 @@ if ($doctor_result) {
                             </select>
                         </div>
                         <div class="col-md-3">
-                            <label for="adviseTypeFilter" class="form-label">Advise Type</label>
-                            <select class="form-select" id="adviseTypeFilter">
+                            <label for="rxIssuedFilter" class="form-label">Rx Issued</label>
+                            <select class="form-select" id="rxIssuedFilter">
                                 <option value="">All</option>
-                                <option value="CC">CC</option>
-                                <option value="AO">AO</option>
-                                <option value="CC + AO">CC + AO</option>
+                                <option value="1">Yes</option>
+                                <option value="0">No</option>
                             </select>
                         </div>
-                        <div class="col-md-3 d-flex gap-2 align-items-end">
+                        <div class="col-md-3 ms-auto d-flex gap-2 align-items-end">
                             <button type="button" class="btn btn-success flex-fill" id="exportBtn"
                                 title="Export current filter results to Excel">
                                 <i class="bi bi-file-earmark-spreadsheet me-1"></i>Export to Excel

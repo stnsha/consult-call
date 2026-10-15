@@ -235,6 +235,21 @@
         var adviseType = document.getElementById('adviseTypeFilter').value;
         if (adviseType !== '') params.advise_type = adviseType;
 
+        var consultDateFrom = document.getElementById('consultDateFrom').value;
+        if (consultDateFrom) params.consult_date_from = consultDateFrom;
+
+        var consultDateTo = document.getElementById('consultDateTo').value;
+        if (consultDateTo) params.consult_date_to = consultDateTo;
+
+        var consultStatus = document.getElementById('consultStatusFilter').value;
+        if (consultStatus !== '') params.consult_status = consultStatus;
+
+        var rxIssued = document.getElementById('rxIssuedFilter').value;
+        if (rxIssued !== '') params.rx_issued = rxIssued;
+
+        var consultationType = document.getElementById('consultationTypeFilter').value;
+        if (consultationType !== '') params.consultation_type = consultationType;
+
         params.per_page = perPage;
         params.page = currentPage;
 
@@ -300,6 +315,33 @@
     }
 
     /**
+     * Appointment date in effect: updated_scheduled_date when the appointment was
+     * rescheduled (scheduled_status = 2), otherwise the original scheduled_call_date.
+     * Mirrors EFFECTIVE_SCHEDULED_DATE_SQL in the API's ConsultCallController.
+     * @param {object} record Consult call record from API
+     * @returns {string|null}
+     */
+    function getEffectiveScheduledDate(record) {
+        if (parseInt(record.scheduled_status, 10) === 2 && record.updated_scheduled_date) {
+            return record.updated_scheduled_date;
+        }
+        return record.scheduled_call_date || null;
+    }
+
+    /**
+     * Follow-up date in effect: rescheduled_date when followup_reminder = 2,
+     * otherwise the original followup_date.
+     * @param {object} followUp Follow-up record from API
+     * @returns {string|null}
+     */
+    function getEffectiveFollowupDate(followUp) {
+        if (parseInt(followUp.followup_reminder, 10) === 2 && followUp.rescheduled_date) {
+            return followUp.rescheduled_date;
+        }
+        return followUp.followup_date || null;
+    }
+
+    /**
      * Render a single table row from a consult call record.
      * Columns: CC ID | Patient Details | Consent Status | Blood Test Report Date |
      *          Enrollment Date | Add On | Scheduled Date | Consulted By | Process Status | Action
@@ -354,7 +396,15 @@
         var processBadge = BADGES.process[processId]   || 'bg-secondary';
 
         var enrollmentDate  = record.enrollment_date      ? formatDate(record.enrollment_date)      : '<span class="text-muted">-</span>';
-        var scheduledDate   = record.scheduled_call_date  ? formatDate(record.scheduled_call_date)  : '<span class="text-muted">-</span>';
+        // Rescheduled appointment: show the new date, with the original struck through.
+        var effectiveScheduled = getEffectiveScheduledDate(record);
+        var scheduledDate = effectiveScheduled ? formatDate(effectiveScheduled) : '<span class="text-muted">-</span>';
+        if (effectiveScheduled && record.scheduled_call_date
+            && String(effectiveScheduled).slice(0, 10) !== String(record.scheduled_call_date).slice(0, 10)) {
+            scheduledDate += '<br><small class="text-muted text-decoration-line-through" title="Original scheduled date">'
+                + formatDate(record.scheduled_call_date) + '</small>'
+                + ' <span class="badge bg-warning text-dark">Rescheduled</span>';
+        }
 
         // Blood test report date: from the latest consultation detail's linked test result
         var testResult = latestDetail ? latestDetail.test_result : null;
@@ -709,7 +759,7 @@
                 String(d.getDate()).padStart(2, '0');
         };
 
-        // Narrow to the 7-day window server-side (latest follow-up's followup_date)
+        // Narrow to the 7-day window server-side (latest follow-up's effective date)
         // instead of pulling every pending-reminder consult call.
         apiCall('all-consult-call', {
             followup_reminder: 0,
@@ -729,9 +779,10 @@
                     var fu = r.follow_ups || [];
                     if (fu.length === 0) continue;
                     var latest = fu[fu.length - 1];
-                    if (!latest.followup_date) continue;
+                    var effectiveFuDate = getEffectiveFollowupDate(latest);
+                    if (!effectiveFuDate) continue;
 
-                    var fuDate = new Date(latest.followup_date);
+                    var fuDate = new Date(effectiveFuDate);
                     fuDate.setHours(0, 0, 0, 0);
 
                     if (fuDate >= today && fuDate <= cutoff) {
@@ -790,6 +841,11 @@
         document.getElementById('bloodTestDateFrom').value = '';
         document.getElementById('bloodTestDateTo').value = '';
         document.getElementById('adviseTypeFilter').value = '';
+        document.getElementById('consultDateFrom').value = '';
+        document.getElementById('consultDateTo').value = '';
+        document.getElementById('consultStatusFilter').value = '';
+        document.getElementById('rxIssuedFilter').value = '';
+        document.getElementById('consultationTypeFilter').value = '';
 
         var el = document.getElementById(field);
         if (el) {
@@ -820,6 +876,11 @@
         document.getElementById('bloodTestDateFrom').value = '';
         document.getElementById('bloodTestDateTo').value = '';
         document.getElementById('adviseTypeFilter').value = '';
+        document.getElementById('consultDateFrom').value = '';
+        document.getElementById('consultDateTo').value = '';
+        document.getElementById('consultStatusFilter').value = '';
+        document.getElementById('rxIssuedFilter').value = '';
+        document.getElementById('consultationTypeFilter').value = '';
         sortBy  = null;
         sortDir = 'asc';
         currentPage = 1;
@@ -1036,6 +1097,11 @@
         document.getElementById('bloodTestDateFrom').addEventListener('change', onFilterChange);
         document.getElementById('bloodTestDateTo').addEventListener('change', onFilterChange);
         document.getElementById('adviseTypeFilter').addEventListener('change', onFilterChange);
+        document.getElementById('consultDateFrom').addEventListener('change', onFilterChange);
+        document.getElementById('consultDateTo').addEventListener('change', onFilterChange);
+        document.getElementById('consultStatusFilter').addEventListener('change', onFilterChange);
+        document.getElementById('rxIssuedFilter').addEventListener('change', onFilterChange);
+        document.getElementById('consultationTypeFilter').addEventListener('change', onFilterChange);
 
         document.getElementById('resetBtn').addEventListener('click', resetFilters);
         document.getElementById('exportBtn').addEventListener('click', exportToExcel);
