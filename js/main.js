@@ -52,6 +52,29 @@
      * Must resolve before the first renderRow() call so labels are available.
      * @returns {Promise}
      */
+    /**
+     * Fill the Action filter from action_master: active options first, then
+     * deactivated ones (still filterable for older records), marked "(inactive)".
+     * @returns {Promise}
+     */
+    function loadActionMasterFilterOptions() {
+        var selectEl = document.getElementById('actionMasterFilter');
+        if (!selectEl) return Promise.resolve();
+        return apiCall('get-all-action-masters', {}).then(function(result) {
+            if (!result.success || !result.data) return;
+            var isActive = function(row) { return row.is_active === true || row.is_active === 1 || row.is_active === '1'; };
+            var rows = result.data.slice().sort(function(a, b) {
+                return (isActive(b) - isActive(a)) || String(a.name).localeCompare(String(b.name));
+            });
+            var html = '<option value="">All</option>';
+            for (var i = 0; i < rows.length; i++) {
+                html += '<option value="' + escapeHtml(rows[i].id) + '">' + escapeHtml(rows[i].name)
+                    + (isActive(rows[i]) ? '' : ' (inactive)') + '</option>';
+            }
+            selectEl.innerHTML = html;
+        }).catch(function() {});
+    }
+
     function loadStatusMaps() {
         var types = ['process-statuses', 'follow-up-reminders', 'actions'];
         var keys  = ['processStatuses',  'followUpReminders',   'actions'];
@@ -262,6 +285,9 @@
 
         var callAnswered = document.getElementById('callAnsweredFilter').value;
         if (callAnswered !== '') params.call_answered = callAnswered;
+
+        var actionMaster = document.getElementById('actionMasterFilter').value;
+        if (actionMaster !== '') params.action_master_id = actionMaster;
 
         Object.keys(urlOnlyFilters).forEach(function(param) {
             params[param] = urlOnlyFilters[param].value;
@@ -599,7 +625,7 @@
         'consultationTypeFilter', 'adviseTypeFilter', 'enrollmentFilter', 'dateFrom', 'dateTo',
         'bloodTestDateFrom', 'bloodTestDateTo', 'reminderFilter',
         'scheduledFrom', 'scheduledTo', 'addOnFilter', 'rxIssuedFilter',
-        'consentDateFrom', 'consentDateTo', 'callAnsweredFilter'
+        'consentDateFrom', 'consentDateTo', 'callAnsweredFilter', 'actionMasterFilter'
     ];
 
     /**
@@ -909,6 +935,7 @@
         document.getElementById('consentDateFrom').value = '';
         document.getElementById('consentDateTo').value = '';
         document.getElementById('callAnsweredFilter').value = '';
+        document.getElementById('actionMasterFilter').value = '';
         clearUrlOnlyFilters();
 
         var el = document.getElementById(field);
@@ -948,6 +975,7 @@
         document.getElementById('consentDateFrom').value = '';
         document.getElementById('consentDateTo').value = '';
         document.getElementById('callAnsweredFilter').value = '';
+        document.getElementById('actionMasterFilter').value = '';
         clearUrlOnlyFilters();
         sortBy  = null;
         sortDir = 'asc';
@@ -1191,6 +1219,7 @@
             consent_date_from: 'consentDateFrom',
             consent_date_to: 'consentDateTo',
             call_answered: 'callAnsweredFilter',
+            action_master_id: 'actionMasterFilter',
             consult_status: 'consultStatusFilter',
             consult_date_from: 'consultDateFrom',
             consult_date_to: 'consultDateTo',
@@ -1270,6 +1299,7 @@
         document.getElementById('consentDateFrom').addEventListener('change', onFilterChange);
         document.getElementById('consentDateTo').addEventListener('change', onFilterChange);
         document.getElementById('callAnsweredFilter').addEventListener('change', onFilterChange);
+        document.getElementById('actionMasterFilter').addEventListener('change', onFilterChange);
 
         document.getElementById('resetBtn').addEventListener('click', resetFilters);
         document.getElementById('exportBtn').addEventListener('click', exportToExcel);
@@ -1281,7 +1311,9 @@
             onFilterChange();
         });
 
-        applyUrlFilters();
+        // Report drill-down links can pre-select an Action, so its options are
+        // loaded before the query string is applied.
+        var urlFiltersReady = loadActionMasterFilterOptions().then(applyUrlFilters);
 
         var filterRows = document.querySelectorAll('.card-filter-row');
         for (var f = 0; f < filterRows.length; f++) {
@@ -1297,7 +1329,7 @@
         initSortableHeaders();
         loadFollowupBanner();
         loadSummary();
-        loadStatusMaps().then(function() {
+        Promise.all([loadStatusMaps(), urlFiltersReady]).then(function() {
             loadTableData();
         });
     });

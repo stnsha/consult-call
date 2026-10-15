@@ -74,6 +74,7 @@ $dashboard_active  = ($current_page == 'index.php'  && $current_dir == $_navbar_
 $report_active     = ($current_page == 'report.php' && $current_dir == $_navbar_moduleDir)    ? 'active' : '';
 $cc_active         = ($current_dir == 'clinical_condition')                                    ? 'active' : '';
 $ao_active         = ($current_dir == 'add_ons')                                               ? 'active' : '';
+$am_active         = ($current_dir == 'action_master')                                         ? 'active' : '';
 $admin_active      = ($current_page == 'index.php'  && $current_dir == 'admin')               ? 'active' : '';
 
 // Roles resolved by the including page (staff.consult_call comma list).
@@ -100,6 +101,9 @@ $_navbar_can_admin = hasConsultCallRole($_navbar_roles, 1, 6);
                 <?php if ($_navbar_can_admin): ?>
                 <li class="nav-item">
                     <a class="nav-link <?php echo $ao_active; ?>" href="<?php echo CONSULTCALL_BASE; ?>add_ons/index.php">Add Ons</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link <?php echo $am_active; ?>" href="<?php echo CONSULTCALL_BASE; ?>action_master/index.php">Actions</a>
                 </li>
                 <?php endif; ?>
                 <?php if ($_navbar_can_admin): ?>

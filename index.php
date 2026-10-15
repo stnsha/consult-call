@@ -235,7 +235,7 @@ if ($doctor_result) {
                             </select>
                         </div>
                         <div class="col-md-3">
-                            <label for="actionFilter" class="form-label">Action</label>
+                            <label for="actionFilter" class="form-label">Consultation Outcome</label>
                             <select class="form-select" id="actionFilter">
                                 <option value="">All</option>
                                 <option value="1">Refer Internal</option>
@@ -369,6 +369,12 @@ if ($doctor_result) {
                                 <option value="1">Yes</option>
                                 <option value="0">No</option>
                                 <option value="2">None</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="actionMasterFilter" class="form-label">Action</label>
+                            <select class="form-select" id="actionMasterFilter">
+                                <option value="">All</option>
                             </select>
                         </div>
                         <div class="col-md-3 ms-auto d-flex gap-2 align-items-end">

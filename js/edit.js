@@ -529,7 +529,7 @@
 
                 var action = getRadioValue('action');
                 if (!action) {
-                    showFieldError('action', 'Please select an action.');
+                    showFieldError('action', 'Please select a consultation outcome.');
                     valid = false;
                 } else { clearFieldError('action'); }
             }
@@ -1081,6 +1081,53 @@
         });
     }
 
+    // -- Action (action_master) --
+
+    // Every action_master row (active and inactive) by id, so history and a saved
+    // selection can still show the name of an option that was deactivated later.
+    var actionMasterById = {};
+
+    /**
+     * Rebuild the Action <select>: active options, plus the currently selected
+     * option when it has since been deactivated (marked "(inactive)").
+     * @param {HTMLSelectElement} selectEl
+     * @param {string|number|null} selectedId
+     */
+    function fillActionMasterSelect(selectEl, selectedId) {
+        if (!selectEl) return;
+        var selected = (selectedId === null || selectedId === undefined) ? '' : String(selectedId);
+        var html = '<option value="">Select Action</option>';
+        Object.keys(actionMasterById).forEach(function(id) {
+            var row = actionMasterById[id];
+            var active = row.is_active === true || row.is_active === 1 || row.is_active === '1';
+            if (!active && id !== selected) return;
+            html += '<option value="' + escapeHtml(id) + '"' + (id === selected ? ' selected' : '') + '>'
+                + escapeHtml(row.name) + (active ? '' : ' (inactive)') + '</option>';
+        });
+        selectEl.innerHTML = html;
+    }
+
+    function actionMasterName(id) {
+        var row = (id === null || id === undefined) ? null : actionMasterById[String(id)];
+        return row ? row.name : null;
+    }
+
+    // Loads all action_master rows for the Action dropdown and history labels.
+    // Non-fatal on failure -- the dropdown just keeps its placeholder option.
+    function loadActionMasterOptions() {
+        return apiCall('get-all-action-masters', {}).then(function(result) {
+            if (!result.success || !result.data) return;
+            var rows = result.data.slice().sort(function(a, b) {
+                return String(a.name).localeCompare(String(b.name));
+            });
+            actionMasterById = {};
+            for (var i = 0; i < rows.length; i++) {
+                actionMasterById[String(rows[i].id)] = rows[i];
+            }
+            fillActionMasterSelect(document.getElementById('action_master_id'), null);
+        }).catch(function() {});
+    }
+
     // Populates the "Recommended Add Ons" checkbox dropdown from the add_ons lookup table.
     // Non-fatal on failure -- the field just keeps its default empty list.
     function loadAddOnsOptions() {
@@ -1351,6 +1398,7 @@
                     html += renderHistoryField('Invoice ID', d.invoice_id || null);
                     html += renderHistoryField('Invoice Status', INVOICE_STATUS_LABELS[String(d.invoice_status)] || null);
                 }
+                html += renderHistoryField('Action', actionMasterName(d.action_master_id));
                 html += renderHistoryField('Remarks', d.remarks || null);
 
                 // Follow-up fields (2-column grid, matching the Consultation Details layout:
@@ -1384,7 +1432,7 @@
                     html += '<div class="col-6">' + renderHistoryField('Mode of Conversion', fu ? (modeConversionMap[String(fu.mode_of_conversion)] || null) : null) + '</div>';
 
                     var actionLabel = statusMaps.actions[String(d.action)] || null;
-                    var actionCell = '<div class="mb-2"><div class="history-label">Action</div>'
+                    var actionCell = '<div class="mb-2"><div class="history-label">Consultation Outcome</div>'
                         + '<div class="history-value">' + escapeHtml(actionLabel || '') + '</div>';
                     if (referralId) {
                         actionCell += '<div class="d-flex gap-1 mt-1">';
@@ -1420,6 +1468,13 @@
 
         html += '</div>'; // accordion
         container.innerHTML = html;
+
+        // History edit forms are built as HTML strings; fill their Action dropdowns now
+        // that they are in the DOM (keeps a deactivated saved option selectable).
+        var histActionSelects = container.querySelectorAll('select[id^="hist_action_master_id_"]');
+        for (var hs = 0; hs < histActionSelects.length; hs++) {
+            fillActionMasterSelect(histActionSelects[hs], histActionSelects[hs].getAttribute('data-selected'));
+        }
     }
 
     function renderAccordionBaseInfo(detail, isGlobalView, enrollmentDate) {
@@ -1581,7 +1636,7 @@
         html += '<div class="col-md-6"><label class="form-label">Rx Issued</label>'
             + historyRadioGroup('rx_issued', idx, [{ value: '1', label: 'Yes' }, { value: '0', label: 'No' }], d.rx_issued ? '1' : '0') + '</div>';
 
-        html += '<div class="col-md-6"><label class="form-label">Action</label>'
+        html += '<div class="col-md-6"><label class="form-label">Consultation Outcome</label>'
             + historyRadioGroup('action', idx, [
                 { value: '1', label: 'Refer Internal' }, { value: '2', label: 'Refer External' }, { value: '3', label: 'End Process' }
             ], d.action) + '</div>';
@@ -1593,6 +1648,10 @@
             + historyRadioGroup('invoice_status', idx, [
                 { value: '1', label: 'Confirmed' }, { value: '2', label: 'Completed' }
             ], d.invoice_status) + '</div>';
+
+        html += '<div class="col-md-6"><label class="form-label">Action</label>'
+            + '<select class="form-select form-select-sm" id="hist_action_master_id_' + idx + '"'
+            + ' data-selected="' + escapeHtml(d.action_master_id === null || d.action_master_id === undefined ? '' : d.action_master_id) + '"></select></div>';
 
         html += '<div class="col-md-12"><label class="form-label">Remarks</label>'
             + '<textarea class="form-control form-control-sm" id="hist_remarks_' + idx + '" rows="2">' + escapeHtml(d.remarks || '') + '</textarea></div>';
@@ -1675,6 +1734,7 @@
             action: toIntOrNull(getHistRadioValue(idx, 'action')),
             invoice_id: getHistInputValue(idx, 'invoice_id') || null,
             invoice_status: toIntOrNull(getHistRadioValue(idx, 'invoice_status')),
+            action_master_id: toIntOrNull(getHistInputValue(idx, 'action_master_id')),
             remarks: getHistInputValue(idx, 'remarks') || null
         };
 
@@ -2237,6 +2297,7 @@
         setInputValue('treatment_plan', '');
         setInputValue('followup_date', '');
         setInputValue('remarks', '');
+        fillActionMasterSelect(document.getElementById('action_master_id'), null);
         setRadioValue('followup_type', '0');
         setRadioValue('next_followup', '0');
         var detailFieldsToDeselect = ['consult_status', 'rx_issued', 'mode_of_conversion', 'action', 'process_status', 'consultation_type', 'release_doctor_review'];
@@ -2363,6 +2424,7 @@
                     setProcessStatusRadio(String(lastDetail.process_status), false);
                 }
                 setInputValue('remarks', lastDetail.remarks || '');
+                fillActionMasterSelect(document.getElementById('action_master_id'), lastDetail.action_master_id);
                 if (pairedFollowUp) {
                     var fuType = pairedFollowUp.followup_type !== null ? String(pairedFollowUp.followup_type) : '0';
                     setRadioValue('followup_type', fuType);
@@ -2606,7 +2668,7 @@
         var warnProcessStatus = toIntOrNull(getRadioValue('process_status'));
         if (warnAction === 3 && warnProcessStatus === 1) {
             var confirmed = window.confirm(
-                'Action is set to End Process but Process Status is still Active.\n\n' +
+                'Consultation Outcome is set to End Process but Process Status is still Active.\n\n' +
                 'Are you sure you want to save with this combination?'
             );
             if (!confirmed) {
@@ -2632,7 +2694,7 @@
                     ackError.style.display = '';
                 }
                 if (!remarksVal) {
-                    showFieldError('remarks', 'Remarks are required when Process Status is Closed with Refer Internal action.');
+                    showFieldError('remarks', 'Remarks are required when Process Status is Closed with Refer Internal outcome.');
                 }
                 var scrollTarget = document.getElementById('closed-no-end-process-warning');
                 if (scrollTarget) scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -2698,6 +2760,7 @@
             invoice_status: toIntOrNull(getRadioValue('invoice_status')),
             is_invoice_synced: (getInputValue('invoice_id') || '').trim() ? !!invoiceSyncedForSave : false,
             action: actionValue,
+            action_master_id: toIntOrNull(getSelectValue('action_master_id')),
             // process_status is no longer part of this form -- it's managed independently
             // via the header pill toggle's own update-detail call. Sending null here would
             // overwrite the existing value and violate the column's NOT NULL constraint.
@@ -3293,7 +3356,7 @@
         initFormSubmission();
         initHeaderProcessStatus();
         initAddOnDropdown();
-        Promise.all([loadStatusMaps(), loadAddOnsOptions()]).then(function() {
+        Promise.all([loadStatusMaps(), loadAddOnsOptions(), loadActionMasterOptions()]).then(function() {
             loadConsultCallData();
         });
     });

@@ -1173,6 +1173,50 @@ function toggleAddOn($id, $staff_id)
 }
 
 /**
+ * Action master (options for the consult call detail "Action" dropdown).
+ * Same request/response shape as the add-on helpers above.
+ *
+ * @param string $endpoint Path under consult-call/, e.g. 'action-master/all'
+ * @param array|null $data Request body
+ * @param string $method HTTP method
+ * @param int $staff_id Staff ID for authentication
+ * @param string $failMessage Message when the API returns no message of its own
+ * @return array ['success' => bool, 'data' => mixed, 'message' => string, 'errors' => ?array]
+ */
+function callActionMasterApi(string $endpoint, ?array $data, string $method, $staff_id, string $failMessage): array
+{
+    $result = getApiDataWithJWT($endpoint, $data, $method, $staff_id);
+    $decoded = json_decode($result['response'], true);
+
+    if ($result['httpCode'] == 200 || $result['httpCode'] == 201) {
+        return [
+            'success' => true,
+            'data' => $decoded['data'] ?? null,
+            'message' => $decoded['message'] ?? ''
+        ];
+    }
+
+    return [
+        'success' => false,
+        'message' => $decoded['message'] ?? $failMessage,
+        'errors' => $decoded['errors'] ?? null
+    ];
+}
+
+/**
+ * Whether the staff may maintain the Action list (add / rename / activate /
+ * deactivate): Super Admin (1) or Admin (6). Checked here because the Laravel
+ * API only receives a single primary role in the JWT.
+ *
+ * @param mysqli $conn ODB connection
+ * @param int|string|null $staff_id Current staff ID
+ */
+function canManageActionMaster(mysqli $conn, $staff_id): bool
+{
+    return $staff_id !== null && hasConsultCallRole(resolveConsultCallRoles($conn, $staff_id), 1, 6);
+}
+
+/**
  * Update a clinical condition description and risk tier
  * @param int $id Clinical condition ID
  * @param array $data Fields: description, type, add_ons, risk_tier, active_from
@@ -1488,7 +1532,7 @@ if (!defined('API_JWT_INCLUDED')) {
                         'consultation_type', 'consult_date_from', 'consult_date_to', 'outlet_id',
                         'consent_date_from', 'consent_date_to', 'non_eligibility_reason',
                         'consult_status_in', 'add_on_id',
-                        'call_answered'
+                        'call_answered', 'action_master_id'
                     );
                     foreach ($allowedParams as $param) {
                         if (isset($jsonData[$param]) && $jsonData[$param] !== '') {
@@ -1650,6 +1694,50 @@ if (!defined('API_JWT_INCLUDED')) {
                         $response = toggleAddOn($jsonData['id'], $staff_id);
                     } else {
                         $response = array('success' => false, 'message' => 'Missing add-on ID');
+                    }
+                    break;
+
+                case 'get-action-masters':
+                    $response = callActionMasterApi('action-master', null, 'GET', $staff_id, 'Failed to retrieve actions');
+                    break;
+
+                case 'get-all-action-masters':
+                    $response = callActionMasterApi('action-master/all', null, 'GET', $staff_id, 'Failed to retrieve actions');
+                    break;
+
+                case 'create-action-master':
+                    if (!canManageActionMaster($conn, $staff_id)) {
+                        $response = ['success' => false, 'message' => 'Only Admin and Super Admin can manage actions.'];
+                        break;
+                    }
+                    if (isset($jsonData['data']) && is_array($jsonData['data'])) {
+                        $response = callActionMasterApi('action-master', $jsonData['data'], 'POST', $staff_id, 'Failed to create action');
+                    } else {
+                        $response = ['success' => false, 'message' => 'Missing action data'];
+                    }
+                    break;
+
+                case 'update-action-master':
+                    if (!canManageActionMaster($conn, $staff_id)) {
+                        $response = ['success' => false, 'message' => 'Only Admin and Super Admin can manage actions.'];
+                        break;
+                    }
+                    if (isset($jsonData['id']) && isset($jsonData['data']) && is_array($jsonData['data'])) {
+                        $response = callActionMasterApi('action-master/' . (int)$jsonData['id'], $jsonData['data'], 'PUT', $staff_id, 'Failed to update action');
+                    } else {
+                        $response = ['success' => false, 'message' => 'Missing action ID or data'];
+                    }
+                    break;
+
+                case 'toggle-action-master':
+                    if (!canManageActionMaster($conn, $staff_id)) {
+                        $response = ['success' => false, 'message' => 'Only Admin and Super Admin can manage actions.'];
+                        break;
+                    }
+                    if (isset($jsonData['id'])) {
+                        $response = callActionMasterApi('action-master/' . (int)$jsonData['id'] . '/toggle', null, 'PATCH', $staff_id, 'Failed to toggle action');
+                    } else {
+                        $response = ['success' => false, 'message' => 'Missing action ID'];
                     }
                     break;
 

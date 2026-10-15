@@ -936,7 +936,7 @@ $psD = !hasConsultCallRole($currentStaffRoles, 2, 4) ? 'disabled' : '';
                         </div>
 
                         <div class="col-md-6 conditional-field" data-condition="consult_completed">
-                            <label class="form-label">Action<span style="color:red;"> *</span></label>
+                            <label class="form-label">Consultation Outcome<span style="color:red;"> *</span></label>
                             <div class="radio-group">
                                 <div class="form-check">
                                     <input class="form-check-input" type="radio" name="action" id="action_refer_outlet"
@@ -954,6 +954,15 @@ $psD = !hasConsultCallRole($currentStaffRoles, 2, 4) ? 'disabled' : '';
                                     <label class="form-check-label" for="action_end_process">End Process</label>
                                 </div>
                             </div>
+                        </div>
+
+                        <!-- Action (consult_call_details.action_master_id; options maintained on
+                             action_master/index.php, active ones listed -- see loadActionMasterOptions()) -->
+                        <div class="col-md-6">
+                            <label class="form-label" for="action_master_id">Action</label>
+                            <select class="form-select" name="action_master_id" id="action_master_id" <?php echo $dD; ?>>
+                                <option value="">Select Action</option>
+                            </select>
                         </div>
 
                         <!-- Remarks (visible for all consult statuses) -->
@@ -988,13 +997,13 @@ $psD = !hasConsultCallRole($currentStaffRoles, 2, 4) ? 'disabled' : '';
 
             <!-- End Process + Active warning — shown by JS when doctor selects that combination -->
             <div id="end-process-warning" class="text-danger small mt-3" style="display:none;">
-                Action is set to End Process but Process Status is Active. Please review before saving.
+                Consultation Outcome is set to End Process but Process Status is Active. Please review before saving.
             </div>
 
             <!-- Closed process status without End Process action — block shown by JS, requires acknowledgment -->
             <div id="closed-no-end-process-warning" class="alert alert-danger mt-3" style="display:none;" role="alert">
-                <strong>Cannot save:</strong> Process Status is set to <strong>Closed</strong> but the selected Action
-                is not <strong>End Process</strong>. Please select "End Process" as the Action, or change the Process
+                <strong>Cannot save:</strong> Process Status is set to <strong>Closed</strong> but the selected Consultation Outcome
+                is not <strong>End Process</strong>. Please select "End Process" as the Consultation Outcome, or change the Process
                 Status to Active before saving.
             </div>
 
@@ -1005,7 +1014,7 @@ $psD = !hasConsultCallRole($currentStaffRoles, 2, 4) ? 'disabled' : '';
                         <input class="form-check-input" type="checkbox" id="acknowledge_closed_status"
                             name="acknowledge_closed_status">
                         <label class="form-check-label fw-semibold" for="acknowledge_closed_status">
-                            I am aware that Process Status is set to Closed despite Action being Refer Internal.
+                            I am aware that Process Status is set to Closed despite Consultation Outcome being Refer Internal.
                         </label>
                     </div>
                     <div id="ack-checkbox-error" class="text-danger small mt-1" style="display:none;">
@@ -1035,7 +1044,7 @@ $psD = !hasConsultCallRole($currentStaffRoles, 2, 4) ? 'disabled' : '';
                 <h6 class="mb-0">MyReferral</h6>
             </div>
             <div class="p-3">
-                <p class="text-muted mb-3">A referral is required for this action. Please create a MyReferral record to
+                <p class="text-muted mb-3">A referral is required for this consultation outcome. Please create a MyReferral record to
                     complete the process.</p>
                 <a id="myreferral-create-btn" href="/odb/referral/create.php" target="_blank" rel="noopener"
                     class="btn btn-outline-primary">

@@ -54,6 +54,19 @@
     var chartInstances = {};
     var state = { records: [], filters: {} };
 
+    // action_master id -> row (active and inactive), for the Action by Month chart.
+    var actionMasterById = {};
+
+    function loadActionMasters() {
+        return apiCall('get-all-action-masters', {}).then(function(result) {
+            actionMasterById = {};
+            var rows = (result && result.success && result.data) ? result.data : [];
+            for (var i = 0; i < rows.length; i++) {
+                actionMasterById[String(rows[i].id)] = rows[i];
+            }
+        })['catch'](function() {});
+    }
+
     if (window.Chart) {
         Chart.defaults.font.family = "system-ui, -apple-system, 'Segoe UI', sans-serif";
         Chart.defaults.color = COLOR_TEXT;
@@ -588,6 +601,27 @@
         }, ['Active', 'Closed'], [{ process_status: 1 }, { process_status: 3 }]);
     }
 
+    // Action (action_master) on the latest finalised detail, per month. Categories come
+    // from the options actually used in the filtered data (deactivated ones included),
+    // ordered by total use; records with no Action are left out.
+    function aggregateActionMaster(records) {
+        var totals = {};
+        for (var i = 0; i < records.length; i++) {
+            var det = getLatestNonDraftDetail(records[i]);
+            var id = det && det.action_master_id ? String(det.action_master_id) : null;
+            if (id) totals[id] = (totals[id] || 0) + 1;
+        }
+        var ids = Object.keys(totals).sort(function(a, b) { return totals[b] - totals[a]; });
+        return aggregateGroupedByMonth(records, function(r) {
+            var det = getLatestNonDraftDetail(r);
+            var idx = det && det.action_master_id ? ids.indexOf(String(det.action_master_id)) : -1;
+            return idx >= 0 ? idx : null;
+        }, ids.map(function(id) {
+            var row = actionMasterById[id];
+            return row ? row.name : ('Action #' + id);
+        }), ids.map(function(id) { return { action_master_id: id }; }));
+    }
+
     function aggregateModeOfAction(records) {
         return aggregateGroupedByMonth(records, function(r) {
             var det = getLatestNonDraftDetail(r);
@@ -875,6 +909,7 @@
         renderGroupedBarChart('chartB5', aggregateConsultationStatusByType(records), totalRecords);
         renderGroupedBarChart('chartB6', aggregateProcessStatus(records), totalRecords);
         renderGroupedBarChart('chartB7', aggregateModeOfAction(records), totalRecords);
+        renderGroupedBarChart('chartActionMaster', aggregateActionMaster(records), totalRecords);
 
         renderMonthlySummaryTable(records);
         renderEnrollmentMonthlyTable(records);
@@ -1211,7 +1246,8 @@
             state.records = records;
             state.filters = filters;
 
-            resolveNames(records).then(function(maps) {
+            Promise.all([resolveNames(records), loadActionMasters()]).then(function(results) {
+                var maps = results[0];
                 renderAllCharts(records, maps.outletMap, maps.staffMap);
                 setLoadingState(false);
             });

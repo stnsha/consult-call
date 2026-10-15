@@ -275,8 +275,14 @@ $report_default_to   = '';
             </div>
             <div class="col-12">
                 <div class="bento-card">
-                    <h3 class="chart-title">Mode of Action by Month</h3>
+                    <h3 class="chart-title">Consultation Outcome by Month</h3>
                     <div class="chart-wrap"><canvas id="chartB7"></canvas></div>
+                </div>
+            </div>
+            <div class="col-12">
+                <div class="bento-card">
+                    <h3 class="chart-title">Action by Month</h3>
+                    <div class="chart-wrap"><canvas id="chartActionMaster"></canvas></div>
                 </div>
             </div>
         </div>
