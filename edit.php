@@ -279,9 +279,9 @@ if ($or2) {
     }
 }
 
-// Customer Support staff only (consult_call = 4) for the Handled By dropdown
+// Staff holding the Customer Support role (4, possibly among others) for the Handled By dropdown
 $csStaffList = array();
-$csStaff_q = "SELECT id, nama_staff FROM staff WHERE consult_call = 4 AND recycle != 1 ORDER BY nama_staff";
+$csStaff_q = "SELECT id, nama_staff FROM staff WHERE FIND_IN_SET('4', consult_call) AND recycle != 1 ORDER BY nama_staff";
 $csStaff_r = mysqli_query($conn, $csStaff_q);
 if ($csStaff_r) {
     while ($row = mysqli_fetch_assoc($csStaff_r)) {
@@ -289,36 +289,31 @@ if ($csStaff_r) {
     }
 }
 
-// Resolve current staff role and ID from session
-$currentStaffRole = 0;
+// Resolve current staff roles (staff.consult_call comma list) and ID from session
+require_once __DIR__ . '/roles.php';
+$currentStaffRoles = [];
 $currentStaffId = null;
 if (isset($_SESSION["myusername"])) {
     $cs_q = "SELECT id, consult_call FROM staff WHERE username = '" . mysqli_real_escape_string($conn, $_SESSION["myusername"]) . "' AND recycle != 1";
     $cs_r = mysqli_query($conn, $cs_q);
     if ($cs_r && $cs_row = mysqli_fetch_assoc($cs_r)) {
-        $currentStaffRole = (int)$cs_row['consult_call'];
-        $currentStaffId   = (int)$cs_row['id'];
+        $currentStaffRoles = parseConsultCallRoles($cs_row['consult_call']);
+        $currentStaffId    = (int)$cs_row['id'];
     }
 }
 
 // Dev role override (localhost only) -- matches the dev role switcher in navbar
-$_ep_serverName = isset($_SERVER['SERVER_NAME']) ? $_SERVER['SERVER_NAME'] : '';
-$_ep_httpHost   = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : '';
-$_ep_isLocal    = in_array($_ep_serverName, array('localhost', '127.0.0.1'))
-    || strpos($_ep_serverName, 'localhost') !== false
-    || strpos($_ep_httpHost, 'localhost') !== false
-    || strpos($_ep_httpHost, '127.0.0.1') !== false;
-if ($_ep_isLocal && isset($_SESSION['dev_role_override'])) {
-    $currentStaffRole = (int)$_SESSION['dev_role_override'];
+if (isConsultCallLocalhost() && isset($_SESSION['dev_role_override'])) {
+    $currentStaffRoles = parseConsultCallRoles((int)$_SESSION['dev_role_override']);
 }
 
-// Access control = staff with an assigned consult_call role (1-6). Role 0 has no
-// access control role at all, so it is only let in via the global_view link from
-// blood_test/campaign.php, restricted to a read-only patient summary.
-$isAccessControlUser = ($currentStaffRole !== 0);
+// Access control = staff with at least one consult_call role (1-6). Staff with no
+// role are only let in via the global_view link from blood_test/campaign.php,
+// restricted to a read-only patient summary.
+$isAccessControlUser = !empty($currentStaffRoles);
 $isGlobalViewOnly = ($global_view && !$isAccessControlUser);
 
-if ($currentStaffRole === 0 && !$global_view) {
+if (!$isAccessControlUser && !$global_view) {
     header('Location: ' . CONSULTCALL_BASE . 'unauthorized.php');
     exit;
 }
@@ -329,13 +324,13 @@ if ($isGlobalViewOnly) {
 }
 
 // Eligibility section controls are disabled for non-Customer Support roles
-$eD = ($currentStaffRole !== 4) ? 'disabled' : '';
+$eD = !hasConsultCallRole($currentStaffRoles, 4) ? 'disabled' : '';
 
 // Consultation Details controls are disabled for non-Doctor roles
-$dD = ($currentStaffRole !== 2) ? 'disabled' : '';
+$dD = !hasConsultCallRole($currentStaffRoles, 2) ? 'disabled' : '';
 
 // Header Process Status toggle: visible to everyone, but only Doctor and Customer Support can update it
-$psD = (!in_array($currentStaffRole, array(2, 4))) ? 'disabled' : '';
+$psD = !hasConsultCallRole($currentStaffRoles, 2, 4) ? 'disabled' : '';
 ?>
 
 <body>
@@ -596,7 +591,7 @@ $psD = (!in_array($currentStaffRole, array(2, 4))) ? 'disabled' : '';
                                 <option value="">Select Staff</option>
                                 <?php foreach ($csStaffList as $staff): ?>
                                 <option value="<?php echo htmlspecialchars($staff['id']); ?>"
-                                    <?php echo ($currentStaffRole === 4 && $staff['id'] == $currentStaffId) ? 'selected' : ''; ?>>
+                                    <?php echo (hasConsultCallRole($currentStaffRoles, 4) && $staff['id'] == $currentStaffId) ? 'selected' : ''; ?>>
                                     <?php echo htmlspecialchars($staff['name'] ?? ''); ?>
                                 </option>
                                 <?php endforeach; ?>
@@ -1022,7 +1017,7 @@ $psD = (!in_array($currentStaffRole, array(2, 4))) ? 'disabled' : '';
             <!-- Save Button -->
             <div class="d-flex justify-content-end gap-2 mt-4" id="form-actions">
                 <a href="<?php echo CONSULTCALL_BASE; ?>index.php" class="btn btn-outline-secondary">Cancel</a>
-                <?php if ($currentStaffRole === 1 || $currentStaffRole === 2 || $currentStaffRole === 6): ?>
+                <?php if (hasConsultCallRole($currentStaffRoles, 1, 2, 6)): ?>
                 <button type="button" class="btn btn-outline-warning" id="draftBtn">
                     <i class="bi bi-pencil-square me-1"></i>Save as Draft
                 </button>
@@ -1088,7 +1083,7 @@ $psD = (!in_array($currentStaffRole, array(2, 4))) ? 'disabled' : '';
         globalView: <?php echo json_encode($isGlobalViewOnly); ?>,
         staffId: <?php echo json_encode(isset($id_user) ? $id_user : ''); ?>,
         currentStaffId: <?php echo json_encode($currentStaffId); ?>,
-        currentStaffRole: <?php echo json_encode($currentStaffRole); ?>,
+        currentStaffRoles: <?php echo json_encode($currentStaffRoles); ?>,
         baseUrl: <?php echo json_encode(CONSULTCALL_BASE); ?>,
         apiUrl: '<?php echo CONSULTCALL_BASE; ?>api-jwt.php'
     };

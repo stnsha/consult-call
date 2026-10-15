@@ -91,11 +91,11 @@ if (!defined('CONSULTCALL_BASE')) {
             font-size: 13px;
             cursor: pointer;
         }
-        /* Restore radio button appearance overridden by ODB global CSS */
-        .permission-list .form-check-input[type="radio"] {
-            -webkit-appearance: radio !important;
-            -moz-appearance: radio !important;
-            appearance: radio !important;
+        /* Restore checkbox appearance overridden by ODB global CSS */
+        .permission-list .form-check-input[type="checkbox"] {
+            -webkit-appearance: checkbox !important;
+            -moz-appearance: checkbox !important;
+            appearance: checkbox !important;
             width: 1em !important;
             height: 1em !important;
             margin-top: 0.25em;
@@ -103,7 +103,7 @@ if (!defined('CONSULTCALL_BASE')) {
             background-color: #fff !important;
             cursor: pointer;
         }
-        .permission-list .form-check-input[type="radio"]:checked {
+        .permission-list .form-check-input[type="checkbox"]:checked {
             background-color: #0d6efd !important;
             border-color: #0d6efd !important;
         }
@@ -158,28 +158,13 @@ require_once('../../lock_adv.php');
 $connect = 1;
 include('../../common/index_adv.php');
 
-$consult_call_permission = 0;
-$cc_query = "SELECT consult_call FROM staff WHERE id = '" . mysqli_real_escape_string($conn, $id_user) . "'";
-$cc_result = mysqli_query($conn, $cc_query);
-if ($cc_result && mysqli_num_rows($cc_result) > 0) {
-    $cc_row = mysqli_fetch_assoc($cc_result);
-    $consult_call_permission = isset($cc_row['consult_call']) ? (int)$cc_row['consult_call'] : 0;
-}
+require_once __DIR__ . '/../roles.php';
+// Roles from staff.consult_call (comma list), dev role override applied on localhost.
+$consult_call_roles = resolveConsultCallRoles($conn, $id_user);
 
-// Apply dev role override on localhost (mirrors api-jwt.php behaviour)
-$_adm_server_name = isset($_SERVER['SERVER_NAME']) ? $_SERVER['SERVER_NAME'] : '';
-$_adm_http_host   = isset($_SERVER['HTTP_HOST'])   ? $_SERVER['HTTP_HOST']   : '';
-$_adm_is_local    = in_array($_adm_server_name, array('localhost', '127.0.0.1'))
-    || strpos($_adm_http_host, 'localhost') !== false
-    || strpos($_adm_http_host, '127.0.0.1') !== false;
-if ($_adm_is_local && isset($_SESSION['dev_role_override'])) {
-    $consult_call_permission = (int)$_SESSION['dev_role_override'];
-}
-
-$_adm_is_full_super_admin = ($consult_call_permission === 1);
+$_adm_is_full_super_admin = hasConsultCallRole($consult_call_roles, 1);
 $_adm_can_access_admin = $_adm_is_full_super_admin
-    || $consult_call_permission === 6
-    || (int)$id_user === 5138;
+    || hasConsultCallRole($consult_call_roles, 6);
 
 if (!$_adm_can_access_admin) {
     header('Location: ' . CONSULTCALL_BASE . 'index.php');
@@ -235,7 +220,7 @@ $role_badges = array(
                                 <tr>
                                     <th>Staff Name</th>
                                     <th>Department</th>
-                                    <th>Role</th>
+                                    <th>Roles</th>
                                     <th>Active From</th>
                                     <th>Active To</th>
                                     <th></th>
@@ -275,18 +260,20 @@ $role_badges = array(
                         <p><strong>Name:</strong> <span id="info-name"></span></p>
                         <p><strong>Department:</strong> <span id="info-dept"></span></p>
                         <p><strong>Status:</strong> <span id="info-status"></span></p>
-                        <p class="mb-0"><strong>Current Role:</strong> <span id="info-role"></span></p>
+                        <p class="mb-0"><strong>Current Roles:</strong> <span id="info-role"></span></p>
                     </div>
 
                     <div class="mb-3 permission-list" id="permission-section" style="display:none;">
-                        <label class="form-label" style="font-size: 13px;">Permission</label>
+                        <label class="form-label" style="font-size: 13px;">Roles</label>
+                        <div class="form-text mt-0 mb-1" style="font-size: 11px;">Tick one or more. Leave all unticked for Normal User (no access).</div>
                         <?php foreach ($role_labels as $val => $label): ?>
+                        <?php if ($val === 0) continue; ?>
                         <?php if (($val === 1 || $val === 6) && !$_adm_is_full_super_admin) continue; ?>
                         <div class="form-check">
-                            <input class="form-check-input" type="radio" name="permission"
+                            <input class="form-check-input" type="checkbox" name="permission"
                                 id="perm-<?php echo $val; ?>" value="<?php echo $val; ?>">
                             <label class="form-check-label" for="perm-<?php echo $val; ?>">
-                                <?php echo htmlspecialchars($label); ?><?php echo $_adm_is_full_super_admin ? ' (' . $val . ')' : ''; ?>
+                                <?php echo htmlspecialchars($label); ?>
                             </label>
                         </div>
                         <?php endforeach; ?>
@@ -338,7 +325,38 @@ $role_badges = array(
         'use strict';
 
         var selectedStaffId = null;
+        var selectedStaffRoles = [];
         var allOutlets = [];
+
+        // A staff can hold several roles (staff.consult_call comma list); [] = Normal User.
+        function roleBadgesHtml(roles, staffId) {
+            var html = '';
+            if (!roles || roles.length === 0) {
+                html = '<span class="badge ' + ROLE_BADGES[0] + '">' + ROLE_LABELS[0] + '</span>';
+            } else {
+                $.each(roles, function(i, role) {
+                    var label = ROLE_LABELS[role] !== undefined ? ROLE_LABELS[role] : 'Unknown';
+                    var badge = ROLE_BADGES[role] !== undefined ? ROLE_BADGES[role] : 'bg-secondary';
+                    html += '<span class="badge ' + badge + ' me-1">' + label + '</span>';
+                });
+            }
+            return html;
+        }
+
+        function parseRoles(value) {
+            var roles = [];
+            $.each(String(value || '').split(','), function(i, v) {
+                var role = parseInt(v, 10);
+                if (role >= 1 && role <= 6 && roles.indexOf(role) === -1) roles.push(role);
+            });
+            return roles;
+        }
+
+        function checkedRoles() {
+            return $('input[name="permission"]:checked').map(function() {
+                return parseInt($(this).val(), 10);
+            }).get();
+        }
         var outletsReady = false;
 
         var outletSelect2Config = {
@@ -445,9 +463,9 @@ $role_badges = array(
         }
 
         function showStaffInfo(staff) {
-            var role = staff.consult_call;
+            var roles = staff.roles || [];
 
-            if (role === 1 && !IS_FULL_SUPER_ADMIN) {
+            if (roles.indexOf(1) !== -1 && !IS_FULL_SUPER_ADMIN) {
                 showAlert('You are not allowed to edit a Super Admin.', false);
                 $('#staff-search').val(null).trigger('change');
                 resetForm();
@@ -455,18 +473,17 @@ $role_badges = array(
             }
 
             selectedStaffId = staff.id;
-            var roleLabel = ROLE_LABELS[role] !== undefined ? ROLE_LABELS[role] + (IS_FULL_SUPER_ADMIN ? ' (' + role + ')' : '') : 'Unknown';
+            selectedStaffRoles = roles.slice();
 
             $('#info-name').text(staff.nama_staff);
             $('#info-dept').text(staff.department_name || '-');
             $('#info-status').text(staff.status_semasa || '-');
-            $('#info-role').text(roleLabel);
-            if (parseInt(staff.id, 10) === 5138) {
-                $('#info-role').append(' <span class="badge bg-dark">Admin</span>');
-            }
+            $('#info-role').html(roleBadgesHtml(roles, staff.id));
             $('#staff-info').show();
 
-            $('input[name="permission"][value="' + role + '"]').prop('checked', true);
+            $('input[name="permission"]').each(function() {
+                $(this).prop('checked', roles.indexOf(parseInt($(this).val(), 10)) !== -1);
+            });
             $('#permission-section').show();
 
             var outletStr = String(staff.outlet || '');
@@ -483,15 +500,15 @@ $role_badges = array(
             $('#active-from').val(staff.active_from || '');
             $('#active-to').val(staff.active_to || '');
             $('#timeline-section').show();
-            applyTimelineLockForPermission(role);
+            applyTimelineLockForRoles(roles);
 
             $('#submit-section').css('display', 'flex');
         }
 
-        // Normal User (0) has no access to time-box -- clear and lock the Active Period
-        // fields client-side too, mirroring the server-side reset in updateAccess.
-        function applyTimelineLockForPermission(permission) {
-            var isNormalUser = parseInt(permission, 10) === 0;
+        // Normal User (no roles) has no access to time-box -- clear and lock the Active
+        // Period fields client-side too, mirroring the server-side reset in updateAccess.
+        function applyTimelineLockForRoles(roles) {
+            var isNormalUser = roles.length === 0;
             if (isNormalUser) {
                 $('#active-from').val('');
                 $('#active-to').val('');
@@ -500,7 +517,7 @@ $role_badges = array(
         }
 
         $(document).on('change', 'input[name="permission"]', function() {
-            applyTimelineLockForPermission($(this).val());
+            applyTimelineLockForRoles(checkedRoles());
         });
 
         // Edit button from table pre-fills the form
@@ -508,7 +525,7 @@ $role_badges = array(
             var staffId   = $(this).data('staff-id');
             var staffName = $(this).data('staff-name');
             var staffDept = $(this).data('staff-dept');
-            var staffRole = parseInt($(this).data('staff-role'), 10);
+            var staffRoles = parseRoles($(this).attr('data-staff-roles'));
 
             selectedStaffId = staffId;
 
@@ -521,7 +538,7 @@ $role_badges = array(
                 nama_staff: staffName,
                 department_name: staffDept,
                 status_semasa: $(this).data('staff-status') || '-',
-                consult_call: staffRole,
+                roles: staffRoles,
                 outlet: $(this).attr('data-staff-outlet') || '',
                 active_from: $(this).attr('data-staff-active-from') || '',
                 active_to: $(this).attr('data-staff-active-to') || ''
@@ -562,18 +579,15 @@ $role_badges = array(
             }
             var html = '';
             $.each(data, function(i, s) {
-                var role      = s.consult_call;
-                var roleLabel = ROLE_LABELS[role] !== undefined ? ROLE_LABELS[role] : 'Unknown';
-                var roleBadge = ROLE_BADGES[role] !== undefined ? ROLE_BADGES[role] : 'bg-secondary';
+                var roles     = s.roles || [];
                 var hasTimeline = !!(s.active_from && s.active_to);
                 var activeFromCell = hasTimeline ? $('<span>').text(s.active_from).html() : '<span class="text-muted fst-italic">Permanent</span>';
                 var activeToCell   = hasTimeline ? $('<span>').text(s.active_to).html()   : '<span class="text-muted fst-italic">Permanent</span>';
-                var editLocked = (role === 1 && !IS_FULL_SUPER_ADMIN);
-                var adminBadge = (parseInt(s.id, 10) === 5138) ? ' <span class="badge bg-dark">Admin</span>' : '';
+                var editLocked = (roles.indexOf(1) !== -1 && !IS_FULL_SUPER_ADMIN);
                 html += '<tr>' +
                     '<td>' + $('<span>').text(s.nama_staff).html() + '</td>' +
                     '<td class="text-muted">' + $('<span>').text(s.department_name).html() + '</td>' +
-                    '<td><span class="badge ' + roleBadge + '">' + roleLabel + '</span>' + adminBadge + '</td>' +
+                    '<td>' + roleBadgesHtml(roles, s.id) + '</td>' +
                     '<td>' + activeFromCell + '</td>' +
                     '<td>' + activeToCell + '</td>' +
                     '<td><button type="button" class="btn btn-sm btn-outline-secondary edit-btn"' +
@@ -582,7 +596,7 @@ $role_badges = array(
                         ' data-staff-name="' + $('<span>').text(s.nama_staff).html() + '"' +
                         ' data-staff-dept="' + $('<span>').text(s.department_name).html() + '"' +
                         ' data-staff-status="' + $('<span>').text(s.status_semasa).html() + '"' +
-                        ' data-staff-role="' + role + '"' +
+                        ' data-staff-roles="' + roles.join(',') + '"' +
                         ' data-staff-outlet="' + $('<span>').text(s.outlet || '').html() + '"' +
                         ' data-staff-active-from="' + $('<span>').text(s.active_from || '').html() + '"' +
                         ' data-staff-active-to="' + $('<span>').text(s.active_to || '').html() + '">Edit</button></td>' +
@@ -637,11 +651,8 @@ $role_badges = array(
         $('#update-btn').on('click', function() {
             if (!selectedStaffId) return;
 
-            var permission = $('input[name="permission"]:checked').val();
-            if (permission === undefined) {
-                showAlert('Please select a permission level.', false);
-                return;
-            }
+            // No roles ticked = Normal User (access removed).
+            var roles = checkedRoles();
 
             var activeFrom = $('#active-from').val();
             var activeTo   = $('#active-to').val();
@@ -664,16 +675,19 @@ $role_badges = array(
                 url: BACKEND_URL + '?action=updateAccess',
                 type: 'POST',
                 dataType: 'json',
-                data: { staff_id: selectedStaffId, permission: permission, outlet_ids: outletIds, active_from: activeFrom, active_to: activeTo },
+                data: { staff_id: selectedStaffId, permissions: roles.join(','), outlet_ids: outletIds, active_from: activeFrom, active_to: activeTo },
                 success: function(response) {
                     if (response.success) {
                         showAlert(response.message, true);
                         loadActiveStaff(currentPage);
-                        var updatedRoleLabel = ROLE_LABELS[parseInt(permission, 10)] + (IS_FULL_SUPER_ADMIN ? ' (' + permission + ')' : '');
-                        $('#info-role').text(updatedRoleLabel);
-                        if (parseInt(selectedStaffId, 10) === 5138) {
-                            $('#info-role').append(' <span class="badge bg-dark">Admin</span>');
+                        // Restricted editors cannot see the Admin checkbox; the backend keeps an
+                        // existing Admin role, so reflect that here too.
+                        var savedRoles = roles.slice();
+                        if (!IS_FULL_SUPER_ADMIN && selectedStaffRoles.indexOf(6) !== -1 && savedRoles.indexOf(6) === -1) {
+                            savedRoles.push(6);
                         }
+                        selectedStaffRoles = savedRoles;
+                        $('#info-role').html(roleBadgesHtml(savedRoles, selectedStaffId));
                     } else {
                         showAlert(response.message || 'Update failed.', false);
                     }

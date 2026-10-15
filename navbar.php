@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/roles.php';
 // Absolute base URL for this module's own pages/assets, e.g. "/odb/consultcall/" or
 // "/odb/consultcall-staging/". Derived from this file's own folder name so every
 // in-module link, redirect, and asset reference follows whichever copy
@@ -75,12 +76,9 @@ $cc_active         = ($current_dir == 'clinical_condition')                     
 $ao_active         = ($current_dir == 'add_ons')                                               ? 'active' : '';
 $admin_active      = ($current_page == 'index.php'  && $current_dir == 'admin')               ? 'active' : '';
 
-$_navbar_role = 0;
-if (isset($consult_call_permission)) {
-    $_navbar_role = (int)$consult_call_permission;
-} elseif (isset($currentStaffRole)) {
-    $_navbar_role = (int)$currentStaffRole;
-}
+// Roles resolved by the including page (staff.consult_call comma list).
+$_navbar_roles = $consult_call_roles ?? ($currentStaffRoles ?? []);
+$_navbar_can_admin = hasConsultCallRole($_navbar_roles, 1, 6);
 ?>
 <nav class="consultcall-nav navbar navbar-expand-lg navbar-light mb-3">
     <div class="container-fluid">
@@ -99,12 +97,12 @@ if (isset($consult_call_permission)) {
                 <li class="nav-item">
                     <a class="nav-link <?php echo $cc_active; ?>" href="<?php echo CONSULTCALL_BASE; ?>clinical_condition/index.php">Clinical Conditions</a>
                 </li>
-                <?php if ($_navbar_role === 1 || $_navbar_role === 6 || (isset($id_user) && (int)$id_user === 5138)): ?>
+                <?php if ($_navbar_can_admin): ?>
                 <li class="nav-item">
                     <a class="nav-link <?php echo $ao_active; ?>" href="<?php echo CONSULTCALL_BASE; ?>add_ons/index.php">Add Ons</a>
                 </li>
                 <?php endif; ?>
-                <?php if ($_navbar_role === 1 || $_navbar_role === 6 || (isset($id_user) && (int)$id_user === 5138)): ?>
+                <?php if ($_navbar_can_admin): ?>
                 <li class="nav-item">
                     <a class="nav-link <?php echo $admin_active; ?>" href="<?php echo CONSULTCALL_BASE; ?>admin/index.php">Admin</a>
                 </li>

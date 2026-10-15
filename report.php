@@ -30,31 +30,17 @@ require_once('../lock_adv.php');
 $connect = 1;
 include('../common/index_adv.php');
 
-$consult_call_permission = 0;
-$cc_query = "SELECT consult_call FROM staff WHERE id = '" . mysqli_real_escape_string($conn, $id_user) . "'";
-$cc_result = mysqli_query($conn, $cc_query);
-if ($cc_result && mysqli_num_rows($cc_result) > 0) {
-    $cc_row = mysqli_fetch_assoc($cc_result);
-    $consult_call_permission = isset($cc_row['consult_call']) ? (int)$cc_row['consult_call'] : 0;
-}
+require_once __DIR__ . '/roles.php';
+// Roles from staff.consult_call (comma list), dev role override applied on localhost.
+$consult_call_roles = resolveConsultCallRoles($conn, $id_user);
 
-// Apply dev role override on localhost (mirrors api-jwt.php behaviour)
-$_rpt_server_name = isset($_SERVER['SERVER_NAME']) ? $_SERVER['SERVER_NAME'] : '';
-$_rpt_http_host   = isset($_SERVER['HTTP_HOST'])   ? $_SERVER['HTTP_HOST']   : '';
-$_rpt_is_local    = in_array($_rpt_server_name, array('localhost', '127.0.0.1'))
-    || strpos($_rpt_http_host, 'localhost') !== false
-    || strpos($_rpt_http_host, '127.0.0.1') !== false;
-if ($_rpt_is_local && isset($_SESSION['dev_role_override'])) {
-    $consult_call_permission = (int)$_SESSION['dev_role_override'];
-}
-
-if ($consult_call_permission === 0) {
+if (!$consult_call_roles) {
     header('Location: ' . CONSULTCALL_BASE . 'unauthorized.php');
     exit;
 }
 
 $doctor_list = array();
-$doctor_query = "SELECT id, nama_staff FROM staff WHERE consult_call = 2 AND recycle != 1 ORDER BY nama_staff";
+$doctor_query = "SELECT id, nama_staff FROM staff WHERE FIND_IN_SET('2', consult_call) AND recycle != 1 ORDER BY nama_staff";
 $doctor_result = mysqli_query($conn, $doctor_query);
 if ($doctor_result) {
     while ($doctor_row = mysqli_fetch_assoc($doctor_result)) {
@@ -71,10 +57,9 @@ if ($outlet_result) {
     }
 }
 
-// Default report range: temporarily fixed to September 2026.
-// To restore the current-month default: date('Y-m-01') / date('Y-m-d').
-$report_default_from = '2026-09-01';
-$report_default_to   = '2026-09-30';
+// No default report range: Enrollment From/To start empty (all records).
+$report_default_from = '';
+$report_default_to   = '';
 ?>
 
 <body>
@@ -301,7 +286,7 @@ $report_default_to   = '2026-09-30';
     <script>
     var CC_CONFIG = {
         staffId: <?php echo json_encode(isset($id_user) ? $id_user : ''); ?>,
-        permission: <?php echo json_encode($consult_call_permission); ?>,
+        roles: <?php echo json_encode($consult_call_roles); ?>,
         baseUrl: <?php echo json_encode(CONSULTCALL_BASE); ?>,
         apiUrl: '<?php echo CONSULTCALL_BASE; ?>api-jwt.php',
         defaultDateFrom: <?php echo json_encode($report_default_from); ?>,

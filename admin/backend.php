@@ -13,6 +13,7 @@ if (!isset($_SESSION['myusername'])) {
 
 $connect = 1;
 include(__DIR__ . '/../../common/index_adv.php');
+require_once __DIR__ . '/../roles.php';
 
 if (!isset($conn)) {
     echo json_encode(array('error' => 'Database connection error'));
@@ -29,15 +30,15 @@ if (!$auth_result || mysqli_num_rows($auth_result) === 0) {
     echo json_encode(array('error' => 'Unauthorized'));
     exit;
 }
-$auth_row       = mysqli_fetch_assoc($auth_result);
-$requester_id   = (int)$auth_row['id'];
-$requester_role = (int)$auth_row['consult_call'];
+$auth_row        = mysqli_fetch_assoc($auth_result);
+$requester_id    = (int)$auth_row['id'];
+$requester_roles = parseConsultCallRoles($auth_row['consult_call']);
 
-// Full Super Admin (role 1) can manage anyone. Role 6 (Admin) and hardcoded
-// staff id 5138 get restricted access: they cannot assign the Super Admin
-// role, and cannot edit a staff who currently holds it.
-$is_full_super_admin = ($requester_role === 1);
-$is_authorized = $is_full_super_admin || $requester_role === 6 || $requester_id === 5138;
+// Full Super Admin (role 1) can manage anyone. Role 6 (Admin) gets restricted
+// access: they cannot assign the Super Admin or Admin role, and cannot edit a
+// staff who currently holds Super Admin.
+$is_full_super_admin = hasConsultCallRole($requester_roles, 1);
+$is_authorized = $is_full_super_admin || hasConsultCallRole($requester_roles, 6);
 if (!$is_authorized) {
     echo json_encode(array('error' => 'Unauthorized'));
     exit;
@@ -67,7 +68,7 @@ if ($action === 'getActiveStaff' && $_request_method === 'GET') {
     $perPage = 15;
     $offset  = ($page - 1) * $perPage;
 
-    $count_result = mysqli_query($conn, "SELECT COUNT(*) as total FROM staff WHERE consult_call > 0 AND recycle != 1");
+    $count_result = mysqli_query($conn, "SELECT COUNT(*) as total FROM staff WHERE consult_call NOT IN ('', '0') AND recycle != 1");
     $total = 0;
     if ($count_result) {
         $count_row = mysqli_fetch_assoc($count_result);
@@ -81,7 +82,7 @@ if ($action === 'getActiveStaff' && $_request_method === 'GET') {
               LEFT JOIN (SELECT staff_id, MAX(id) AS latest_id FROM staff_cc GROUP BY staff_id) latest_cc
                 ON latest_cc.staff_id = s.id
               LEFT JOIN staff_cc cc ON cc.id = latest_cc.latest_id
-              WHERE s.consult_call > 0 AND s.recycle != 1
+              WHERE s.consult_call NOT IN ('', '0') AND s.recycle != 1
               ORDER BY s.consult_call ASC, s.nama_staff ASC
               LIMIT $perPage OFFSET $offset";
     $result = mysqli_query($conn, $query);
@@ -92,7 +93,7 @@ if ($action === 'getActiveStaff' && $_request_method === 'GET') {
             $staff[] = array(
                 'id'             => (int)$row['id'],
                 'nama_staff'     => $row['nama_staff'],
-                'consult_call'   => (int)$row['consult_call'],
+                'roles'          => parseConsultCallRoles($row['consult_call']),
                 'status_semasa'  => $row['status_semasa'] ? $row['status_semasa'] : '-',
                 'department_name'=> $row['depart_name'] ? $row['depart_name'] : '-',
                 'outlet'         => $row['outlet'] ? $row['outlet'] : '',
@@ -142,7 +143,7 @@ if ($action === 'searchStaff' && $_request_method === 'POST') {
                 'nama_staff'      => $row['nama_staff'],
                 'department_name' => $row['depart_name'] ? $row['depart_name'] : '-',
                 'status_semasa'   => $row['status_semasa'] ? $row['status_semasa'] : '-',
-                'consult_call'    => (int)$row['consult_call'],
+                'roles'           => parseConsultCallRoles($row['consult_call']),
                 'outlet'          => $row['outlet'] ? $row['outlet'] : '',
                 'active_from'     => $row['active_from'] ? $row['active_from'] : '',
                 'active_to'       => $row['active_to'] ? $row['active_to'] : ''
@@ -155,32 +156,51 @@ if ($action === 'searchStaff' && $_request_method === 'POST') {
 }
 
 if ($action === 'updateAccess' && $_request_method === 'POST') {
-    $target_id  = isset($_POST['staff_id'])   ? (int)$_POST['staff_id']   : 0;
-    $permission = isset($_POST['permission']) ? (int)$_POST['permission'] : -1;
+    $target_id = isset($_POST['staff_id']) ? (int)$_POST['staff_id'] : 0;
+    // Comma-separated role IDs; empty = Normal User (no roles).
+    $permissions_raw = isset($_POST['permissions']) ? trim((string)$_POST['permissions']) : '';
 
     $valid_permissions = array(0, 1, 2, 3, 4, 5, 6);
+    $requested = $permissions_raw === '' ? array() : array_map('trim', explode(',', $permissions_raw));
+    foreach ($requested as $token) {
+        if (!ctype_digit($token) || !in_array((int)$token, $valid_permissions, true)) {
+            echo json_encode(array('success' => false, 'message' => 'Invalid input.'));
+            exit;
+        }
+    }
+    $roles = parseConsultCallRoles($permissions_raw);
 
-    if ($target_id <= 0 || !in_array($permission, $valid_permissions)) {
+    if ($target_id <= 0) {
         echo json_encode(array('success' => false, 'message' => 'Invalid input.'));
         exit;
     }
 
     if (!$is_full_super_admin) {
-        if ($permission === 1 || $permission === 6) {
-            echo json_encode(array('success' => false, 'message' => 'Only Super Admin can assign the Super Admin or Admin role.'));
-            exit;
-        }
         $target_query = mysqli_query($conn, "SELECT consult_call FROM staff WHERE id = $target_id AND recycle != 1");
         $target_row   = $target_query ? mysqli_fetch_assoc($target_query) : false;
         if (!$target_row) {
             echo json_encode(array('success' => false, 'message' => 'Staff not found.'));
             exit;
         }
-        if ((int)$target_row['consult_call'] === 1) {
+        $target_roles = parseConsultCallRoles($target_row['consult_call']);
+        if (hasConsultCallRole($target_roles, 1)) {
             echo json_encode(array('success' => false, 'message' => 'You are not allowed to edit a Super Admin.'));
             exit;
         }
+        $assigns_super_admin = in_array(1, $roles, true);
+        $assigns_new_admin   = in_array(6, $roles, true) && !in_array(6, $target_roles, true);
+        if ($assigns_super_admin || $assigns_new_admin) {
+            echo json_encode(array('success' => false, 'message' => 'Only Super Admin can assign the Super Admin or Admin role.'));
+            exit;
+        }
+        // The Admin checkbox is hidden from restricted editors, so an existing
+        // Admin role on the target is kept rather than silently removed.
+        if (in_array(6, $target_roles, true)) {
+            $roles[] = 6;
+        }
     }
+
+    $permission_str = formatConsultCallRoles($roles);
 
     $outlet_str = '';
     if (isset($_POST['outlet_ids']) && $_POST['outlet_ids'] !== '') {
@@ -198,8 +218,8 @@ if ($action === 'updateAccess' && $_request_method === 'POST') {
     $active_from = isset($_POST['active_from']) ? trim($_POST['active_from']) : '';
     $active_to   = isset($_POST['active_to'])   ? trim($_POST['active_to'])   : '';
 
-    // Normal User has no access to time-box -- always clear any existing timeline.
-    if ($permission === 0) {
+    // Normal User (no roles) has no access to time-box -- always clear any existing timeline.
+    if ($permission_str === '0') {
         $active_from = '';
         $active_to   = '';
     }
@@ -218,8 +238,9 @@ if ($action === 'updateAccess' && $_request_method === 'POST') {
         exit;
     }
 
-    $outlet_str_escaped = mysqli_real_escape_string($conn, $outlet_str);
-    $update = "UPDATE staff SET consult_call = $permission, outlet = '$outlet_str_escaped' WHERE id = $target_id AND recycle != 1";
+    $outlet_str_escaped     = mysqli_real_escape_string($conn, $outlet_str);
+    $permission_str_escaped = mysqli_real_escape_string($conn, $permission_str);
+    $update = "UPDATE staff SET consult_call = '$permission_str_escaped', outlet = '$outlet_str_escaped' WHERE id = $target_id AND recycle != 1";
     if (!mysqli_query($conn, $update)) {
         echo json_encode(array('success' => false, 'message' => 'Database error: ' . mysqli_error($conn)));
         exit;

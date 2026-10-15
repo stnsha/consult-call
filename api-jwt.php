@@ -1,5 +1,6 @@
 <?php
 date_default_timezone_set('Asia/Kuala_Lumpur');
+require_once __DIR__ . '/roles.php';
 
 // This file is hit directly as a standalone POST endpoint (no navbar.php in that
 // request), so define the module base here too if not already set -- see
@@ -199,7 +200,9 @@ function getStaffAuthData($staff_id)
         'staff_department_id' => (int)$row['department'],
         'status_semasa' => $row['status_semasa'],
         'outlet' => $outlet,
-        'consult_call' => isset($row['consult_call']) ? (int)$row['consult_call'] : 2
+        // staff.consult_call may hold several roles ("2,6"); the Laravel API takes a
+        // single role and only checks it for Super Admin (1).
+        'consult_call' => primaryConsultCallRole(parseConsultCallRoles($row['consult_call'] ?? ''))
     );
 
     // Dev role override: localhost only, for testing different roles without re-login
@@ -223,7 +226,7 @@ function getStaffAuthData($staff_id)
  * @param int $staff_department_id Staff department ID
  * @param string $status_semasa Staff status
  * @param array $outlet Outlet IDs array
- * @param int $consult_call role
+ * @param int $consult_call Single role for the API (see primaryConsultCallRole())
  * @return string|null JWT token or null on failure
  */
 function getJWTToken($staff_id, $staff_department_id, $status_semasa, $outlet, $consult_call)

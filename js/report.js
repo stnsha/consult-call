@@ -658,7 +658,8 @@
                 labels: agg.labels,
                 datasets: [{
                     data: agg.data,
-                    backgroundColor: COLOR_PRIMARY,
+                    // One palette colour per add-on so each bar is distinguishable.
+                    backgroundColor: paletteColors(agg.data.length),
                     borderRadius: 4,
                     barPercentage: 0.8,
                     datalabels: valueAndPercentDatalabels(agg.data, true, records.length)

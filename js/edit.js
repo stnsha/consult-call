@@ -338,12 +338,22 @@
         }
     }
 
+    /**
+     * Whether the current staff holds the given consult call role. Staff can hold
+     * several roles (EDIT_CONFIG.currentStaffRoles, from staff.consult_call).
+     * @param {number} role Role ID (1 = Super Admin, 2 = Doctor, 4 = Customer Support, ...)
+     * @returns {boolean}
+     */
+    function hasRole(role) {
+        return (EDIT_CONFIG.currentStaffRoles || []).indexOf(role) !== -1;
+    }
+
     // -- Form validation --
 
     function validateForm() {
         var valid = true;
 
-        if (EDIT_CONFIG.currentStaffRole === 4) {
+        if (hasRole(4)) {
             if (getRadioValue('call_answered') === '') {
                 showFieldError('call_answered', 'Please select whether the call was answered.');
                 valid = false;
@@ -432,7 +442,7 @@
             }
         }
 
-        if (EDIT_CONFIG.currentStaffRole === 2) {
+        if (hasRole(2)) {
             var consultDate = getInputValue('consult_date');
             if (!consultDate) {
                 showFieldError('consult_date', 'Consult date is required.');
@@ -956,7 +966,7 @@
     // -- Recommended Add Ons: multi-select checkbox dropdown --
     // Only Customer Support (role 4) may check/uncheck; disabled entirely for other roles and in
     // view-only mode (native checkboxes also get caught by disableAllFormFields()).
-    var addOnDropdownDisabled = (EDIT_CONFIG.viewOnly === true) || (EDIT_CONFIG.currentStaffRole !== 4);
+    var addOnDropdownDisabled = (EDIT_CONFIG.viewOnly === true) || (!hasRole(4));
 
     function getSelectedAddOnIds() {
         var listEl = document.getElementById('addon-ms-list');
@@ -2189,7 +2199,7 @@
             originalHandledBy = data.handled_by;
         }
         // Auto-select current staff for Handled By if no saved value and user is Customer Support (role 4)
-        if (!data.handled_by && EDIT_CONFIG.currentStaffRole === 4 && EDIT_CONFIG.currentStaffId) {
+        if (!data.handled_by && hasRole(4) && EDIT_CONFIG.currentStaffId) {
             setSelectValue('handled_by', String(EDIT_CONFIG.currentStaffId));
         }
         // Consent refused fields
@@ -2401,7 +2411,7 @@
         }
 
         // Auto-select current staff as Consulted By for Doctor role (role 2)
-        if (EDIT_CONFIG.currentStaffRole === 2 && EDIT_CONFIG.currentStaffId) {
+        if (hasRole(2) && EDIT_CONFIG.currentStaffId) {
             setSelectValue('consulted_by', String(EDIT_CONFIG.currentStaffId));
         }
 
@@ -2718,7 +2728,7 @@
 
         // Only Customer Support (role 4) can update consult call eligibility fields
         var consultCallPromise;
-        if (EDIT_CONFIG.currentStaffRole === 4) {
+        if (hasRole(4)) {
             consultCallPromise = apiCall('update-consult-call', {
                 id: EDIT_CONFIG.consultCallId,
                 data: consultCallData
@@ -2745,7 +2755,7 @@
             var promises = [];
 
             // Customer Support (role 4) saves Follow-up Checkpoint to the existing follow-up record
-            if (EDIT_CONFIG.currentStaffRole === 4 && isFollowUpCheckpointVisible && currentFollowUpId) {
+            if (hasRole(4) && isFollowUpCheckpointVisible && currentFollowUpId) {
                 promises.push(apiCall('update-follow-up', {
                     consult_call_id: EDIT_CONFIG.consultCallId,
                     follow_up_id: currentFollowUpId,
@@ -2760,7 +2770,7 @@
             // Customer Support (role 4): automatically update the detail when consent is refused/others
             // or when the scheduled appointment is cancelled. Also persists the Add On
             // Recommendation section's invoice fields, which live on the detail record.
-            if (EDIT_CONFIG.currentStaffRole === 4) {
+            if (hasRole(4)) {
                 var csDetailData = null;
                 if (consultCallData.consent_call_status === 2 || consultCallData.consent_call_status === 3) {
                     csDetailData = csDetailData || {};
@@ -2803,7 +2813,7 @@
                 }
             }
 
-            if (EDIT_CONFIG.currentStaffRole === 2) {
+            if (hasRole(2)) {
                 var hasDetail = detailData.consult_date || detailData.diagnosis ||
                     detailData.treatment_plan || detailData.consult_status !== null;
 
@@ -3005,7 +3015,7 @@
      * already disabled by the PHP $eD gate.
      */
     function applyInvoiceSyncLock() {
-        if (EDIT_CONFIG.currentStaffRole !== 4) return;
+        if (!hasRole(4)) return;
         var inp = document.getElementById('invoice_id');
         var btn = document.getElementById('invoice-sync-btn');
         var locked = !!invoiceSynced && !hasUnboughtSelectedAddOn();
@@ -3176,7 +3186,7 @@
             e.preventDefault();
 
             var invId = (getInputValue('invoice_id') || '').trim();
-            var isCustomerService = EDIT_CONFIG.currentStaffRole === 4;
+            var isCustomerService = hasRole(4);
             var needSync = isCustomerService && invId && !invoiceSynced;
 
             if (!needSync) {
