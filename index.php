@@ -214,6 +214,8 @@ if ($doctor_result) {
                             <label for="searchInput" class="form-label">Search</label>
                             <input type="text" class="form-control" id="searchInput"
                                 placeholder="Name, IC, phone or #CC123">
+                            <!-- Filters without a dropdown (set by report.php drill-down links) -->
+                            <div id="urlFilterChips" class="d-flex flex-wrap gap-2 mt-2"></div>
                         </div>
                     </div>
                     <!-- Filter row 1: Consent Status | Process Status | Draft Status | Action -->
@@ -366,6 +368,23 @@ if ($doctor_result) {
                                 <option value="0">No</option>
                             </select>
                         </div>
+                        <div class="col-md-3">
+                            <label for="consentDateFrom" class="form-label">Consent Date From</label>
+                            <input type="date" class="form-control" id="consentDateFrom">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="consentDateTo" class="form-label">Consent Date To</label>
+                            <input type="date" class="form-control" id="consentDateTo">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="callAnsweredFilter" class="form-label">Answered Call</label>
+                            <select class="form-select" id="callAnsweredFilter">
+                                <option value="">All</option>
+                                <option value="1">Yes</option>
+                                <option value="0">No</option>
+                                <option value="2">None</option>
+                            </select>
+                        </div>
                         <div class="col-md-3 ms-auto d-flex gap-2 align-items-end">
                             <button type="button" class="btn btn-success flex-fill" id="exportBtn"
                                 title="Export current filter results to Excel">
@@ -374,6 +393,7 @@ if ($doctor_result) {
                             <button type="button" class="btn btn-secondary flex-fill" id="resetBtn"
                                 title="Reset Filters">
                                 <i class="bi bi-x-lg me-1"></i>Reset
+                                <span class="badge rounded-pill bg-dark ms-1 d-none" id="activeFilterCount">0</span>
                             </button>
                         </div>
                     </div>

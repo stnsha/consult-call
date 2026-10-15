@@ -16,6 +16,10 @@
 
     var currentPage = 1;
     var perPage = 10;
+    // Filters with no dropdown on this page (outlet, non-eligibility reason, multiple
+    // consult statuses). They only arrive via report.php drill-down links and are
+    // shown as removable chips. Shape: { apiParam: { value, label } }.
+    var urlOnlyFilters = {};
     var searchTimeout = null;
     var sortBy  = null;
     var sortDir = 'asc';
@@ -249,6 +253,19 @@
 
         var consultationType = document.getElementById('consultationTypeFilter').value;
         if (consultationType !== '') params.consultation_type = consultationType;
+
+        var consentDateFrom = document.getElementById('consentDateFrom').value;
+        if (consentDateFrom) params.consent_date_from = consentDateFrom;
+
+        var consentDateTo = document.getElementById('consentDateTo').value;
+        if (consentDateTo) params.consent_date_to = consentDateTo;
+
+        var callAnswered = document.getElementById('callAnsweredFilter').value;
+        if (callAnswered !== '') params.call_answered = callAnswered;
+
+        Object.keys(urlOnlyFilters).forEach(function(param) {
+            params[param] = urlOnlyFilters[param].value;
+        });
 
         params.per_page = perPage;
         params.page = currentPage;
@@ -573,8 +590,51 @@
         return true;
     }
 
+    /**
+     * Every filter control on the page; used to highlight the ones in use.
+     */
+    var FILTER_FIELD_IDS = [
+        'searchInput', 'consentFilter', 'processFilter', 'draftFilter', 'actionFilter',
+        'consultDateFrom', 'consultDateTo', 'consultedByFilter', 'consultStatusFilter',
+        'consultationTypeFilter', 'adviseTypeFilter', 'enrollmentFilter', 'dateFrom', 'dateTo',
+        'bloodTestDateFrom', 'bloodTestDateTo', 'reminderFilter',
+        'scheduledFrom', 'scheduledTo', 'addOnFilter', 'rxIssuedFilter',
+        'consentDateFrom', 'consentDateTo', 'callAnsweredFilter'
+    ];
+
+    /**
+     * Highlight each filter that has a value and show the active count on the
+     * Reset button, so it is obvious the table is showing filtered data.
+     */
+    function updateFilterIndicators() {
+        var activeCount = 0;
+        for (var i = 0; i < FILTER_FIELD_IDS.length; i++) {
+            var el = document.getElementById(FILTER_FIELD_IDS[i]);
+            if (!el) continue;
+            var isActive = el.value.trim() !== '';
+            el.classList.toggle('filter-active', isActive);
+            if (isActive) activeCount++;
+        }
+        activeCount += Object.keys(urlOnlyFilters).length;
+
+        var badge = document.getElementById('activeFilterCount');
+        if (badge) {
+            badge.textContent = activeCount;
+            badge.classList.toggle('d-none', activeCount === 0);
+        }
+        var resetBtn = document.getElementById('resetBtn');
+        if (resetBtn) {
+            resetBtn.classList.toggle('btn-secondary', activeCount === 0);
+            resetBtn.classList.toggle('btn-warning', activeCount > 0);
+            resetBtn.title = activeCount > 0
+                ? activeCount + ' filter' + (activeCount === 1 ? '' : 's') + ' active - click to reset'
+                : 'Reset Filters';
+        }
+    }
+
     function loadTableData() {
         showTableLoading();
+        updateFilterIndicators();
         var params = getFilterParams();
 
         // Add-On / Advise Type / Blood Test Date are all filtered server-side now
@@ -846,6 +906,10 @@
         document.getElementById('consultStatusFilter').value = '';
         document.getElementById('rxIssuedFilter').value = '';
         document.getElementById('consultationTypeFilter').value = '';
+        document.getElementById('consentDateFrom').value = '';
+        document.getElementById('consentDateTo').value = '';
+        document.getElementById('callAnsweredFilter').value = '';
+        clearUrlOnlyFilters();
 
         var el = document.getElementById(field);
         if (el) {
@@ -881,6 +945,10 @@
         document.getElementById('consultStatusFilter').value = '';
         document.getElementById('rxIssuedFilter').value = '';
         document.getElementById('consultationTypeFilter').value = '';
+        document.getElementById('consentDateFrom').value = '';
+        document.getElementById('consentDateTo').value = '';
+        document.getElementById('callAnsweredFilter').value = '';
+        clearUrlOnlyFilters();
         sortBy  = null;
         sortDir = 'asc';
         currentPage = 1;
@@ -1075,6 +1143,103 @@
         });
     }
 
+    var NON_ELIGIBILITY_REASON_LABELS = {
+        'OM-FU': 'On Prescribed Medication/Follow-Up',
+        'UR': 'Unreachable',
+        'NK': 'Not Keen',
+        'FN': 'Foreign Number',
+        'OTHER': 'Other'
+    };
+
+    var CONSULT_STATUS_LABELS = { '0': 'Pending', '1': 'Completed', '2': 'No-show', '3': 'Cancelled' };
+
+    /**
+     * Re-render the chips for urlOnlyFilters.
+     */
+    function renderUrlOnlyFilterChips() {
+        var wrapper = document.getElementById('urlFilterChips');
+        if (!wrapper) return;
+        var html = '';
+        Object.keys(urlOnlyFilters).forEach(function(param) {
+            html += '<span class="badge rounded-pill text-bg-primary">'
+                + escapeHtml(urlOnlyFilters[param].label)
+                + '<button type="button" class="btn-close btn-close-white ms-1 url-filter-chip-clear"'
+                + ' data-param="' + escapeHtml(param) + '" style="font-size: 9px; vertical-align: middle;"'
+                + ' aria-label="Remove filter"></button></span>';
+        });
+        wrapper.innerHTML = html;
+    }
+
+    function clearUrlOnlyFilters() {
+        urlOnlyFilters = {};
+        renderUrlOnlyFilterChips();
+    }
+
+    /**
+     * Pre-fill filters from the query string (report.php drill-down links), then
+     * strip the query string so Reset / refresh do not re-apply it.
+     */
+    function applyUrlFilters() {
+        if (!window.location.search) return;
+        var query = new URLSearchParams(window.location.search);
+        var fieldMap = {
+            enrollment_type: 'enrollmentFilter',
+            date_from: 'dateFrom',
+            date_to: 'dateTo',
+            consulted_by: 'consultedByFilter',
+            consent_call_status: 'consentFilter',
+            consent_date_from: 'consentDateFrom',
+            consent_date_to: 'consentDateTo',
+            call_answered: 'callAnsweredFilter',
+            consult_status: 'consultStatusFilter',
+            consult_date_from: 'consultDateFrom',
+            consult_date_to: 'consultDateTo',
+            detail_action: 'actionFilter',
+            process_status: 'processFilter',
+            has_add_on: 'addOnFilter',
+            advise_type: 'adviseTypeFilter',
+            consultation_type: 'consultationTypeFilter'
+        };
+        Object.keys(fieldMap).forEach(function(param) {
+            var value = query.get(param);
+            var el = document.getElementById(fieldMap[param]);
+            if (value !== null && el) el.value = value;
+        });
+        urlOnlyFilters = {};
+        if (query.get('outlet_id')) {
+            urlOnlyFilters.outlet_id = {
+                value: query.get('outlet_id'),
+                label: 'Outlet: ' + (query.get('outlet_code') || ('#' + query.get('outlet_id')))
+            };
+        }
+        var reason = (query.get('non_eligibility_reason') || '').toUpperCase();
+        if (reason) {
+            urlOnlyFilters.non_eligibility_reason = {
+                value: reason,
+                label: 'Non-Eligibility Reason: ' + (NON_ELIGIBILITY_REASON_LABELS[reason] || reason)
+            };
+        }
+        if (query.get('add_on_id')) {
+            urlOnlyFilters.add_on_id = {
+                value: query.get('add_on_id'),
+                label: 'Add On: ' + (query.get('add_on_name') || ('#' + query.get('add_on_id')))
+            };
+        }
+        if (query.get('consult_status_in')) {
+            var statusNames = query.get('consult_status_in').split(',').map(function(s) {
+                return CONSULT_STATUS_LABELS[s.trim()] || s.trim();
+            });
+            urlOnlyFilters.consult_status_in = {
+                value: query.get('consult_status_in'),
+                label: 'Consult Status: ' + statusNames.join(' / ')
+            };
+        }
+        renderUrlOnlyFilterChips();
+        if (window.history && window.history.replaceState) {
+            window.history.replaceState(null, '', window.location.pathname);
+        }
+    }
+
     /**
      * Initialize all event listeners and load initial data
      */
@@ -1102,9 +1267,21 @@
         document.getElementById('consultStatusFilter').addEventListener('change', onFilterChange);
         document.getElementById('rxIssuedFilter').addEventListener('change', onFilterChange);
         document.getElementById('consultationTypeFilter').addEventListener('change', onFilterChange);
+        document.getElementById('consentDateFrom').addEventListener('change', onFilterChange);
+        document.getElementById('consentDateTo').addEventListener('change', onFilterChange);
+        document.getElementById('callAnsweredFilter').addEventListener('change', onFilterChange);
 
         document.getElementById('resetBtn').addEventListener('click', resetFilters);
         document.getElementById('exportBtn').addEventListener('click', exportToExcel);
+        document.getElementById('urlFilterChips').addEventListener('click', function(e) {
+            var btn = e.target.closest('.url-filter-chip-clear');
+            if (!btn) return;
+            delete urlOnlyFilters[btn.getAttribute('data-param')];
+            renderUrlOnlyFilterChips();
+            onFilterChange();
+        });
+
+        applyUrlFilters();
 
         var filterRows = document.querySelectorAll('.card-filter-row');
         for (var f = 0; f < filterRows.length; f++) {

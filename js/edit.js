@@ -344,6 +344,13 @@
         var valid = true;
 
         if (EDIT_CONFIG.currentStaffRole === 4) {
+            if (getRadioValue('call_answered') === '') {
+                showFieldError('call_answered', 'Please select whether the call was answered.');
+                valid = false;
+            } else {
+                clearFieldError('call_answered');
+            }
+
             var consentStatus = getRadioValue('consent_status');
             if (!consentStatus) {
                 showFieldError('consent_status', 'Please select a consent status.');
@@ -1127,6 +1134,9 @@
             consentLabel = 'Accepted';
         }
         setText('elig-consent-status', consentLabel);
+        var callAnswered = (data.call_answered === undefined || data.call_answered === null)
+            ? '' : ({ '1': 'Yes', '0': 'No', '2': 'None' }[String(data.call_answered)] || '');
+        setText('elig-call-answered', callAnswered);
         setText('elig-reason', data.reason || '');
         var addOnNames = [];
         var addOnRows = data.addOns || [];
@@ -2115,6 +2125,8 @@
         var consentStatus = (data.consent_call_status !== undefined && data.consent_call_status !== null)
             ? String(data.consent_call_status) : CONSENT_PENDING;
         setRadioValue('consent_status', consentStatus);
+        // Answered Call (1 = Yes, 0 = No, 2 = None / no call made); left unselected when never recorded.
+        setRadioValue('call_answered', data.call_answered);
         // Populate the Reason field first -- handleConsentChange() runs last so its
         // Refused/Others visibility check has final say over whether the Reason
         // field and Remarks required-mark are actually shown.
@@ -2630,6 +2642,7 @@
 
         // Consult call level data (matches API 2.5 Update fields)
         var consultCallData = {
+            call_answered: toIntOrNull(getRadioValue('call_answered')),
             consent_call_status: toIntOrNull(getRadioValue('consent_status')),
             reason: getReasonValue(),
             add_on_ids: getSelectedAddOnIds(),

@@ -1,4 +1,5 @@
 <?php
+date_default_timezone_set('Asia/Kuala_Lumpur');
 // Absolute base URL for this module's own pages/assets -- see navbar.php for
 // the full explanation. Defined here too since this link tag in <head> is
 // output before navbar.php is included further down.
@@ -70,9 +71,10 @@ if ($outlet_result) {
     }
 }
 
-// Default report range: current calendar month
-$report_default_from = date('Y-m-01');
-$report_default_to   = date('Y-m-d');
+// Default report range: temporarily fixed to September 2026.
+// To restore the current-month default: date('Y-m-01') / date('Y-m-d').
+$report_default_from = '2026-09-01';
+$report_default_to   = '2026-09-30';
 ?>
 
 <body>
@@ -118,7 +120,7 @@ $report_default_to   = date('Y-m-d');
                                 <?php endforeach; ?>
                             </select>
                         </div>
-                        <div class="col-md-2">
+                        <div class="col-md-4">
                             <label for="rptDoctorFilter" class="form-label">Doctor</label>
                             <select class="form-select" id="rptDoctorFilter">
                                 <option value="">All Doctors</option>
@@ -128,16 +130,7 @@ $report_default_to   = date('Y-m-d');
                                 <?php endforeach; ?>
                             </select>
                         </div>
-                        <div class="col-md-2">
-                            <label for="rptPeriodToggle" class="form-label">Enrollment Trend By</label>
-                            <select class="form-select" id="rptPeriodToggle">
-                                <option value="day">Day</option>
-                                <option value="week">Weekly</option>
-                                <option value="month" selected>Monthly</option>
-                                <option value="year">Year</option>
-                            </select>
-                        </div>
-                        <div class="col-md-2 d-flex gap-2">
+                        <div class="col-md-2 ms-auto d-flex gap-2">
                             <button type="button" class="btn btn-primary flex-fill" id="rptApplyBtn">
                                 <i class="bi bi-funnel me-1"></i>Apply
                             </button>
@@ -154,7 +147,7 @@ $report_default_to   = date('Y-m-d');
         <!-- Monthly breakdown tables -->
         <div class="row mb-2">
             <div class="col-12">
-                <h2 class="mb-0" style="font-size: 15px; font-weight: 600;">Enrollment Data Breakdown by Month</h2>
+                <h2 class="mb-0" style="font-size: 15px; font-weight: 600;">Enrollment Type Breakdown by Month</h2>
             </div>
         </div>
         <div class="row g-3 mb-4">
@@ -164,8 +157,8 @@ $report_default_to   = date('Y-m-d');
                         <table class="table table-hover mb-0" id="enrollmentMonthlyTable">
                             <thead>
                                 <tr id="enrollmentMonthlyTableHead">
-                                    <th>Type</th>
-                                    <th class="text-end">Total</th>
+                                    <th class="text-center">Type</th>
+                                    <th class="text-center">Total</th>
                                 </tr>
                             </thead>
                             <tbody id="enrollmentMonthlyTableBody">
@@ -192,10 +185,10 @@ $report_default_to   = date('Y-m-d');
                         <table class="table table-hover mb-0" id="monthlySummaryTable">
                             <thead>
                                 <tr>
-                                    <th>Month</th>
-                                    <th class="text-end">Total Calls Obtained</th>
-                                    <th class="text-end">Total Completed Calls</th>
-                                    <th class="text-end">Total Referred Internally</th>
+                                    <th class="text-center">Month</th>
+                                    <th class="text-center">Total Consent Obtained</th>
+                                    <th class="text-center">Total Consultations Completed</th>
+                                    <th class="text-center">Total Referred Internally</th>
                                 </tr>
                             </thead>
                             <tbody id="monthlySummaryTableBody">
@@ -225,12 +218,6 @@ $report_default_to   = date('Y-m-d');
             </div>
             <div class="col-12">
                 <div class="bento-card">
-                    <h3 class="chart-title">Enrollment Type by Month</h3>
-                    <div class="chart-wrap"><canvas id="chartA2"></canvas></div>
-                </div>
-            </div>
-            <div class="col-12">
-                <div class="bento-card">
                     <h3 class="chart-title">Enrollment Data by Outlets by Month (Top 5)</h3>
                     <div class="chart-wrap"><canvas id="chartA3"></canvas></div>
                 </div>
@@ -252,6 +239,12 @@ $report_default_to   = date('Y-m-d');
         <div class="row g-3 mb-4">
             <div class="col-12">
                 <div class="bento-card">
+                    <h3 class="chart-title">Answered Call by Month</h3>
+                    <div class="chart-wrap"><canvas id="chartAnsweredCall"></canvas></div>
+                </div>
+            </div>
+            <div class="col-12">
+                <div class="bento-card">
                     <h3 class="chart-title">Consent Status by Month</h3>
                     <div class="chart-wrap"><canvas id="chartB1"></canvas></div>
                 </div>
@@ -266,6 +259,15 @@ $report_default_to   = date('Y-m-d');
                 <div class="bento-card">
                     <h3 class="chart-title">Add-On Status by Month</h3>
                     <div class="chart-wrap"><canvas id="chartB3"></canvas></div>
+                </div>
+            </div>
+            <div class="col-12">
+                <div class="bento-card">
+                    <h3 class="chart-title">Consult Calls per Add On</h3>
+                    <div id="chartAddOnUsageEmpty" class="text-center text-muted py-4" style="display:none; font-size: 13px;">
+                        No add-ons recommended for the selected filters.
+                    </div>
+                    <div class="chart-wrap" id="chartAddOnUsageWrap"><canvas id="chartAddOnUsage"></canvas></div>
                 </div>
             </div>
             <div class="col-12">
@@ -301,7 +303,9 @@ $report_default_to   = date('Y-m-d');
         staffId: <?php echo json_encode(isset($id_user) ? $id_user : ''); ?>,
         permission: <?php echo json_encode($consult_call_permission); ?>,
         baseUrl: <?php echo json_encode(CONSULTCALL_BASE); ?>,
-        apiUrl: '<?php echo CONSULTCALL_BASE; ?>api-jwt.php'
+        apiUrl: '<?php echo CONSULTCALL_BASE; ?>api-jwt.php',
+        defaultDateFrom: <?php echo json_encode($report_default_from); ?>,
+        defaultDateTo: <?php echo json_encode($report_default_to); ?>
     };
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>

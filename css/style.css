@@ -830,3 +830,24 @@ button {
 .consultcall-container .sort-icon.active-desc::after {
     border-top-color: #0d6efd;
 }
+
+/* Report drill-down: count cells link to the filtered consult call list */
+.report-drilldown-link {
+    color: inherit;
+    font-weight: 600;
+    text-decoration: none;
+    border-bottom: 1px dashed currentColor;
+}
+
+.report-drilldown-link:hover {
+    color: #0d6efd;
+    border-bottom-style: solid;
+}
+
+/* index.php: filter controls currently in use */
+.form-control.filter-active,
+.form-select.filter-active {
+    border-color: #0d6efd;
+    background-color: #eef4ff;
+    box-shadow: 0 0 0 1px #0d6efd;
+}

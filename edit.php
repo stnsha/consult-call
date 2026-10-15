@@ -437,6 +437,10 @@ $psD = (!in_array($currentStaffRole, array(2, 4))) ? 'disabled' : '';
                 </div>
                 <div class="form-section" id="section-eligibility">
                     <div class="row g-3">
+                        <div class="col-md-12">
+                            <label class="form-label">Answered Call</label>
+                            <div class="readonly-field" id="elig-call-answered">--</div>
+                        </div>
                         <div class="col-md-6">
                             <label class="form-label"><span data-ao-label="Customer Response">Consent Status</span></label>
                             <div class="readonly-field" id="elig-consent-status">--</div>
@@ -473,12 +477,35 @@ $psD = (!in_array($currentStaffRole, array(2, 4))) ? 'disabled' : '';
                 </div>
                 <div class="form-section" id="section-eligibility">
                     <div class="row g-4">
-                        <!-- Consent Status + Reason live in their own nested row so hiding Reason
-                             (display:none when not Refused/Others) never reflows the fields below. -->
+                        <!-- Answered Call + Consent Status + Reason live in their own nested row so hiding
+                             Reason (display:none when not Refused/Others) never reflows the fields below. -->
                         <div class="col-md-12">
                             <div class="row g-4">
+                                <!-- Answered Call (consult_calls.call_answered: 1 = Yes, 0 = No, 2 = None / no call made) -->
+                                <div class="col-md-3">
+                                    <label class="form-label">Answered Call<span style="color:red;"> *</span></label>
+                                    <div class="radio-group">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="call_answered"
+                                                id="call_answered_yes" value="1" <?php echo $eD; ?>>
+                                            <label class="form-check-label" for="call_answered_yes">Yes</label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="call_answered"
+                                                id="call_answered_no" value="0" <?php echo $eD; ?>>
+                                            <label class="form-check-label" for="call_answered_no">No</label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="call_answered"
+                                                id="call_answered_none" value="2" <?php echo $eD; ?>>
+                                            <label class="form-check-label" for="call_answered_none"
+                                                title="No call was made (e.g. report overdue, excluded, not eligible)">None</label>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <!-- Consent Status -->
-                                <div class="col-md-6">
+                                <div class="col-md-5">
                                     <label class="form-label"><span data-ao-label="Customer Response">Consent Status</span><span style="color:red;"> *</span></label>
                                     <div class="radio-group">
                                         <div class="form-check">
@@ -505,7 +532,7 @@ $psD = (!in_array($currentStaffRole, array(2, 4))) ? 'disabled' : '';
                                 </div>
 
                                 <!-- Reason (optional, shown when consent is Refused or Others) -->
-                                <div class="col-md-6 conditional-field" data-condition="consent_reason">
+                                <div class="col-md-4 conditional-field" data-condition="consent_reason">
                                     <label class="form-label">Reason</label>
                                     <select class="form-select" name="reason" id="reason" <?php echo $eD; ?>>
                                         <option value="">Select Reason</option>

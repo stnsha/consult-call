@@ -52,7 +52,7 @@
     };
 
     var chartInstances = {};
-    var state = { records: [] };
+    var state = { records: [], filters: {} };
 
     if (window.Chart) {
         Chart.defaults.font.family = "system-ui, -apple-system, 'Segoe UI', sans-serif";
@@ -188,10 +188,6 @@
         };
     }
 
-    function getPeriod() {
-        return document.getElementById('rptPeriodToggle').value;
-    }
-
     /**
      * Fetch the full filtered consult-call dataset in one page, mirroring
      * main.js exportToExcel()'s per_page:10000 pattern. outlet_id is not part
@@ -293,14 +289,37 @@
         });
     }
 
+    function escapeHtml(str) {
+        if (!str && str !== 0) return '';
+        var div = document.createElement('div');
+        div.appendChild(document.createTextNode(String(str)));
+        return div.innerHTML;
+    }
+
     // ---- Date/period bucketing helpers (A1) ----
 
     function pad2(n) {
         return n < 10 ? '0' + n : '' + n;
     }
 
+    // en-CA formats as YYYY-MM-DD.
+    var KL_DATE_FORMAT = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Kuala_Lumpur', year: 'numeric', month: '2-digit', day: '2-digit'
+    });
+
     function parseDateOnly(str) {
         if (!str) return null;
+        // Laravel serializes datetime casts in UTC (e.g. 2026-08-31T16:45:39.000000Z
+        // for 1 Sep 00:45 Malaysia time). Convert those to the Asia/Kuala_Lumpur
+        // calendar date -- independent of the viewer's browser timezone -- instead
+        // of reading the UTC date off the string.
+        if (/T\d{2}:\d{2}.*(Z|[+-]\d{2}:?\d{2})$/.test(String(str))) {
+            var utc = new Date(str);
+            if (!isNaN(utc.getTime())) {
+                var klParts = KL_DATE_FORMAT.format(utc).split('-');
+                return new Date(parseInt(klParts[0], 10), parseInt(klParts[1], 10) - 1, parseInt(klParts[2], 10));
+            }
+        }
         var m = String(str).match(/^(\d{4})-(\d{2})-(\d{2})/);
         if (!m) {
             var d = new Date(str);
@@ -354,6 +373,7 @@
         }
         var keys = Object.keys(counts).sort();
         return {
+            keys: keys,
             labels: keys.map(function(k) { return formatBucketLabel(k, period); }),
             data: keys.map(function(k) { return counts[k]; })
         };
@@ -368,9 +388,11 @@
      *   categoryLabels for this record, or null/undefined to exclude it entirely
      * @param {string[]} categoryLabels Fixed, ordered category names (small sets only --
      *   this renders one grouped bar per label per month)
-     * @returns {{months: string[], datasets: {label: string, data: number[]}[]}}
+     * @param {object[]} [categoryFilters] index.php query params per category, used by
+     *   the chart click drill-down (same order as categoryLabels)
+     * @returns {{keys: string[], months: string[], datasets: {label: string, data: number[], filter: object}[]}}
      */
-    function aggregateGroupedByMonth(records, categorize, categoryLabels) {
+    function aggregateGroupedByMonth(records, categorize, categoryLabels, categoryFilters) {
         var byMonth = {};
         for (var i = 0; i < records.length; i++) {
             var d = parseDateOnly(records[i].enrollment_date);
@@ -386,9 +408,14 @@
         }
         var keys = Object.keys(byMonth).sort();
         return {
+            keys: keys,
             months: keys.map(function(k) { return formatBucketLabel(k, 'month'); }),
             datasets: categoryLabels.map(function(label, idx) {
-                return { label: label, data: keys.map(function(k) { return byMonth[k][idx]; }) };
+                return {
+                    label: label,
+                    data: keys.map(function(k) { return byMonth[k][idx]; }),
+                    filter: (categoryFilters && categoryFilters[idx]) || {}
+                };
             })
         };
     }
@@ -404,9 +431,12 @@
      *   record (e.g. outlet_id), or null/undefined to exclude it
      * @param {function(string|number): string} nameGetter Display name for a category id
      * @param {number} topN How many top categories get their own segment
-     * @returns {{months: string[], datasets: {label: string, data: number[]}[]}}
+     * @param {boolean} includeOthers Fold the rest into an "Others" segment
+     * @param {function(string|number): object} [filterForId] index.php query params
+     *   for a category id, used by the chart click drill-down
+     * @returns {{keys: string[], months: string[], datasets: {label: string, data: number[], filter: object}[]}}
      */
-    function aggregateStackedByMonth(records, idGetter, nameGetter, topN, includeOthers) {
+    function aggregateStackedByMonth(records, idGetter, nameGetter, topN, includeOthers, filterForId) {
         var totalCounts = {};
         for (var i = 0; i < records.length; i++) {
             var id = idGetter(records[i]);
@@ -442,26 +472,28 @@
         }
         var keys = Object.keys(byMonth).sort();
         return {
+            keys: keys,
             months: keys.map(function(k) { return formatBucketLabel(k, 'month'); }),
             datasets: labels.map(function(label, idx) {
-                return { label: label, data: keys.map(function(k) { return byMonth[k][idx]; }) };
+                // "Others" has no single id to filter on -- it stays non-clickable.
+                var id = idx < topIds.length ? topIds[idx] : null;
+                return {
+                    label: label,
+                    data: keys.map(function(k) { return byMonth[k][idx]; }),
+                    filter: (id !== null && filterForId) ? filterForId(id) : null
+                };
             })
         };
     }
 
-    function aggregateEnrollmentType(records) {
-        return aggregateGroupedByMonth(records, function(r) {
-            var t = parseInt(r.enrollment_type, 10);
-            return t === 1 ? 0 : (t === 2 ? 1 : null);
-        }, ['New Case', 'Follow-up']);
-    }
-
     function aggregateByOutletMonthly(records, outletMap) {
         // Top 5 outlets only -- records outside the top 5 are dropped, no "Others" bucket.
+        var outletName = function(id) { var o = outletMap[id]; return o ? o.code : ('Outlet #' + id); };
         return aggregateStackedByMonth(records,
             function(r) { return r.outlet_id || null; },
-            function(id) { var o = outletMap[id]; return o ? o.code : ('Outlet #' + id); },
-            5, false);
+            outletName,
+            5, false,
+            function(id) { return { outlet_id: id, outlet_code: outletName(id) }; });
     }
 
     function aggregateByDoctorMonthly(records, staffMap) {
@@ -472,14 +504,30 @@
                 return (det && det.consulted_by) ? det.consulted_by : null;
             },
             function(id) { var s = staffMap[id]; return s ? s.name : ('Staff #' + id); },
-            5, false);
+            5, false,
+            function(id) { return { consulted_by: id }; });
+    }
+
+    // Answered Call (consult_calls.call_answered: 1 = Yes, 0 = No, 2 = None / no call
+    // made) per month. Records where it was never recorded (null, e.g. still Pending)
+    // are left out.
+    function aggregateAnsweredCall(records) {
+        var order = [1, 0, 2];
+        return aggregateGroupedByMonth(records, function(r) {
+            if (r.call_answered === null || r.call_answered === undefined) return null;
+            var idx = order.indexOf(parseInt(r.call_answered, 10));
+            return idx >= 0 ? idx : null;
+        }, ['Yes', 'No', 'None'], order.map(function(v) { return { call_answered: v }; }));
     }
 
     function aggregateConsentStatus(records) {
         return aggregateGroupedByMonth(records, function(r) {
             var cs = parseInt(r.consent_call_status, 10);
             return (cs >= 0 && cs <= 3) ? cs : null;
-        }, ['Pending', 'Obtained', 'Refused', 'Not Eligible']);
+        }, ['Pending', 'Obtained', 'Refused', 'Not Eligible'], [
+            { consent_call_status: 0 }, { consent_call_status: 1 },
+            { consent_call_status: 2 }, { consent_call_status: 3 }
+        ]);
     }
 
     function aggregateNonEligibilityReasons(records) {
@@ -489,13 +537,14 @@
             if (cs !== 2 && cs !== 3) return null;
             var code = (r.reason && REASON_CODE_MAP.hasOwnProperty(r.reason)) ? REASON_CODE_MAP[r.reason] : 'Other';
             return order.indexOf(code);
-        }, ['On Prescribed Medication/Follow-Up', 'Unreachable', 'Not Keen', 'Foreign Number', 'Other']);
+        }, ['On Prescribed Medication/Follow-Up', 'Unreachable', 'Not Keen', 'Foreign Number', 'Other'],
+        order.map(function(code) { return { non_eligibility_reason: code.toUpperCase() }; }));
     }
 
     function aggregateAddOnStatus(records) {
         return aggregateGroupedByMonth(records, function(r) {
             return (r.add_on_ids && r.add_on_ids.length) ? 0 : 1;
-        }, ['Yes', 'No']);
+        }, ['Yes', 'No'], [{ has_add_on: 1 }, { has_add_on: 0 }]);
     }
 
     /**
@@ -512,7 +561,7 @@
             var det = getLatestNonDraftDetail(r);
             var type = det && det.clinical_condition ? det.clinical_condition.type : null;
             return type ? order.indexOf(type) : null;
-        }, order.slice());
+        }, order.slice(), order.map(function(type) { return { advise_type: type }; }));
     }
 
     // Simplified to New Case vs Follow-up per month -- the original consult_status
@@ -526,14 +575,17 @@
             if (status < 1 || status > 3) return null; // skip Pending
             var type = parseInt(det.consultation_type, 10);
             return type === 1 ? 0 : (type === 2 ? 1 : null);
-        }, ['New Case', 'Follow-up']);
+        }, ['New Case', 'Follow-up'], [
+            { consultation_type: 1, consult_status_in: '1,2,3' },
+            { consultation_type: 2, consult_status_in: '1,2,3' }
+        ]);
     }
 
     function aggregateProcessStatus(records) {
         return aggregateGroupedByMonth(records, function(r) {
             var p = deriveProcessStatus(r);
             return p === 1 ? 0 : (p === 3 ? 1 : null);
-        }, ['Active', 'Closed']);
+        }, ['Active', 'Closed'], [{ process_status: 1 }, { process_status: 3 }]);
     }
 
     function aggregateModeOfAction(records) {
@@ -542,7 +594,96 @@
             if (!det) return null;
             var a = parseInt(det.action, 10);
             return a === 1 ? 0 : (a === 2 ? 1 : (a === 3 ? 2 : null));
-        }, ['Refer Internal', 'Refer External', 'End Process']);
+        }, ['Refer Internal', 'Refer External', 'End Process'],
+        [{ detail_action: 1 }, { detail_action: 2 }, { detail_action: 3 }]);
+    }
+
+    /**
+     * Consult calls per recommended add-on across the whole filtered dataset (a
+     * consult call with several add-ons counts once under each), most used first.
+     * @param {Array} records Consult call records (with add_ons[].add_on loaded)
+     * @returns {{ids: number[], labels: string[], data: number[]}}
+     */
+    function aggregateAddOnUsage(records) {
+        var counts = {};
+        var names = {};
+        for (var i = 0; i < records.length; i++) {
+            var addOns = records[i].add_ons || [];
+            var seen = {};
+            for (var j = 0; j < addOns.length; j++) {
+                var id = addOns[j].add_on_id;
+                if (!id || seen[id]) continue;
+                seen[id] = true;
+                counts[id] = (counts[id] || 0) + 1;
+                if (addOns[j].add_on && addOns[j].add_on.name) names[id] = addOns[j].add_on.name;
+            }
+        }
+        var ids = Object.keys(counts).sort(function(a, b) { return counts[b] - counts[a]; });
+        return {
+            ids: ids,
+            labels: ids.map(function(id) { return names[id] || ('Add On #' + id); }),
+            data: ids.map(function(id) { return counts[id]; })
+        };
+    }
+
+    /**
+     * Horizontal bar chart of consult calls per add-on. Clicking a bar opens
+     * index.php for the report's full enrollment range, doctor/outlet, and that add-on.
+     */
+    function renderAddOnUsageChart(records) {
+        var agg = aggregateAddOnUsage(records);
+        var wrap = document.getElementById('chartAddOnUsageWrap');
+        var emptyEl = document.getElementById('chartAddOnUsageEmpty');
+
+        if (agg.ids.length === 0) {
+            if (chartInstances.chartAddOnUsage) {
+                chartInstances.chartAddOnUsage.destroy();
+                delete chartInstances.chartAddOnUsage;
+            }
+            if (wrap) wrap.style.display = 'none';
+            if (emptyEl) emptyEl.style.display = 'block';
+            return;
+        }
+        if (emptyEl) emptyEl.style.display = 'none';
+        if (wrap) {
+            wrap.style.display = 'block';
+            // One row per add-on so long lists stay readable.
+            wrap.style.height = Math.max(160, agg.ids.length * 36 + 40) + 'px';
+        }
+
+        var filters = state.filters || {};
+        drawChart('chartAddOnUsage', {
+            type: 'bar',
+            data: {
+                labels: agg.labels,
+                datasets: [{
+                    data: agg.data,
+                    backgroundColor: COLOR_PRIMARY,
+                    borderRadius: 4,
+                    barPercentage: 0.8,
+                    datalabels: valueAndPercentDatalabels(agg.data, true, records.length)
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: baseScales(true),
+                onClick: function(evt, elements, chart) {
+                    var hits = chart.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
+                    if (!hits.length) return;
+                    var idx = hits[0].index;
+                    window.location.href = buildListUrl(
+                        { add_on_id: agg.ids[idx], add_on_name: agg.labels[idx] },
+                        filters.date_from || '', filters.date_to || ''
+                    );
+                },
+                onHover: function(evt, elements, chart) {
+                    var hits = chart.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
+                    chart.canvas.style.cursor = hits.length ? 'pointer' : 'default';
+                }
+            }
+        });
     }
 
     // ---- Chart.js rendering ----
@@ -563,6 +704,34 @@
         return horizontal ? { x: valueAxis, y: labelAxis } : { x: labelAxis, y: valueAxis };
     }
 
+    /**
+     * Make a month-axis chart clickable: clicking a bar/point opens index.php with
+     * that month's enrollment range (clipped to the report's range), the report's
+     * doctor/outlet filters, and the clicked dataset's own filter.
+     * @param {object} options Chart.js options object to extend
+     * @param {{keys: string[], datasets?: {filter: object}[]}} agg Aggregation result
+     */
+    function enableDrilldown(options, agg) {
+        function hitElement(evt, chart) {
+            var hits = chart.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
+            if (!hits.length) return null;
+            var hit = hits[0];
+            var filter = agg.datasets ? agg.datasets[hit.datasetIndex].filter : {};
+            if (!filter || !agg.keys[hit.index]) return null;
+            return { filter: filter, monthKey: agg.keys[hit.index] };
+        }
+
+        options.onClick = function(evt, elements, chart) {
+            var target = hitElement(evt, chart);
+            if (!target) return;
+            var range = clippedMonthRange(target.monthKey);
+            window.location.href = buildListUrl(target.filter, range.from, range.to);
+        };
+        options.onHover = function(evt, elements, chart) {
+            chart.canvas.style.cursor = hitElement(evt, chart) ? 'pointer' : 'default';
+        };
+    }
+
     function drawChart(canvasId, config) {
         if (chartInstances[canvasId]) {
             chartInstances[canvasId].destroy();
@@ -573,7 +742,7 @@
     }
 
     function renderLineChart(canvasId, agg, total) {
-        drawChart(canvasId, {
+        var config = {
             type: 'line',
             data: {
                 labels: agg.labels,
@@ -595,7 +764,9 @@
                 },
                 scales: baseScales(false)
             }
-        });
+        };
+        enableDrilldown(config.options, agg);
+        drawChart(canvasId, config);
     }
 
     /**
@@ -622,7 +793,7 @@
                 datalabels: valueAndPercentDatalabels(ds.data, false, total || 0)
             };
         });
-        drawChart(canvasId, {
+        var config = {
             type: 'bar',
             data: { labels: agg.months, datasets: datasets },
             options: {
@@ -632,7 +803,9 @@
                 },
                 scales: baseScales(false)
             }
-        });
+        };
+        enableDrilldown(config.options, agg);
+        drawChart(canvasId, config);
     }
 
     /**
@@ -663,7 +836,7 @@
                 barPercentage: 0.85
             };
         });
-        drawChart(canvasId, {
+        var config = {
             type: 'bar',
             data: { labels: agg.months, datasets: datasets },
             options: {
@@ -676,7 +849,9 @@
                     y: { stacked: true, beginAtZero: true, ticks: { precision: 0, color: COLOR_TICK }, grid: { color: COLOR_GRID } }
                 }
             }
-        });
+        };
+        enableDrilldown(config.options, agg);
+        drawChart(canvasId, config);
     }
 
     function renderChartA1(records, period, total) {
@@ -686,14 +861,15 @@
     function renderAllCharts(records, outletMap, staffMap) {
         var totalRecords = records.length;
 
-        renderChartA1(records, getPeriod(), totalRecords);
-        renderGroupedBarChart('chartA2', aggregateEnrollmentType(records), totalRecords);
+        renderChartA1(records, 'month', totalRecords);
         renderStackedBarChart('chartA3', aggregateByOutletMonthly(records, outletMap));
         renderStackedBarChart('chartA4', aggregateByDoctorMonthly(records, staffMap));
 
+        renderGroupedBarChart('chartAnsweredCall', aggregateAnsweredCall(records), totalRecords);
         renderGroupedBarChart('chartB1', aggregateConsentStatus(records), totalRecords);
         renderGroupedBarChart('chartB2', aggregateNonEligibilityReasons(records), totalRecords);
         renderGroupedBarChart('chartB3', aggregateAddOnStatus(records), totalRecords);
+        renderAddOnUsageChart(records);
         renderGroupedBarChart('chartB4', aggregateAdviseTypeBreakdown(records), totalRecords);
         renderGroupedBarChart('chartB5', aggregateConsultationStatusByType(records), totalRecords);
         renderGroupedBarChart('chartB6', aggregateProcessStatus(records), totalRecords);
@@ -706,7 +882,7 @@
     // ---- Enrollment Data / Time monthly breakdown table ----
     // Rows = enrollment_type (New Case / Follow-up) + Total, columns = one per
     // month present in the filtered dataset (dynamic range, not a fixed Jan-Dec),
-    // plus a Total column -- same data as chartA1/chartA2 in table form.
+    // plus a Total column -- same data as chartA1 in table form.
 
     function aggregateEnrollmentByTypeMonthly(records) {
         var byMonth = {};
@@ -721,6 +897,7 @@
         }
         var keys = Object.keys(byMonth).sort();
         return {
+            keys: keys,
             months: keys.map(function(k) { return formatBucketLabel(k, 'month'); }),
             newCase: keys.map(function(k) { return byMonth[k].newCase; }),
             followUp: keys.map(function(k) { return byMonth[k].followUp; })
@@ -743,6 +920,87 @@
         return ' style="background-color: rgba(' + rgb + ', ' + opacity.toFixed(2) + ');"';
     }
 
+    /**
+     * Build an index.php URL that lists the consult calls behind one cell of the
+     * Enrollment Type Breakdown table, using the filters the report was loaded with.
+     * The month range is clipped to the report's own Enrollment From/To so the
+     * list count matches the cell.
+     * @param {number|null} enrollmentType 1 = New Case, 2 = Follow-up, null = both
+     * @param {string|null} monthKey 'YYYY-MM', or null for the whole report range
+     * @returns {string}
+     */
+    function buildEnrollmentListUrl(enrollmentType, monthKey) {
+        var filters = state.filters || {};
+        var from = filters.date_from || '';
+        var to = filters.date_to || '';
+
+        if (monthKey) {
+            var range = clippedMonthRange(monthKey);
+            from = range.from;
+            to = range.to;
+        }
+
+        var extra = {};
+        if (enrollmentType) extra.enrollment_type = enrollmentType;
+        return buildListUrl(extra, from, to);
+    }
+
+    /**
+     * First and last day ('YYYY-MM-DD') of a 'YYYY-MM' month key.
+     * @param {string} monthKey
+     * @returns {{from: string, to: string}}
+     */
+    function monthRange(monthKey) {
+        var parts = monthKey.split('-');
+        var lastDay = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10), 0).getDate();
+        return { from: monthKey + '-01', to: monthKey + '-' + pad2(lastDay) };
+    }
+
+    /**
+     * A month's first/last day, clipped to the report's Enrollment From/To so a
+     * drill-down list never covers days the report itself excluded.
+     * @param {string} monthKey 'YYYY-MM'
+     * @returns {{from: string, to: string}}
+     */
+    function clippedMonthRange(monthKey) {
+        var filters = state.filters || {};
+        var range = monthRange(monthKey);
+        return {
+            from: (filters.date_from && filters.date_from > range.from) ? filters.date_from : range.from,
+            to: (filters.date_to && filters.date_to < range.to) ? filters.date_to : range.to
+        };
+    }
+
+    /**
+     * index.php URL carrying the report's doctor/outlet filters, the given
+     * enrollment range, and any extra index.php query params (extra wins over the
+     * report's doctor/outlet, e.g. when a doctor or outlet bar was clicked).
+     * @param {object} extra Extra query params (e.g. { consent_call_status: 1 })
+     * @param {string} enrollmentFrom Enrollment From ('YYYY-MM-DD' or '')
+     * @param {string} enrollmentTo Enrollment To ('YYYY-MM-DD' or '')
+     * @returns {string}
+     */
+    function buildListUrl(extra, enrollmentFrom, enrollmentTo) {
+        var filters = state.filters || {};
+        var query = [];
+        Object.keys(extra).forEach(function(key) {
+            query.push(key + '=' + encodeURIComponent(extra[key]));
+        });
+        if (enrollmentFrom) query.push('date_from=' + encodeURIComponent(enrollmentFrom));
+        if (enrollmentTo) query.push('date_to=' + encodeURIComponent(enrollmentTo));
+        if (filters.consulted_by && !extra.hasOwnProperty('consulted_by')) {
+            query.push('consulted_by=' + encodeURIComponent(filters.consulted_by));
+        }
+        if (filters.outlet_id && !extra.hasOwnProperty('outlet_id')) {
+            query.push('outlet_id=' + encodeURIComponent(filters.outlet_id));
+            var outletSelect = document.getElementById('rptOutletFilter');
+            var outletOption = outletSelect ? outletSelect.querySelector('option[value="' + filters.outlet_id + '"]') : null;
+            if (outletOption) query.push('outlet_code=' + encodeURIComponent(outletOption.textContent.trim()));
+        }
+
+        return CC_CONFIG.baseUrl + 'index.php' + (query.length ? '?' + query.join('&') : '');
+    }
+
     function renderEnrollmentMonthlyTable(records) {
         var thead = document.getElementById('enrollmentMonthlyTableHead');
         var tbody = document.getElementById('enrollmentMonthlyTableBody');
@@ -751,39 +1009,48 @@
         var summary = aggregateEnrollmentByTypeMonthly(records);
 
         if (summary.months.length === 0) {
-            thead.innerHTML = '<th>Type</th><th class="text-end">Total</th>';
+            thead.innerHTML = '<th class="text-center">Type</th><th class="text-center">Total</th>';
             tbody.innerHTML = '<tr><td colspan="2" class="text-center text-muted py-3">No data for the selected filters.</td></tr>';
             return;
         }
 
-        var headHtml = '<th>Type</th>';
+        var headHtml = '<th class="text-center">Type</th>';
         for (var i = 0; i < summary.months.length; i++) {
-            headHtml += '<th class="text-end">' + summary.months[i] + '</th>';
+            headHtml += '<th class="text-center">' + summary.months[i] + '</th>';
         }
-        headHtml += '<th class="text-end">Total</th>';
+        headHtml += '<th class="text-center">Total</th>';
         thead.innerHTML = headHtml;
 
         // Heatmap intensity is scaled per-row (New Case and Follow-up can sit on very
         // different scales) -- Total row stays plain/bold so it reads as a summary line,
         // not another data row.
-        function buildRow(label, values, boldRow, rgb) {
+        // Each non-zero count links to index.php filtered to the same records.
+        function countCell(value, enrollmentType, monthKey, style) {
+            var content = value > 0
+                ? '<a href="' + escapeHtml(buildEnrollmentListUrl(enrollmentType, monthKey)) + '"'
+                    + ' class="report-drilldown-link" title="View these consult calls">' + value + '</a>'
+                : value;
+            return '<td class="text-end"' + (style || '') + '>' + content + '</td>';
+        }
+
+        function buildRow(label, values, boldRow, rgb, enrollmentType) {
             var total = 0;
             var rowMax = rgb ? Math.max.apply(null, values) : 0;
             var row = '<tr' + (boldRow ? ' class="fw-bold"' : '') + '>' + '<td>' + label + '</td>';
             for (var j = 0; j < values.length; j++) {
                 total += values[j];
                 var style = rgb ? heatCellStyle(values[j], rowMax, rgb) : '';
-                row += '<td class="text-end"' + style + '>' + values[j] + '</td>';
+                row += countCell(values[j], enrollmentType, summary.keys[j], style);
             }
-            row += '<td class="text-end">' + total + '</td></tr>';
+            row += countCell(total, enrollmentType, null, '') + '</tr>';
             return row;
         }
 
         var totals = summary.newCase.map(function(v, idx) { return v + summary.followUp[idx]; });
 
-        var html = buildRow('New Case', summary.newCase, false, '42,120,214')
-            + buildRow('Follow-up', summary.followUp, false, '235,104,52')
-            + buildRow('Total', totals, true, null);
+        var html = buildRow('New Case', summary.newCase, false, '42,120,214', 1)
+            + buildRow('Follow-up', summary.followUp, false, '235,104,52', 2)
+            + buildRow('Total', totals, true, null, null);
 
         tbody.innerHTML = html;
     }
@@ -833,6 +1100,7 @@
 
         var keys = Object.keys(byMonth).sort();
         return {
+            keys: keys,
             months: keys.map(function(k) { return formatBucketLabel(k, 'month'); }),
             obtained: keys.map(function(k) { return byMonth[k].obtained; }),
             completed: keys.map(function(k) { return byMonth[k].completed; }),
@@ -851,6 +1119,38 @@
             return;
         }
 
+        // Each non-zero count links to index.php filtered to the same records: the
+        // report's enrollment range/doctor/outlet, plus the metric's own status and
+        // date range (consent date for Obtained, consult date for the other two).
+        var filters = state.filters || {};
+        var metricFilters = {
+            obtained: function(range) {
+                return { consent_call_status: 1, consent_date_from: range.from, consent_date_to: range.to };
+            },
+            completed: function(range) {
+                return { consult_status: 1, consult_date_from: range.from, consult_date_to: range.to };
+            },
+            referredInternal: function(range) {
+                return { detail_action: 1, consult_date_from: range.from, consult_date_to: range.to };
+            }
+        };
+
+        function metricCell(value, metric, range, style) {
+            var content = value;
+            if (value > 0) {
+                var url = buildListUrl(metricFilters[metric](range), filters.date_from || '', filters.date_to || '');
+                content = '<a href="' + escapeHtml(url) + '" class="report-drilldown-link"'
+                    + ' title="View these consult calls">' + value + '</a>';
+            }
+            return '<td class="text-end"' + (style || '') + '>' + content + '</td>';
+        }
+
+        // Total row spans the first to last month shown.
+        var fullRange = {
+            from: monthRange(summary.keys[0]).from,
+            to: monthRange(summary.keys[summary.keys.length - 1]).to
+        };
+
         // Heatmap intensity is scaled per-column -- the three metrics naturally sit on
         // different scales, so each gets its own max and its own hue.
         var maxObtained = Math.max.apply(null, summary.obtained);
@@ -863,18 +1163,19 @@
             totalObtained += summary.obtained[i];
             totalCompleted += summary.completed[i];
             totalReferredInternal += summary.referredInternal[i];
+            var range = monthRange(summary.keys[i]);
             html += '<tr>'
                 + '<td>' + summary.months[i] + '</td>'
-                + '<td class="text-end"' + heatCellStyle(summary.obtained[i], maxObtained, '42,120,214') + '>' + summary.obtained[i] + '</td>'
-                + '<td class="text-end"' + heatCellStyle(summary.completed[i], maxCompleted, '27,175,122') + '>' + summary.completed[i] + '</td>'
-                + '<td class="text-end"' + heatCellStyle(summary.referredInternal[i], maxReferredInternal, '235,104,52') + '>' + summary.referredInternal[i] + '</td>'
+                + metricCell(summary.obtained[i], 'obtained', range, heatCellStyle(summary.obtained[i], maxObtained, '42,120,214'))
+                + metricCell(summary.completed[i], 'completed', range, heatCellStyle(summary.completed[i], maxCompleted, '27,175,122'))
+                + metricCell(summary.referredInternal[i], 'referredInternal', range, heatCellStyle(summary.referredInternal[i], maxReferredInternal, '235,104,52'))
                 + '</tr>';
         }
         html += '<tr class="fw-bold">'
             + '<td>Total</td>'
-            + '<td class="text-end">' + totalObtained + '</td>'
-            + '<td class="text-end">' + totalCompleted + '</td>'
-            + '<td class="text-end">' + totalReferredInternal + '</td>'
+            + metricCell(totalObtained, 'obtained', fullRange, '')
+            + metricCell(totalCompleted, 'completed', fullRange, '')
+            + metricCell(totalReferredInternal, 'referredInternal', fullRange, '')
             + '</tr>';
 
         tbody.innerHTML = html;
@@ -907,6 +1208,7 @@
                 });
             }
             state.records = records;
+            state.filters = filters;
 
             resolveNames(records).then(function(maps) {
                 renderAllCharts(records, maps.outletMap, maps.staffMap);
@@ -918,23 +1220,17 @@
     }
 
     function resetFilters() {
-        var now = new Date();
-        var monthStart = now.getFullYear() + '-' + pad2(now.getMonth() + 1) + '-01';
-        var today = now.getFullYear() + '-' + pad2(now.getMonth() + 1) + '-' + pad2(now.getDate());
-        document.getElementById('rptDateFrom').value = monthStart;
-        document.getElementById('rptDateTo').value = today;
+        // Reset to the same default range report.php renders with.
+        document.getElementById('rptDateFrom').value = CC_CONFIG.defaultDateFrom;
+        document.getElementById('rptDateTo').value = CC_CONFIG.defaultDateTo;
         document.getElementById('rptOutletFilter').value = '';
         document.getElementById('rptDoctorFilter').value = '';
-        document.getElementById('rptPeriodToggle').value = 'month';
         loadReport();
     }
 
     document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('rptApplyBtn').addEventListener('click', loadReport);
         document.getElementById('rptResetBtn').addEventListener('click', resetFilters);
-        document.getElementById('rptPeriodToggle').addEventListener('change', function() {
-            renderChartA1(state.records, getPeriod(), state.records.length);
-        });
 
         loadReport();
     });
