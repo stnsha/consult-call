@@ -769,6 +769,35 @@ button {
     font-weight: 600;
 }
 
+/* Navbar dropdown (Masterlist) */
+.consultcall-nav-dropdown {
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(19, 92, 170, 0.15);
+    padding: 0.35rem;
+    min-width: 180px;
+}
+
+.consultcall-nav-dropdown .dropdown-item {
+    font-size: 14px;
+    font-weight: 500;
+    color: #6c757d;
+    border-radius: 6px;
+    padding: 0.45rem 0.85rem;
+}
+
+.consultcall-nav-dropdown .dropdown-item:hover,
+.consultcall-nav-dropdown .dropdown-item:focus {
+    color: #0d6efd;
+    background-color: rgba(13, 110, 253, 0.1);
+}
+
+.consultcall-nav-dropdown .dropdown-item.active {
+    color: #0d6efd;
+    background-color: rgba(13, 110, 253, 0.1);
+    font-weight: 600;
+}
+
 /* Report Page - Chart card heading separator */
 .report-chart-card h6.card-subtitle {
     padding-bottom: 10px;

@@ -73,13 +73,20 @@ $_navbar_moduleDir = basename(dirname(__FILE__));
 $dashboard_active  = ($current_page == 'index.php'  && $current_dir == $_navbar_moduleDir)    ? 'active' : '';
 $report_active     = ($current_page == 'report.php' && $current_dir == $_navbar_moduleDir)    ? 'active' : '';
 $cc_active         = ($current_dir == 'clinical_condition')                                    ? 'active' : '';
-$ao_active         = ($current_dir == 'add_ons')                                               ? 'active' : '';
-$am_active         = ($current_dir == 'action_master')                                         ? 'active' : '';
 $admin_active      = ($current_page == 'index.php'  && $current_dir == 'admin')               ? 'active' : '';
 
 // Roles resolved by the including page (staff.consult_call comma list).
 $_navbar_roles = $consult_call_roles ?? ($currentStaffRoles ?? []);
 $_navbar_can_admin = hasConsultCallRole($_navbar_roles, 1, 6);
+
+// Masterlist dropdown (after Clinical Conditions): maintenance pages for lookup tables, shown to
+// Super Admin and Admin. Add future lookup pages here -- one entry per submenu item.
+// 'dir' is the page's folder, used to highlight the active item.
+$_navbar_masterlist = [
+    ['label' => 'Add Ons', 'dir' => 'add_ons',       'href' => CONSULTCALL_BASE . 'add_ons/index.php'],
+    ['label' => 'Actions', 'dir' => 'action_master', 'href' => CONSULTCALL_BASE . 'action_master/index.php'],
+];
+$masterlist_active = in_array($current_dir, array_column($_navbar_masterlist, 'dir'), true) ? 'active' : '';
 ?>
 <nav class="consultcall-nav navbar navbar-expand-lg navbar-light mb-3">
     <div class="container-fluid">
@@ -99,11 +106,17 @@ $_navbar_can_admin = hasConsultCallRole($_navbar_roles, 1, 6);
                     <a class="nav-link <?php echo $cc_active; ?>" href="<?php echo CONSULTCALL_BASE; ?>clinical_condition/index.php">Clinical Conditions</a>
                 </li>
                 <?php if ($_navbar_can_admin): ?>
-                <li class="nav-item">
-                    <a class="nav-link <?php echo $ao_active; ?>" href="<?php echo CONSULTCALL_BASE; ?>add_ons/index.php">Add Ons</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link <?php echo $am_active; ?>" href="<?php echo CONSULTCALL_BASE; ?>action_master/index.php">Actions</a>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle <?php echo $masterlist_active; ?>" href="#" id="navbarMasterlist"
+                        role="button" data-bs-toggle="dropdown" aria-expanded="false">Masterlist</a>
+                    <ul class="dropdown-menu consultcall-nav-dropdown" aria-labelledby="navbarMasterlist">
+                        <?php foreach ($_navbar_masterlist as $_ml_item): ?>
+                        <li>
+                            <a class="dropdown-item <?php echo $current_dir === $_ml_item['dir'] ? 'active' : ''; ?>"
+                                href="<?php echo htmlspecialchars($_ml_item['href']); ?>"><?php echo htmlspecialchars($_ml_item['label']); ?></a>
+                        </li>
+                        <?php endforeach; ?>
+                    </ul>
                 </li>
                 <?php endif; ?>
                 <?php if ($_navbar_can_admin): ?>
