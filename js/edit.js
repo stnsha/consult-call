@@ -26,6 +26,10 @@
     var currentDetailId = null;
     var currentFollowUpId = null;
 
+    // ID of the latest detail record, regardless of the doctor update-vs-create rules
+    // that govern currentDetailId. Customer Support invoice saves target this record.
+    var latestDetailId = null;
+
     // Normalized (YYYY-MM-DD) consult_date of the detail currentDetailId points at.
     // Used on save to detect that the doctor changed the Consult Date, which means a
     // new consultation rather than an edit of the existing record.
@@ -2272,6 +2276,7 @@
         var details = data.details || [];
         var followUps = data.follow_ups || [];
         currentDetailId = null;
+        latestDetailId = details.length > 0 ? (details[details.length - 1].id || null) : null;
         loadedDetailConsultDate = null;
         doctorFollowUpId = null;
         currentFollowUpId = null;
@@ -2856,11 +2861,19 @@
                     csDetailData.is_invoice_synced = (csInvoiceId && String(csInvoiceId).trim()) ? !!invoiceSyncedForSave : false;
                 }
 
+                // currentDetailId is null whenever the latest detail was completed by
+                // another doctor (doctor CREATE mode). An invoice-only save must still
+                // attach to that latest detail; inserting a new, empty detail row would
+                // hide the consultation (Consulted By, Action) from the list page.
+                var csIsInvoiceOnly = csDetailData && csDetailData.process_status === undefined
+                    && csDetailData.consult_status === undefined;
+                var csTargetDetailId = currentDetailId || (csIsInvoiceOnly ? latestDetailId : null);
+
                 if (csDetailData) {
-                    if (currentDetailId) {
+                    if (csTargetDetailId) {
                         promises.push(apiCall('update-detail', {
                             consult_call_id: EDIT_CONFIG.consultCallId,
-                            detail_id: currentDetailId,
+                            detail_id: csTargetDetailId,
                             data: csDetailData
                         }));
                     } else {
