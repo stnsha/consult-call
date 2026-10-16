@@ -397,8 +397,9 @@
      * (via enrollment_date) and a category index (via categorize()), producing one
      * dataset per category label -- the shape renderGroupedBarChart() expects.
      * @param {Array} records Consult call records
-     * @param {function(object): (number|null)} categorize Returns a 0-based index into
-     *   categoryLabels for this record, or null/undefined to exclude it entirely
+     * @param {function(object): (number|number[]|null)} categorize Returns a 0-based index
+     *   into categoryLabels for this record (or several, to count it under each), or
+     *   null/undefined/[] to exclude it entirely
      * @param {string[]} categoryLabels Fixed, ordered category names (small sets only --
      *   this renders one grouped bar per label per month)
      * @param {object[]} [categoryFilters] index.php query params per category, used by
@@ -410,14 +411,16 @@
         for (var i = 0; i < records.length; i++) {
             var d = parseDateOnly(records[i].enrollment_date);
             if (!d) continue;
-            var idx = categorize(records[i]);
-            if (idx === null || idx === undefined) continue;
+            var cat = categorize(records[i]);
+            if (cat === null || cat === undefined) continue;
+            var idxs = Array.isArray(cat) ? cat : [cat];
+            if (idxs.length === 0) continue;
             var key = bucketKey(d, 'month');
             if (!byMonth[key]) {
                 byMonth[key] = [];
                 for (var z = 0; z < categoryLabels.length; z++) byMonth[key].push(0);
             }
-            byMonth[key][idx]++;
+            for (var c = 0; c < idxs.length; c++) byMonth[key][idxs[c]]++;
         }
         var keys = Object.keys(byMonth).sort();
         return {
@@ -601,21 +604,33 @@
         }, ['Active', 'Closed'], [{ process_status: 1 }, { process_status: 3 }]);
     }
 
-    // Action (action_master) on the latest finalised detail, per month. Categories come
-    // from the options actually used in the filtered data (deactivated ones included),
+    // Action IDs selected on a detail (action_masters from consult_call_detail_actions),
+    // falling back to the legacy single action_master_id.
+    function detailActionIds(det) {
+        if (!det) return [];
+        if (det.action_masters && det.action_masters.length) {
+            return det.action_masters.map(function(a) { return String(a.id); });
+        }
+        return det.action_master_id ? [String(det.action_master_id)] : [];
+    }
+
+    // Action (action_master) on the latest finalised detail, per month. Several actions
+    // can be selected, so a record counts once under each of them. Categories come from
+    // the options actually used in the filtered data (deactivated ones included),
     // ordered by total use; records with no Action are left out.
     function aggregateActionMaster(records) {
         var totals = {};
         for (var i = 0; i < records.length; i++) {
-            var det = getLatestNonDraftDetail(records[i]);
-            var id = det && det.action_master_id ? String(det.action_master_id) : null;
-            if (id) totals[id] = (totals[id] || 0) + 1;
+            var recIds = detailActionIds(getLatestNonDraftDetail(records[i]));
+            for (var j = 0; j < recIds.length; j++) {
+                totals[recIds[j]] = (totals[recIds[j]] || 0) + 1;
+            }
         }
         var ids = Object.keys(totals).sort(function(a, b) { return totals[b] - totals[a]; });
         return aggregateGroupedByMonth(records, function(r) {
-            var det = getLatestNonDraftDetail(r);
-            var idx = det && det.action_master_id ? ids.indexOf(String(det.action_master_id)) : -1;
-            return idx >= 0 ? idx : null;
+            return detailActionIds(getLatestNonDraftDetail(r))
+                .map(function(id) { return ids.indexOf(id); })
+                .filter(function(idx) { return idx >= 0; });
         }, ids.map(function(id) {
             var row = actionMasterById[id];
             return row ? row.name : ('Action #' + id);

@@ -976,14 +976,21 @@ $psD = !hasConsultCallRole($currentStaffRoles, 2, 4) ? 'disabled' : '';
                             </div>
                         </div>
 
-                        <!-- Action (consult_call_details.action_master_id; options maintained on
-                             action_master/index.php, active ones listed -- see loadActionMasterOptions()).
+                        <!-- Action (several allowed; stored as action_master FK IDs in
+                             consult_call_detail_actions; options maintained on action_master/index.php,
+                             active ones listed -- see loadActionMasterOptions()).
                              Shown only when Consult Status = Completed. -->
                         <div class="col-md-6 conditional-field" data-condition="consult_completed">
-                            <label class="form-label" for="action_master_id">Action</label>
-                            <select class="form-select" name="action_master_id" id="action_master_id" <?php echo $dD; ?>>
-                                <option value="">Select Action</option>
-                            </select>
+                            <label class="form-label">Action</label>
+                            <!-- Multi-select: saved as action_master_ids[] (consult_call_detail_actions). -->
+                            <div class="cc-ms-wrap<?php echo $dD ? ' cc-ms-disabled' : ''; ?>" id="action-ms-wrap" data-action-ms>
+                                <div class="cc-ms-selection" tabindex="0">Select Action(s)</div>
+                                <div class="cc-ms-dropdown">
+                                    <ul class="cc-ms-list">
+                                        <li class="cc-ms-empty">Loading...</li>
+                                    </ul>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Remarks (visible for all consult statuses) -->

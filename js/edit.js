@@ -1112,33 +1112,141 @@
     // selection can still show the name of an option that was deactivated later.
     var actionMasterById = {};
 
+    // Main-form Action multi-select is Doctor-owned, like the rest of Consultation Details.
+    var actionMsDisabled = (EDIT_CONFIG.viewOnly === true) || (!hasRole(2));
+
     /**
-     * Rebuild the Action <select>: active options, plus the currently selected
-     * option when it has since been deactivated (marked "(inactive)").
-     * @param {HTMLSelectElement} selectEl
-     * @param {string|number|null} selectedId
+     * Action IDs selected on a detail (consult_call_detail_actions, returned as
+     * action_masters). Falls back to the legacy single action_master_id.
+     * @param {Object|null} detail
+     * @returns {Array<string>}
      */
-    function fillActionMasterSelect(selectEl, selectedId) {
-        if (!selectEl) return;
-        var selected = (selectedId === null || selectedId === undefined) ? '' : String(selectedId);
-        var html = '<option value="">Select Action</option>';
+    function detailActionIds(detail) {
+        if (!detail) return [];
+        if (detail.action_masters && detail.action_masters.length) {
+            return detail.action_masters.map(function(a) { return String(a.id); });
+        }
+        return (detail.action_master_id === null || detail.action_master_id === undefined)
+            ? [] : [String(detail.action_master_id)];
+    }
+
+    function actionMasterNames(ids) {
+        var names = [];
+        for (var i = 0; i < (ids || []).length; i++) {
+            var row = actionMasterById[String(ids[i])];
+            if (row) names.push(row.name);
+        }
+        return names.length ? names.join(', ') : null;
+    }
+
+    /**
+     * Rebuild an Action multi-select (a [data-action-ms] .cc-ms-wrap): active options,
+     * plus any selected option that has since been deactivated (marked "(inactive)").
+     * The selection is kept on the wrap (data-selected) so options loading after the
+     * detail still render it checked.
+     * @param {HTMLElement} wrapEl
+     * @param {Array<string|number>|null} selectedIds Pass null to keep the current selection.
+     */
+    function renderActionMs(wrapEl, selectedIds) {
+        if (!wrapEl) return;
+        if (selectedIds === null || selectedIds === undefined) {
+            selectedIds = getActionMsIds(wrapEl);
+        }
+        var selected = {};
+        for (var i = 0; i < selectedIds.length; i++) { selected[String(selectedIds[i])] = true; }
+        wrapEl.setAttribute('data-selected', Object.keys(selected).join(','));
+
+        var disabled = wrapEl.classList.contains('cc-ms-disabled');
+        var listEl = wrapEl.querySelector('.cc-ms-list');
+        var html = '';
         Object.keys(actionMasterById).forEach(function(id) {
             var row = actionMasterById[id];
             var active = row.is_active === true || row.is_active === 1 || row.is_active === '1';
-            if (!active && id !== selected) return;
-            html += '<option value="' + escapeHtml(id) + '"' + (id === selected ? ' selected' : '') + '>'
-                + escapeHtml(row.name) + (active ? '' : ' (inactive)') + '</option>';
+            if (!active && !selected[id]) return;
+            html += '<li><label><input type="checkbox" value="' + escapeHtml(id) + '"'
+                + (selected[id] ? ' checked' : '') + (disabled ? ' disabled' : '') + '> '
+                + escapeHtml(row.name) + (active ? '' : ' (inactive)') + '</label></li>';
         });
-        selectEl.innerHTML = html;
+        if (listEl) listEl.innerHTML = html || '<li class="cc-ms-empty">No actions available</li>';
+        updateActionMsLabel(wrapEl);
     }
 
-    function actionMasterName(id) {
-        var row = (id === null || id === undefined) ? null : actionMasterById[String(id)];
-        return row ? row.name : null;
+    /**
+     * Selected Action IDs of a multi-select. Reads data-selected until the options
+     * have rendered, so a save before they load does not drop the saved selection.
+     * @param {HTMLElement} wrapEl
+     * @returns {Array<number>}
+     */
+    function getActionMsIds(wrapEl) {
+        if (!wrapEl) return [];
+        var boxes = wrapEl.querySelectorAll('.cc-ms-list input[type=checkbox]');
+        var raw = [];
+        if (boxes.length) {
+            for (var i = 0; i < boxes.length; i++) {
+                if (boxes[i].checked) raw.push(boxes[i].value);
+            }
+        } else {
+            raw = (wrapEl.getAttribute('data-selected') || '').split(',').filter(Boolean);
+        }
+        return raw.map(function(v) { return parseInt(v, 10); }).filter(function(v) { return !isNaN(v); });
     }
 
-    // Loads all action_master rows for the Action dropdown and history labels.
-    // Non-fatal on failure -- the dropdown just keeps its placeholder option.
+    function updateActionMsLabel(wrapEl) {
+        var btn = wrapEl.querySelector('.cc-ms-selection');
+        if (!btn) return;
+        var ids = getActionMsIds(wrapEl);
+        if (ids.length === 0) {
+            btn.textContent = 'Select Action(s)';
+        } else if (ids.length <= 2) {
+            btn.textContent = actionMasterNames(ids) || (ids.length + ' actions selected');
+        } else {
+            btn.textContent = ids.length + ' actions selected';
+        }
+    }
+
+    // One delegated handler set for every Action multi-select (main form and the
+    // history edit forms, which are rebuilt as HTML strings).
+    function initActionMsHandlers() {
+        document.addEventListener('click', function(e) {
+            var btn = e.target.closest ? e.target.closest('[data-action-ms] .cc-ms-selection') : null;
+            var wraps = document.querySelectorAll('[data-action-ms]');
+            for (var i = 0; i < wraps.length; i++) {
+                if (btn && wraps[i].contains(btn)) continue;
+                if (!wraps[i].contains(e.target)) {
+                    var openDrop = wraps[i].querySelector('.cc-ms-dropdown');
+                    if (openDrop) openDrop.classList.remove('open');
+                }
+            }
+            if (!btn) return;
+            var wrapEl = btn.closest('[data-action-ms]');
+            if (wrapEl.classList.contains('cc-ms-disabled')) return;
+            var drop = wrapEl.querySelector('.cc-ms-dropdown');
+            if (drop) drop.classList.toggle('open');
+        });
+        document.addEventListener('keydown', function(e) {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            var btn = e.target.closest ? e.target.closest('[data-action-ms] .cc-ms-selection') : null;
+            if (!btn) return;
+            var wrapEl = btn.closest('[data-action-ms]');
+            if (wrapEl.classList.contains('cc-ms-disabled')) return;
+            e.preventDefault();
+            var drop = wrapEl.querySelector('.cc-ms-dropdown');
+            if (drop) drop.classList.toggle('open');
+        });
+        document.addEventListener('change', function(e) {
+            if (!e.target || e.target.type !== 'checkbox') return;
+            var wrapEl = e.target.closest ? e.target.closest('[data-action-ms]') : null;
+            if (!wrapEl) return;
+            wrapEl.setAttribute('data-selected', getActionMsIds(wrapEl).join(','));
+            updateActionMsLabel(wrapEl);
+        });
+
+        var mainWrap = document.getElementById('action-ms-wrap');
+        if (mainWrap && actionMsDisabled) mainWrap.classList.add('cc-ms-disabled');
+    }
+
+    // Loads all action_master rows for the Action multi-selects and history labels.
+    // Non-fatal on failure -- the multi-selects just stay empty.
     function loadActionMasterOptions() {
         return apiCall('get-all-action-masters', {}).then(function(result) {
             if (!result.success || !result.data) return;
@@ -1149,7 +1257,8 @@
             for (var i = 0; i < rows.length; i++) {
                 actionMasterById[String(rows[i].id)] = rows[i];
             }
-            fillActionMasterSelect(document.getElementById('action_master_id'), null);
+            var wraps = document.querySelectorAll('[data-action-ms]');
+            for (var w = 0; w < wraps.length; w++) { renderActionMs(wraps[w], null); }
         }).catch(function() {});
     }
 
@@ -1423,7 +1532,7 @@
                     html += renderHistoryField('Invoice ID', d.invoice_id || null);
                     html += renderHistoryField('Invoice Status', INVOICE_STATUS_LABELS[String(d.invoice_status)] || null);
                 }
-                html += renderHistoryField('Action', actionMasterName(d.action_master_id));
+                html += renderHistoryField('Action', actionMasterNames(detailActionIds(d)));
                 html += renderHistoryField('Remarks', d.remarks || null);
 
                 // Follow-up fields (2-column grid, matching the Consultation Details layout:
@@ -1494,11 +1603,11 @@
         html += '</div>'; // accordion
         container.innerHTML = html;
 
-        // History edit forms are built as HTML strings; fill their Action dropdowns now
-        // that they are in the DOM (keeps a deactivated saved option selectable).
-        var histActionSelects = container.querySelectorAll('select[id^="hist_action_master_id_"]');
-        for (var hs = 0; hs < histActionSelects.length; hs++) {
-            fillActionMasterSelect(histActionSelects[hs], histActionSelects[hs].getAttribute('data-selected'));
+        // History edit forms are built as HTML strings; fill their Action multi-selects
+        // now that they are in the DOM (keeps a deactivated saved option selectable).
+        var histActionWraps = container.querySelectorAll('[data-action-ms][id^="hist_action_ms_"]');
+        for (var hs = 0; hs < histActionWraps.length; hs++) {
+            renderActionMs(histActionWraps[hs], null);
         }
     }
 
@@ -1675,8 +1784,10 @@
             ], d.invoice_status) + '</div>';
 
         html += '<div class="col-md-6"><label class="form-label">Action</label>'
-            + '<select class="form-select form-select-sm" id="hist_action_master_id_' + idx + '"'
-            + ' data-selected="' + escapeHtml(d.action_master_id === null || d.action_master_id === undefined ? '' : d.action_master_id) + '"></select></div>';
+            + '<div class="cc-ms-wrap" data-action-ms id="hist_action_ms_' + idx + '"'
+            + ' data-selected="' + escapeHtml(detailActionIds(d).join(',')) + '">'
+            + '<div class="cc-ms-selection form-select-sm" tabindex="0">Select Action(s)</div>'
+            + '<div class="cc-ms-dropdown"><ul class="cc-ms-list"></ul></div></div></div>';
 
         html += '<div class="col-md-12"><label class="form-label">Remarks</label>'
             + '<textarea class="form-control form-control-sm" id="hist_remarks_' + idx + '" rows="2">' + escapeHtml(d.remarks || '') + '</textarea></div>';
@@ -1759,7 +1870,7 @@
             action: toIntOrNull(getHistRadioValue(idx, 'action')),
             invoice_id: getHistInputValue(idx, 'invoice_id') || null,
             invoice_status: toIntOrNull(getHistRadioValue(idx, 'invoice_status')),
-            action_master_id: toIntOrNull(getHistInputValue(idx, 'action_master_id')),
+            action_master_ids: getActionMsIds(document.getElementById('hist_action_ms_' + idx)),
             remarks: getHistInputValue(idx, 'remarks') || null
         };
 
@@ -2323,7 +2434,7 @@
         setInputValue('treatment_plan', '');
         setInputValue('followup_date', '');
         setInputValue('remarks', '');
-        fillActionMasterSelect(document.getElementById('action_master_id'), null);
+        renderActionMs(document.getElementById('action-ms-wrap'), []);
         setRadioValue('followup_type', '0');
         setRadioValue('next_followup', '0');
         var detailFieldsToDeselect = ['consult_status', 'rx_issued', 'mode_of_conversion', 'action', 'process_status', 'consultation_type', 'release_doctor_review', 'cs_release_doctor_review'];
@@ -2450,7 +2561,7 @@
                     setProcessStatusRadio(String(lastDetail.process_status), false);
                 }
                 setInputValue('remarks', lastDetail.remarks || '');
-                fillActionMasterSelect(document.getElementById('action_master_id'), lastDetail.action_master_id);
+                renderActionMs(document.getElementById('action-ms-wrap'), detailActionIds(lastDetail));
                 if (pairedFollowUp) {
                     var fuType = pairedFollowUp.followup_type !== null ? String(pairedFollowUp.followup_type) : '0';
                     setRadioValue('followup_type', fuType);
@@ -2788,7 +2899,7 @@
             action: actionValue,
             // Action is only shown for Completed; clear any value left over from
             // switching status so it is not saved on a Pending/No-show/Cancelled detail.
-            action_master_id: consultStatusForDetail === 1 ? toIntOrNull(getSelectValue('action_master_id')) : null,
+            action_master_ids: consultStatusForDetail === 1 ? getActionMsIds(document.getElementById('action-ms-wrap')) : [],
             // process_status is no longer part of this form -- it's managed independently
             // via the header pill toggle's own update-detail call. Sending null here would
             // overwrite the existing value and violate the column's NOT NULL constraint.
@@ -3402,6 +3513,7 @@
         initFormSubmission();
         initHeaderProcessStatus();
         initAddOnDropdown();
+        initActionMsHandlers();
         Promise.all([loadStatusMaps(), loadAddOnsOptions(), loadActionMasterOptions()]).then(function() {
             loadConsultCallData();
         });
