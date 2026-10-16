@@ -70,8 +70,8 @@
     var previousDetailTestResultId = null;
 
     // Whether the AI review for the latest detail's linked test result is on
-    // hold pending doctor release (add-on clinical condition). Set from the
-    // loaded consult call data; gates the "Release Doctor Review?" control.
+    // hold pending release (held by blood-stream-v1 for enrolled patients). Set
+    // from the loaded consult call data; gates the "Release Doctor Review?" controls.
     var aiReviewOnHold = false;
 
     // Whether the Add-On Invoice ID on the latest detail is already synced to
@@ -422,6 +422,15 @@
                 } else { clearFieldError('refusal_remarks'); }
             }
 
+            // Customer Support's Release Doctor Review? is required whenever shown.
+            var csReleaseContainer = document.getElementById('cs-release-doctor-review-container');
+            if (csReleaseContainer && csReleaseContainer.classList.contains('visible')) {
+                if (!getRadioValue('cs_release_doctor_review')) {
+                    showFieldError('cs_release_doctor_review', 'Please choose whether to release the doctor review.');
+                    valid = false;
+                } else { clearFieldError('cs_release_doctor_review'); }
+            } else { clearFieldError('cs_release_doctor_review'); }
+
             if (isFollowUpCheckpointVisible) {
                 var checkpointFollowupDate = getInputValue('checkpoint_followup_date');
                 if (!checkpointFollowupDate) {
@@ -601,6 +610,9 @@
                 rescheduleFields[j].classList.remove('visible');
             }
         }
+
+        // Customer Support's "Release Doctor Review?" row depends on the response.
+        applyReleaseReviewVisibility();
     }
 
     /**
@@ -740,19 +752,28 @@
     }
 
     /**
-     * Show the "Release Doctor Review?" control whenever the linked test result's
-     * AI review is on hold -- regardless of consult status. Global within the
-     * Consultation Details section, like Remarks.
+     * Show the "Release Doctor Review?" controls while the linked test result's
+     * AI review is on hold. Hold state is owned by the backend (aiReviewOnHold);
+     * this only decides which row offers the release:
+     *  - Doctor row (Consultation Details): CC and CC + AO, regardless of consult
+     *    status. Hidden for AO-only -- the doctor does not handle add-ons.
+     *  - Customer Support row (Eligibility / Add On Response): AO-only once the
+     *    customer has responded (not Pending); CC and CC + AO when consent is
+     *    Refused/Others, so CS can close the case and release the review.
      */
     function applyReleaseReviewVisibility() {
-        var el = document.getElementById('release-doctor-review-container');
-        if (!el) return;
-        // Feature not live until 2026-09-16 (month index 8 = September).
-        var releaseLiveFrom = new Date(2026, 8, 16);
-        if (aiReviewOnHold && new Date() >= releaseLiveFrom) {
-            el.classList.add('visible');
-        } else {
-            el.classList.remove('visible');
+        var doctorEl = document.getElementById('release-doctor-review-container');
+        if (doctorEl) {
+            doctorEl.classList.toggle('visible', aiReviewOnHold && !isAddOnOnly);
+        }
+
+        var csEl = document.getElementById('cs-release-doctor-review-container');
+        if (csEl) {
+            var consent = getRadioValue('consent_status') || CONSENT_PENDING;
+            var csCanRelease = isAddOnOnly
+                ? consent !== CONSENT_PENDING
+                : (consent === CONSENT_REFUSED || consent === CONSENT_OTHERS);
+            csEl.classList.toggle('visible', aiReviewOnHold && csCanRelease);
         }
     }
 
@@ -2305,7 +2326,7 @@
         fillActionMasterSelect(document.getElementById('action_master_id'), null);
         setRadioValue('followup_type', '0');
         setRadioValue('next_followup', '0');
-        var detailFieldsToDeselect = ['consult_status', 'rx_issued', 'mode_of_conversion', 'action', 'process_status', 'consultation_type', 'release_doctor_review'];
+        var detailFieldsToDeselect = ['consult_status', 'rx_issued', 'mode_of_conversion', 'action', 'process_status', 'consultation_type', 'release_doctor_review', 'cs_release_doctor_review'];
         for (var dfi = 0; dfi < detailFieldsToDeselect.length; dfi++) {
             var dfRads = document.querySelectorAll('input[name="' + detailFieldsToDeselect[dfi] + '"]');
             for (var dfj = 0; dfj < dfRads.length; dfj++) { dfRads[dfj].checked = false; }
@@ -2765,7 +2786,9 @@
             invoice_status: toIntOrNull(getRadioValue('invoice_status')),
             is_invoice_synced: (getInputValue('invoice_id') || '').trim() ? !!invoiceSyncedForSave : false,
             action: actionValue,
-            action_master_id: toIntOrNull(getSelectValue('action_master_id')),
+            // Action is only shown for Completed; clear any value left over from
+            // switching status so it is not saved on a Pending/No-show/Cancelled detail.
+            action_master_id: consultStatusForDetail === 1 ? toIntOrNull(getSelectValue('action_master_id')) : null,
             // process_status is no longer part of this form -- it's managed independently
             // via the header pill toggle's own update-detail call. Sending null here would
             // overwrite the existing value and violate the column's NOT NULL constraint.
@@ -2861,10 +2884,20 @@
                     csDetailData.is_invoice_synced = (csInvoiceId && String(csInvoiceId).trim()) ? !!invoiceSyncedForSave : false;
                 }
 
+                // Release Doctor Review (Customer Support row): sent only when shown
+                // (AI review on hold) and set to Yes. The backend owns the release itself.
+                var csReleaseEl = document.getElementById('cs-release-doctor-review-container');
+                if (csReleaseEl && csReleaseEl.classList.contains('visible') &&
+                    getRadioValue('cs_release_doctor_review') === '1') {
+                    csDetailData = csDetailData || {};
+                    csDetailData.release_doctor_review = true;
+                }
+
                 // currentDetailId is null whenever the latest detail was completed by
-                // another doctor (doctor CREATE mode). An invoice-only save must still
-                // attach to that latest detail; inserting a new, empty detail row would
-                // hide the consultation (Consulted By, Action) from the list page.
+                // another doctor (doctor CREATE mode). An invoice- or release-only save
+                // must still attach to that latest detail (the one carrying the held
+                // test result); inserting a new, empty detail row would hide the
+                // consultation (Consulted By, Action) from the list page.
                 var csIsInvoiceOnly = csDetailData && csDetailData.process_status === undefined
                     && csDetailData.consult_status === undefined;
                 var csTargetDetailId = currentDetailId || (csIsInvoiceOnly ? latestDetailId : null);

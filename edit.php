@@ -543,6 +543,26 @@ $psD = !hasConsultCallRole($currentStaffRoles, 2, 4) ? 'disabled' : '';
                             </div>
                         </div>
 
+                        <!-- Release Doctor Review? (Customer Support). Shown by js/edit.js
+                             (applyReleaseReviewVisibility) while the linked test result's AI review is
+                             on hold: AO-only once the Customer Response is not Pending; CC / CC + AO when
+                             consent is Refused/Others, so CS can close the case and release the review. -->
+                        <div class="col-md-6 conditional-field" id="cs-release-doctor-review-container">
+                            <label class="form-label">Release Doctor Review?<span style="color:red;"> *</span></label>
+                            <div class="radio-group">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="cs_release_doctor_review"
+                                        id="cs_release_review_yes" value="1" <?php echo $eD; ?>>
+                                    <label class="form-check-label" for="cs_release_review_yes">Yes</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="cs_release_doctor_review"
+                                        id="cs_release_review_no" value="0" <?php echo $eD; ?>>
+                                    <label class="form-check-label" for="cs_release_review_no">No</label>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Conditional fields when consent = obtained -->
                         <div class="col-md-6 conditional-field" data-condition="consent_obtained">
                             <label class="form-label"><span data-ao-label="Response Date">Consent Date</span><span style="color:red;"> *</span></label>
@@ -957,8 +977,9 @@ $psD = !hasConsultCallRole($currentStaffRoles, 2, 4) ? 'disabled' : '';
                         </div>
 
                         <!-- Action (consult_call_details.action_master_id; options maintained on
-                             action_master/index.php, active ones listed -- see loadActionMasterOptions()) -->
-                        <div class="col-md-6">
+                             action_master/index.php, active ones listed -- see loadActionMasterOptions()).
+                             Shown only when Consult Status = Completed. -->
+                        <div class="col-md-6 conditional-field" data-condition="consult_completed">
                             <label class="form-label" for="action_master_id">Action</label>
                             <select class="form-select" name="action_master_id" id="action_master_id" <?php echo $dD; ?>>
                                 <option value="">Select Action</option>
@@ -974,7 +995,8 @@ $psD = !hasConsultCallRole($currentStaffRoles, 2, 4) ? 'disabled' : '';
 
                         <!-- Release Doctor Review? (global within Consultation Details -- shown
                              whenever the linked test result's AI review is on hold, regardless
-                             of consult status: the review must be released either way). -->
+                             of consult status: the review must be released either way). Hidden
+                             for AO-only; Customer Support releases from the Add On Response card. -->
                         <div class="col-md-6 conditional-field" id="release-doctor-review-container">
                             <label class="form-label">Release Doctor Review?<span style="color:red;"> *</span></label>
                             <div class="radio-group">
