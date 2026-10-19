@@ -3256,9 +3256,6 @@
             if (isAddOnBought(boxes[i].value)) {
                 boxes[i].checked = true;
                 boxes[i].disabled = true;
-            } else if (!addOnDropdownDisabled) {
-                // Freed again after its invoice was unlinked.
-                boxes[i].disabled = false;
             }
         }
         updateAddOnButtonLabel();
@@ -3291,29 +3288,19 @@
      * Button(s) to the synced add-on sale(s) in Blood Test
      * (blood_test/index_specific.php?id=<blood_test_sales.id>), one per invoice.
      * Shown in the "Blood Test" column next to Invoice Status; "-" when none synced.
-     * Customer Support also gets an "Unlink" button per invoice to undo a wrong sync.
      */
     function renderInvoiceBloodTestLinks() {
         var el = document.getElementById('invoice-blood-test-links');
         if (!el) return;
-        var canUnlink = !addOnDropdownDisabled;
         var seen = {};
         var buttons = [];
         for (var i = 0; i < consultCallAddOns.length; i++) {
             var salesId = parseInt(consultCallAddOns[i].blood_test_sales_id, 10);
             if (!salesId || seen[salesId]) continue;
             seen[salesId] = true;
-            var invLabel = escapeHtml(consultCallAddOns[i].invoice_id || String(salesId));
-            var html = '<a class="btn btn-sm btn-outline-primary" href="/odb/blood_test/index_specific.php?id=' + salesId +
+            buttons.push('<a class="btn btn-sm btn-outline-primary" href="/odb/blood_test/index_specific.php?id=' + salesId +
                 '&from_cc=1" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right me-1"></i>Inv ' +
-                invLabel + '</a>';
-            if (canUnlink) {
-                html = '<span class="btn-group btn-group-sm">' + html +
-                    '<button type="button" class="btn btn-sm btn-outline-danger invoice-unlink-btn" data-sales-id="' + salesId +
-                    '" data-invoice-id="' + invLabel + '" title="Unlink this invoice to re-enter and re-sync it">' +
-                    '<i class="bi bi-x-lg"></i> Unlink</button></span>';
-            }
-            buttons.push(html);
+                escapeHtml(consultCallAddOns[i].invoice_id || String(salesId)) + '</a>');
         }
         el.innerHTML = buttons.length > 0
             ? buttons.join('')
@@ -3402,58 +3389,6 @@
     }
 
     /**
-     * Initialize form submission handler.
-     * On Submit Changes, Customer Support (role 4) invoice entries are first synced to
-     * blood_test_sales; the result is persisted as is_invoice_synced on the
-     * detail. Sync failures do not block the save -- the marker stays "not
-     * synced" and the next submit retries.
-     */
-    /**
-     * Unlink a wrongly synced invoice from this consult call: its add-ons become
-     * not-bought again and the Invoice ID field unlocks, so the correct invoice
-     * can be entered and synced. The Blood Test sale itself is not deleted.
-     */
-    function unlinkAddOnInvoice(salesId, invoiceId, btn) {
-        var confirmed = window.confirm(
-            'Unlink Invoice ID "' + invoiceId + '" from this consult call?\n\n' +
-            'Its add-ons will be marked as not purchased, and any lab report received through it ' +
-            'will be removed from this consult call. You can then enter and sync the correct invoice.\n\n' +
-            'The Blood Test sale record itself is not deleted.'
-        );
-        if (!confirmed) return;
-
-        if (btn) btn.disabled = true;
-        apiCall('unsync-add-on-invoice', {
-            consult_call_id: EDIT_CONFIG.consultCallId,
-            blood_test_sales_id: salesId
-        }).then(function(res) {
-            if (!res || !res.success) {
-                if (btn) btn.disabled = false;
-                alert('Unlink failed: ' + ((res && res.message) || 'unknown error'));
-                return;
-            }
-            consultCallAddOns = res.data || [];
-            invoiceSynced = false;
-            invoiceSyncedForSave = false;
-            if ((getInputValue('invoice_id') || '').trim() === String(invoiceId)) {
-                setInputValue('invoice_id', '');
-            }
-            if (computeOverallInvoiceStatus() === '') {
-                var radios = document.querySelectorAll('input[name="invoice_status"]');
-                for (var i = 0; i < radios.length; i++) { radios[i].checked = false; }
-            }
-            applyBoughtAddOnLock();
-            renderAddOnStatusList();
-            renderInvoiceSyncStatus();
-            var inp = document.getElementById('invoice_id');
-            if (inp) inp.focus();
-        }).catch(function() {
-            if (btn) btn.disabled = false;
-            alert('Unlink request failed. Please try again.');
-        });
-    }
-
-    /**
      * Ask the user to double-check the Invoice ID before it is synced to
      * blood_test_sales, since a wrong ID pulls another customer's sale in.
      */
@@ -3464,6 +3399,13 @@
         );
     }
 
+    /**
+     * Initialize form submission handler.
+     * On Submit Changes, Customer Support (role 4) invoice entries are first synced to
+     * blood_test_sales; the result is persisted as is_invoice_synced on the
+     * detail. Sync failures do not block the save -- the marker stays "not
+     * synced" and the next submit retries.
+     */
     function initFormSubmission() {
         var form = document.getElementById('editPatientForm');
         if (!form) return;
@@ -3566,16 +3508,6 @@
                     renderInvoiceSyncStatus();
                     if (st) { st.style.display = 'block'; st.style.color = '#dc3545'; st.textContent = 'Sync request failed. Try again.'; }
                 });
-            });
-        }
-
-        // "Unlink" buttons are re-rendered with the invoice links, so delegate.
-        var invoiceLinksEl = document.getElementById('invoice-blood-test-links');
-        if (invoiceLinksEl) {
-            invoiceLinksEl.addEventListener('click', function(e) {
-                var btn = e.target.closest('.invoice-unlink-btn');
-                if (!btn) return;
-                unlinkAddOnInvoice(parseInt(btn.getAttribute('data-sales-id'), 10), btn.getAttribute('data-invoice-id'), btn);
             });
         }
 
