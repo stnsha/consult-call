@@ -57,9 +57,10 @@ if ($outlet_result) {
     }
 }
 
-// No default report range: Enrollment From/To start empty (all records).
-$report_default_from = '';
-$report_default_to   = '';
+// Default report range: first day of the current month to today (Asia/Kuala_Lumpur).
+// Reset Filters returns to the same range via CC_CONFIG.defaultDateFrom/To.
+$report_default_from = date('Y-m-01');
+$report_default_to   = date('Y-m-d');
 ?>
 
 <body>
