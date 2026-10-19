@@ -3366,8 +3366,11 @@
         return fetch('/odb/blood_test/ajax_sync_invoice.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            // expected_ic: the endpoint blocks the sync when the invoice's customer IC
+            // is not this patient's IC.
             body: 'invoice=' + encodeURIComponent(invoiceId) +
-                '&required_item_codes=' + encodeURIComponent(required.codes.join(',')),
+                '&required_item_codes=' + encodeURIComponent(required.codes.join(',')) +
+                '&expected_ic=' + encodeURIComponent(currentCustomerIc || ''),
             credentials: 'same-origin'
         }).then(function(r) { return r.json(); }).then(function(res) {
             if (!res || !res.synced) return res;
