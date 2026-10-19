@@ -1147,6 +1147,29 @@ function syncAddOnInvoice($consultCallId, $data, $staff_id)
 }
 
 /**
+ * Unlink a synced Add-On invoice (one blood_test_sales id) from the consult call so a
+ * corrected invoice can be synced in its place
+ */
+function unsyncAddOnInvoice(int $consultCallId, int $bloodTestSalesId, $staff_id): array
+{
+    $result = getApiDataWithJWT($consultCallId . '/add-on-invoice/' . $bloodTestSalesId, null, 'DELETE', $staff_id);
+    $decoded = json_decode($result['response'], true);
+
+    if ($result['httpCode'] == 200) {
+        return [
+            'success' => true,
+            'data' => $decoded['data'] ?? [],
+            'message' => $decoded['message'] ?? 'Add-on invoice unlinked successfully'
+        ];
+    }
+
+    return [
+        'success' => false,
+        'message' => $decoded['message'] ?? 'Failed to unlink add-on invoice'
+    ];
+}
+
+/**
  * Toggle the is_active status of an add-on
  * @param int $id Add-on ID
  * @param int $staff_id Staff ID for authentication
@@ -1746,6 +1769,14 @@ if (!defined('API_JWT_INCLUDED')) {
                         $response = syncAddOnInvoice($jsonData['consult_call_id'], $jsonData['data'], $staff_id);
                     } else {
                         $response = array('success' => false, 'message' => 'Missing consult call ID or add-on invoice data');
+                    }
+                    break;
+
+                case 'unsync-add-on-invoice':
+                    if (!empty($jsonData['consult_call_id']) && !empty($jsonData['blood_test_sales_id'])) {
+                        $response = unsyncAddOnInvoice((int) $jsonData['consult_call_id'], (int) $jsonData['blood_test_sales_id'], $staff_id);
+                    } else {
+                        $response = ['success' => false, 'message' => 'Missing consult call ID or blood test sales ID'];
                     }
                     break;
 
