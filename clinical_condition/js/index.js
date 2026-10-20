@@ -358,11 +358,21 @@
             return;
         }
 
-        if (!targetActive) {
-            var confirmed = window.confirm('Are you sure you want to set ' + idsNeedingChange.length + ' condition(s) as inactive? They will no longer be evaluated for consult call eligibility.');
-            if (!confirmed) return;
+        if (targetActive) {
+            runBulkToggle(idsNeedingChange);
+            return;
         }
 
+        ccConfirm('Are you sure you want to set ' + idsNeedingChange.length + ' condition(s) as inactive? They will no longer be evaluated for consult call eligibility.', {
+            title: 'Set Conditions Inactive',
+            okText: 'Set Inactive',
+            danger: true
+        }).then(function (confirmed) {
+            if (confirmed) runBulkToggle(idsNeedingChange);
+        });
+    }
+
+    function runBulkToggle(idsNeedingChange) {
         var activeBtn = document.getElementById('bulk-set-active-btn');
         var inactiveBtn = document.getElementById('bulk-set-inactive-btn');
         if (activeBtn) activeBtn.disabled = true;
@@ -490,12 +500,18 @@
 
             if (!id) return;
 
-            if (isSettingInactive) {
-                var confirmed = window.confirm('Are you sure you want to set this condition as inactive? It will no longer be evaluated for consult call eligibility.');
-                if (!confirmed) return;
+            if (!isSettingInactive) {
+                toggleCondition(id);
+                return;
             }
 
-            toggleCondition(id);
+            ccConfirm('Are you sure you want to set this condition as inactive? It will no longer be evaluated for consult call eligibility.', {
+                title: 'Set Condition Inactive',
+                okText: 'Set Inactive',
+                danger: true
+            }).then(function (confirmed) {
+                if (confirmed) toggleCondition(id);
+            });
         }
     });
 

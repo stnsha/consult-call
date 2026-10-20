@@ -547,7 +547,7 @@ $psD = !hasConsultCallRole($currentStaffRoles, 2, 4) ? 'disabled' : '';
                              (applyReleaseReviewVisibility) while the linked test result's AI review is
                              on hold: AO-only once the Customer Response is not Pending; CC / CC + AO when
                              consent is Refused/Others, so CS can close the case and release the review. -->
-                        <div class="col-md-6 conditional-field" id="cs-release-doctor-review-container">
+                        <div class="col-md-12 conditional-field" id="cs-release-doctor-review-container">
                             <label class="form-label">Release Doctor Review?<span style="color:red;"> *</span></label>
                             <div class="radio-group">
                                 <div class="form-check">
@@ -1127,6 +1127,7 @@ $psD = !hasConsultCallRole($currentStaffRoles, 2, 4) ? 'disabled' : '';
     };
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="<?php echo CONSULTCALL_BASE; ?>js/dialog.js?v=<?php echo time(); ?>"></script>
     <script src="<?php echo CONSULTCALL_BASE; ?>js/edit.js?v=<?php echo time(); ?>"></script>
 </body>
 

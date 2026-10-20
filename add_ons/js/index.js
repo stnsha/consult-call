@@ -334,12 +334,18 @@
 
             if (!id) return;
 
-            if (isSettingInactive) {
-                var confirmed = window.confirm('Are you sure you want to set this add-on as inactive? It will no longer appear in the Recommended Add Ons dropdown.');
-                if (!confirmed) return;
+            if (!isSettingInactive) {
+                toggleAddOn(id);
+                return;
             }
 
-            toggleAddOn(id);
+            ccConfirm('Are you sure you want to set this add-on as inactive? It will no longer appear in the Recommended Add Ons dropdown.', {
+                title: 'Set Add-On Inactive',
+                okText: 'Set Inactive',
+                danger: true
+            }).then(function (confirmed) {
+                if (confirmed) toggleAddOn(id);
+            });
         }
     });
 

@@ -147,6 +147,7 @@ $can_manage_actions = hasConsultCallRole($consult_call_roles, 1, 6);
     };
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="<?php echo CONSULTCALL_BASE; ?>js/dialog.js?v=<?php echo time(); ?>"></script>
     <script src="<?php echo CONSULTCALL_BASE; ?>action_master/js/index.js?v=<?php echo time(); ?>"></script>
 </body>
 </html>

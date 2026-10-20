@@ -1023,7 +1023,7 @@
 
         apiCall('all-consult-call', params).then(function(result) {
             if (!result.success || !result.data) {
-                alert('Export failed: could not retrieve records.');
+                ccAlert('Export failed: could not retrieve records.', { title: 'Export Failed', variant: 'warning' });
                 resetExportBtn(btn);
                 return;
             }
@@ -1031,7 +1031,7 @@
             var records = result.data.data || [];
 
             if (records.length === 0) {
-                alert('No records match the current filters. Nothing to export.');
+                ccAlert('No records match the current filters. Nothing to export.', { title: 'Nothing to Export' });
                 resetExportBtn(btn);
                 return;
             }
@@ -1160,13 +1160,13 @@
 
             }).catch(function(err) {
                 console.error('Export error (lookup phase):', err);
-                alert('Export failed while looking up customer/outlet details.');
+                ccAlert('Export failed while looking up customer/outlet details.', { title: 'Export Failed', variant: 'warning' });
                 resetExportBtn(btn);
             });
 
         }).catch(function(err) {
             console.error('Export error (fetch phase):', err);
-            alert('Export failed while fetching records.');
+            ccAlert('Export failed while fetching records.', { title: 'Export Failed', variant: 'warning' });
             resetExportBtn(btn);
         });
     }

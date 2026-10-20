@@ -73,6 +73,8 @@
     // hold pending release (held by blood-stream-v1 for enrolled patients). Set
     // from the loaded consult call data; gates the "Release Doctor Review?" controls.
     var aiReviewOnHold = false;
+    // Linked test result's held AI review has already been released (one-time).
+    var aiReviewReleased = false;
 
     // Whether the Add-On Invoice ID on the latest detail is already synced to
     // ODB blood_test_sales. Set from loaded data; recomputed after a sync run.
@@ -717,14 +719,14 @@
                     for (var cri = 0; cri < allCR.length; cri++) { allCR[cri].checked = false; }
                     prevConsultStatus = '';
                     handleConsultStatusChange('');
-                    alert(result.message || 'This consultation has already been assigned to another doctor.');
+                    ccAlert(result.message || 'This consultation has already been assigned to another doctor.', { title: 'Consultation Unavailable', variant: 'warning' });
                 }
             }).catch(function() {
                 var allCR = document.querySelectorAll('input[name="consult_status"]');
                 for (var cri = 0; cri < allCR.length; cri++) { allCR[cri].checked = false; }
                 prevConsultStatus = '';
                 handleConsultStatusChange('');
-                alert('Failed to claim this consultation. Please try again.');
+                ccAlert('Failed to claim this consultation. Please try again.', { title: 'Claim Failed', variant: 'warning' });
             });
         }
         // Sync date container: show only if Completed AND a month is selected
@@ -762,9 +764,13 @@
      *    Refused/Others, so CS can close the case and release the review.
      */
     function applyReleaseReviewVisibility() {
+        // Already released: keep the control visible, pre-filled with Yes and
+        // locked, so the user can see the release has happened (one-time action).
+        var showRelease = aiReviewOnHold || aiReviewReleased;
+
         var doctorEl = document.getElementById('release-doctor-review-container');
         if (doctorEl) {
-            doctorEl.classList.toggle('visible', aiReviewOnHold && !isAddOnOnly);
+            doctorEl.classList.toggle('visible', showRelease && !isAddOnOnly);
         }
 
         var csEl = document.getElementById('cs-release-doctor-review-container');
@@ -773,7 +779,15 @@
             var csCanRelease = isAddOnOnly
                 ? consent !== CONSENT_PENDING
                 : (consent === CONSENT_REFUSED || consent === CONSENT_OTHERS);
-            csEl.classList.toggle('visible', aiReviewOnHold && csCanRelease);
+            csEl.classList.toggle('visible', showRelease && csCanRelease);
+        }
+
+        if (aiReviewReleased) {
+            ['release_doctor_review', 'cs_release_doctor_review'].forEach(function(name) {
+                setRadioValue(name, '1');
+                var radios = document.querySelectorAll('input[name="' + name + '"]');
+                for (var i = 0; i < radios.length; i++) { radios[i].disabled = true; }
+            });
         }
     }
 
@@ -845,7 +859,20 @@
         var previousActive = container.querySelector('.segmented-toggle-btn.active');
         var previousValue = previousActive ? previousActive.getAttribute('data-value') : '1';
         if (previousValue === String(newValue)) return;
+        var releasesReview = String(newValue) === '3' && aiReviewOnHold;
+        if (!releasesReview) {
+            submitHeaderProcessStatus(newValue, previousValue, false);
+            return;
+        }
+        confirmCloseReleasesReview().then(function(confirmed) {
+            if (confirmed) submitHeaderProcessStatus(newValue, previousValue, true);
+        });
+    }
 
+    function submitHeaderProcessStatus(newValue, previousValue, releasesReview) {
+        var container = document.getElementById('header-process-status');
+        if (!container || !headerProcessStatusDetailId) return;
+        var btns = container.querySelectorAll('.segmented-toggle-btn');
         var i;
         for (i = 0; i < btns.length; i++) { btns[i].disabled = true; }
         setHeaderProcessStatusActive(newValue);
@@ -858,12 +885,19 @@
             for (i = 0; i < btns.length; i++) { btns[i].disabled = false; }
             if (!result.success) {
                 setHeaderProcessStatusActive(previousValue);
-                alert(result.message || 'Failed to update process status.');
+                ccAlert(result.message || 'Failed to update process status.', { title: 'Update Failed', variant: 'warning' });
+                return;
+            }
+            // Backend released the held review on close; it is no longer on hold.
+            if (releasesReview) {
+                aiReviewOnHold = false;
+                aiReviewReleased = true;
+                applyReleaseReviewVisibility();
             }
         }).catch(function() {
             for (i = 0; i < btns.length; i++) { btns[i].disabled = false; }
             setHeaderProcessStatusActive(previousValue);
-            alert('Network error. Please try again.');
+            ccAlert('Network error. Please try again.', { title: 'Update Failed', variant: 'warning' });
         });
     }
 
@@ -1966,22 +2000,27 @@
 
     // Clear the linked MyReferral record from a follow-up (sets my_referral_id back to null)
     window.unlinkMyReferral = function(followUpId) {
-        var confirmed = window.confirm('Unlink this MyReferral record? This does not delete the referral itself, only removes the link here.');
-        if (!confirmed) return;
+        ccConfirm('Unlink this MyReferral record? This does not delete the referral itself, only removes the link here.', {
+            title: 'Unlink MyReferral',
+            okText: 'Unlink',
+            danger: true
+        }).then(function(confirmed) {
+            if (!confirmed) return;
 
-        apiCall('update-follow-up', {
-            consult_call_id: EDIT_CONFIG.consultCallId,
-            follow_up_id: followUpId,
-            data: { my_referral_id: null }
-        }).then(function(result) {
-            if (!result.success) {
-                alert('Failed to unlink MyReferral: ' + (result.message || 'Unknown error'));
-                return;
-            }
-            loadConsultCallData();
-        }).catch(function(err) {
-            alert('Error unlinking MyReferral.');
-            console.error('Failed to unlink MyReferral:', err);
+            apiCall('update-follow-up', {
+                consult_call_id: EDIT_CONFIG.consultCallId,
+                follow_up_id: followUpId,
+                data: { my_referral_id: null }
+            }).then(function(result) {
+                if (!result.success) {
+                    ccAlert('Failed to unlink MyReferral: ' + (result.message || 'Unknown error'), { title: 'Unlink Failed', variant: 'warning' });
+                    return;
+                }
+                loadConsultCallData();
+            }).catch(function(err) {
+                ccAlert('Error unlinking MyReferral.', { title: 'Unlink Failed', variant: 'warning' });
+                console.error('Failed to unlink MyReferral:', err);
+            });
         });
     };
 
@@ -2095,26 +2134,31 @@
         for (var l = 0; l < consultRadios.length; l++) {
             consultRadios[l].addEventListener('change', function() {
                 var newValue = this.value;
-                if (newValue === CONSULT_COMPLETED && !isDetailClaimedByCurrentDoctor) {
-                    var confirmed = window.confirm(
-                        'Assign this consultation to yourself?\n\n' +
-                        'Once confirmed, other doctors will not be able to edit this record.'
-                    );
-                    if (!confirmed) {
-                        if (prevConsultStatus) {
-                            setRadioValue('consult_status', prevConsultStatus);
-                        } else {
-                            var allConsultRadios = document.querySelectorAll('input[name="consult_status"]');
-                            for (var ci = 0; ci < allConsultRadios.length; ci++) {
-                                allConsultRadios[ci].checked = false;
-                            }
-                        }
-                        handleConsultStatusChange(prevConsultStatus);
+                if (newValue !== CONSULT_COMPLETED || isDetailClaimedByCurrentDoctor) {
+                    prevConsultStatus = newValue;
+                    handleConsultStatusChange(newValue);
+                    return;
+                }
+                ccConfirm(
+                    'Assign this consultation to yourself?\n\n' +
+                    'Once confirmed, other doctors will not be able to edit this record.',
+                    { title: 'Assign Consultation', okText: 'Assign to Me' }
+                ).then(function(confirmed) {
+                    if (confirmed) {
+                        prevConsultStatus = newValue;
+                        handleConsultStatusChange(newValue);
                         return;
                     }
-                }
-                prevConsultStatus = newValue;
-                handleConsultStatusChange(newValue);
+                    if (prevConsultStatus) {
+                        setRadioValue('consult_status', prevConsultStatus);
+                    } else {
+                        var allConsultRadios = document.querySelectorAll('input[name="consult_status"]');
+                        for (var ci = 0; ci < allConsultRadios.length; ci++) {
+                            allConsultRadios[ci].checked = false;
+                        }
+                    }
+                    handleConsultStatusChange(prevConsultStatus);
+                });
             });
         }
 
@@ -2186,7 +2230,7 @@
                     btn.innerHTML = '<i class="bi bi-file-earmark-pdf me-1"></i>View PDF';
                 }
                 if (!response.success || !response.data || !response.data.pdf) {
-                    alert(response.message || 'PDF not available.');
+                    ccAlert(response.message || 'PDF not available.', { title: 'PDF Unavailable', variant: 'warning' });
                     return;
                 }
                 document.getElementById('pdfViewer').src = 'data:application/pdf;base64,' + response.data.pdf;
@@ -2198,7 +2242,7 @@
                     btn.disabled = false;
                     btn.innerHTML = '<i class="bi bi-file-earmark-pdf me-1"></i>View PDF';
                 }
-                alert('Failed to load PDF.');
+                ccAlert('Failed to load PDF.', { title: 'PDF Unavailable', variant: 'warning' });
             });
     };
 
@@ -2461,6 +2505,7 @@
         previousDetailClinicalConditionId = null;
         previousDetailTestResultId = null;
         aiReviewOnHold = false;
+        aiReviewReleased = false;
         if (details.length > 0) {
             var lastDetail = details[details.length - 1];
             // Always carry forward clinical_condition_id and test_result_id from the
@@ -2469,6 +2514,13 @@
             previousDetailClinicalConditionId = lastDetail.clinical_condition_id || null;
             previousDetailTestResultId = lastDetail.test_result_id || null;
             aiReviewOnHold = !!(lastDetail.test_result && lastDetail.test_result.ai_review_on_hold);
+            aiReviewReleased = !!(lastDetail.test_result && lastDetail.test_result.ai_review_released);
+            // Show the last saved Release Doctor Review answer (null = not answered yet).
+            if (lastDetail.release_doctor_review !== undefined && lastDetail.release_doctor_review !== null) {
+                var savedRelease = lastDetail.release_doctor_review ? '1' : '0';
+                setRadioValue('release_doctor_review', savedRelease);
+                setRadioValue('cs_release_doctor_review', savedRelease);
+            }
             applyReleaseReviewVisibility();
             var lastIsCompleted = String(lastDetail.consult_status) === '1';
             var lastIsByCurrentDoctor = !!(lastDetail.consulted_by &&
@@ -2780,6 +2832,47 @@
     }
 
     /**
+     * Closing a case whose AI review is still on hold releases that review
+     * (backend: releaseHeldAiReviewOnClose). One-time: once released, the review
+     * is no longer on hold, so later reopen/close cycles do not prompt again.
+     * @returns {Promise<boolean>} resolves true when the user confirms
+     */
+    function confirmCloseReleasesReview() {
+        return ccConfirm(
+            'Closing this case will release the doctor review (AI review) for the linked test result, ' +
+            'even though Release Doctor Review is not set to Yes.\n\n' +
+            'This is a one-time action and cannot be undone. Continue?',
+            { title: 'Release Doctor Review', okText: 'Close and Release', danger: true }
+        );
+    }
+
+    /**
+     * Whether this form save will close the case (via the backend's auto-close
+     * rules) while the AI review is still on hold and the visible Release Doctor
+     * Review control the current role answers is not Yes.
+     * @returns {boolean}
+     */
+    function saveWillCloseWithHeldReview() {
+        if (!aiReviewOnHold || getCurrentProcessStatus() === 3) return false;
+
+        if (hasRole(4)) {
+            var consent = toIntOrNull(getRadioValue('consent_status'));
+            var csCloses = consent === 2 || consent === 3 ||
+                (!isAddOnOnly && consent === 1 && toIntOrNull(getRadioValue('scheduled_status')) === 3);
+            if (csCloses && getRadioValue('cs_release_doctor_review') !== '1') return true;
+        }
+
+        if (hasRole(2)) {
+            var action = toIntOrNull(getRadioValue('action'));
+            var status = toIntOrNull(getRadioValue('consult_status'));
+            var doctorCloses = action === 2 || action === 3 || status === 2 || status === 3;
+            if (doctorCloses && getRadioValue('release_doctor_review') !== '1') return true;
+        }
+
+        return false;
+    }
+
+    /**
      * Run the full save flow: validates, then saves consult call, detail, and follow-up.
      * onSuccess is called with the saved follow-up ID (int or null) after all API calls succeed.
      * onFailure is called (no args) after an error alert when any API call fails.
@@ -2798,20 +2891,6 @@
         if (!validateForm()) {
             if (onFailure) onFailure();
             return;
-        }
-
-        // Block save if End Process is selected with Active process status
-        var warnAction = toIntOrNull(getRadioValue('action'));
-        var warnProcessStatus = toIntOrNull(getRadioValue('process_status'));
-        if (warnAction === 3 && warnProcessStatus === 1) {
-            var confirmed = window.confirm(
-                'Consultation Outcome is set to End Process but Process Status is still Active.\n\n' +
-                'Are you sure you want to save with this combination?'
-            );
-            if (!confirmed) {
-                if (onFailure) onFailure();
-                return;
-            }
         }
 
         // Block save if Process Status is Closed with Refer Internal action specifically.
@@ -2840,6 +2919,43 @@
             }
         }
 
+        // Confirmation dialogs are asynchronous, so they are chained as gates; the
+        // save itself (performSave) only runs once every shown dialog is confirmed.
+        var gate = Promise.resolve(true);
+
+        // Warn if End Process is selected with Active process status
+        var warnAction = toIntOrNull(getRadioValue('action'));
+        var warnProcessStatus = toIntOrNull(getRadioValue('process_status'));
+        if (warnAction === 3 && warnProcessStatus === 1) {
+            gate = gate.then(function(ok) {
+                return ok && ccConfirm(
+                    'Consultation Outcome is set to End Process but Process Status is still Active.\n\n' +
+                    'Are you sure you want to save with this combination?',
+                    { title: 'Confirm Save' }
+                );
+            });
+        }
+
+        if (saveWillCloseWithHeldReview()) {
+            gate = gate.then(function(ok) {
+                return ok && confirmCloseReleasesReview();
+            });
+        }
+
+        gate.then(function(ok) {
+            if (!ok) {
+                if (onFailure) onFailure();
+                return;
+            }
+            performSave(onSuccess, onFailure, options, isDraft);
+        });
+    }
+
+    /**
+     * Second half of runSaveFlow, run after validation and every confirmation
+     * dialog has passed: builds the payloads and calls the API.
+     */
+    function performSave(onSuccess, onFailure, options, isDraft) {
         var activeBtnId = (options && options.btnId) ? options.btnId : 'saveBtn';
         var activeBtn = document.getElementById(activeBtnId);
         var originalText = activeBtn ? activeBtn.innerHTML : '';
@@ -2907,12 +3023,13 @@
         };
 
         // Release Doctor Review: sent whenever the control is shown (AI review on
-        // hold) and set to Yes, regardless of consult status -- the review must be
-        // released even for a no-show / cancelled consult.
+        // hold) and answered, regardless of consult status -- the review must be
+        // released even for a no-show / cancelled consult. Yes triggers the release;
+        // both answers are stored on the detail so the form can show them on reload.
         var releaseReviewEl = document.getElementById('release-doctor-review-container');
-        if (releaseReviewEl && releaseReviewEl.classList.contains('visible') &&
-            getRadioValue('release_doctor_review') === '1') {
-            detailData.release_doctor_review = true;
+        var releaseReviewValue = getRadioValue('release_doctor_review');
+        if (aiReviewOnHold && releaseReviewEl && releaseReviewEl.classList.contains('visible') && releaseReviewValue) {
+            detailData.release_doctor_review = releaseReviewValue === '1';
         }
 
         detailData.is_draft = isDraft ? 1 : 2;
@@ -2947,7 +3064,7 @@
         consultCallPromise.then(function(result) {
             if (!result.success) {
                 if (activeBtn) { activeBtn.disabled = false; activeBtn.innerHTML = originalText; }
-                alert('Failed to save consult call: ' + (result.message || 'Unknown error'));
+                ccAlert('Failed to save consult call: ' + (result.message || 'Unknown error'), { title: 'Save Failed', variant: 'warning' });
                 if (onFailure) onFailure();
                 // Throw to skip the next .then() so success path is not reached
                 throw new Error('__handled__');
@@ -2996,12 +3113,13 @@
                 }
 
                 // Release Doctor Review (Customer Support row): sent only when shown
-                // (AI review on hold) and set to Yes. The backend owns the release itself.
+                // (AI review on hold) and answered. Yes triggers the release, which the
+                // backend owns; both answers are stored so they show again on reload.
                 var csReleaseEl = document.getElementById('cs-release-doctor-review-container');
-                if (csReleaseEl && csReleaseEl.classList.contains('visible') &&
-                    getRadioValue('cs_release_doctor_review') === '1') {
+                var csReleaseValue = getRadioValue('cs_release_doctor_review');
+                if (aiReviewOnHold && csReleaseEl && csReleaseEl.classList.contains('visible') && csReleaseValue) {
                     csDetailData = csDetailData || {};
-                    csDetailData.release_doctor_review = true;
+                    csDetailData.release_doctor_review = csReleaseValue === '1';
                 }
 
                 // currentDetailId is null whenever the latest detail was completed by
@@ -3145,7 +3263,7 @@
             for (var i = 0; i < results.length; i++) {
                 if (!results[i].success) {
                     if (activeBtn) { activeBtn.disabled = false; activeBtn.innerHTML = originalText; }
-                    alert('Failed to save: ' + (results[i].message || 'Unknown error'));
+                    ccAlert('Failed to save: ' + (results[i].message || 'Unknown error'), { title: 'Save Failed', variant: 'warning' });
                     if (onFailure) onFailure();
                     return;
                 }
@@ -3163,7 +3281,7 @@
                 return;
             }
             if (activeBtn) { activeBtn.disabled = false; activeBtn.innerHTML = originalText; }
-            alert('Error saving changes. Please try again.');
+            ccAlert('Error saving changes. Please try again.', { title: 'Save Failed', variant: 'warning' });
             if (onFailure) onFailure();
             console.error('Save error:', err);
         });
@@ -3393,9 +3511,10 @@
      * blood_test_sales, since a wrong ID pulls another customer's sale in.
      */
     function confirmInvoiceSync(invoiceId) {
-        return window.confirm(
+        return ccConfirm(
             'Sync Invoice ID "' + invoiceId + '" to Blood Test?\n\n' +
-            'Please make sure the Invoice ID is correct for this customer before continuing.'
+            'Please make sure the Invoice ID is correct for this customer before continuing.',
+            { title: 'Sync Invoice', okText: 'Sync' }
         );
     }
 
@@ -3411,9 +3530,10 @@
         if (!form) return;
 
         var reloadOnSuccess = function() {
-            alert('Changes saved successfully.');
-            sessionStorage.setItem('scrollToMyReferral', '1');
-            window.location.reload();
+            ccAlert('Changes saved successfully.', { title: 'Saved', variant: 'success' }).then(function() {
+                sessionStorage.setItem('scrollToMyReferral', '1');
+                window.location.reload();
+            });
         };
 
         form.addEventListener('submit', function(e) {
@@ -3430,8 +3550,14 @@
             }
 
             // Cancelling aborts the whole save so the Invoice ID can be corrected.
-            if (!confirmInvoiceSync(invId)) return;
+            confirmInvoiceSync(invId).then(function(confirmed) {
+                if (confirmed) syncInvoiceThenSave(invId);
+            });
+        });
 
+        // Sync the invoice to Blood Test, then run the save whatever the sync result
+        // (an unsynced invoice is retried on the next Submit Changes).
+        function syncInvoiceThenSave(invId) {
             var saveBtn = document.getElementById('saveBtn');
             var saveBtnText = saveBtn ? saveBtn.innerHTML : '';
             if (saveBtn) {
@@ -3450,19 +3576,21 @@
                 invoiceSynced = invoiceSyncedForSave;
                 renderInvoiceSyncStatus();
                 if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = saveBtnText; }
-                if (!invoiceSyncedForSave) {
-                    alert('Invoice sync: ' + ((res && res.message) || 'could not sync') +
-                        '\nSaving anyway; it will retry on the next Submit Changes.');
+                if (invoiceSyncedForSave) {
+                    runSaveFlow(reloadOnSuccess);
+                    return;
                 }
-                runSaveFlow(reloadOnSuccess);
+                ccAlert('Invoice sync: ' + ((res && res.message) || 'could not sync') +
+                    '\nSaving anyway; it will retry on the next Submit Changes.', { title: 'Invoice Not Synced', variant: 'warning' })
+                    .then(function() { runSaveFlow(reloadOnSuccess); });
             }).catch(function() {
                 invoiceSyncedForSave = false;
                 if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = saveBtnText; }
                 renderInvoiceSyncStatus();
-                alert('Invoice sync request failed. Saving anyway; it will retry on the next Submit Changes.');
-                runSaveFlow(reloadOnSuccess);
+                ccAlert('Invoice sync request failed. Saving anyway; it will retry on the next Submit Changes.', { title: 'Invoice Not Synced', variant: 'warning' })
+                    .then(function() { runSaveFlow(reloadOnSuccess); });
             });
-        });
+        }
 
         var invoiceEl = document.getElementById('invoice_id');
         if (invoiceEl) {
@@ -3485,29 +3613,34 @@
                     if (st) { st.style.display = 'block'; st.style.color = '#dc3545'; st.textContent = 'Enter an invoice ID first.'; }
                     return;
                 }
-                if (!confirmInvoiceSync(v)) return;
-                var btnText = invoiceSyncBtn.innerHTML;
-                invoiceSyncBtn.disabled = true;
-                invoiceSyncBtn.innerHTML = 'Syncing...';
-                if (st) { st.style.display = 'block'; st.style.color = '#6c757d'; st.textContent = 'Processing sync to Blood Test...'; }
-                syncInvoiceToBloodTestSales(v).then(function(res) {
-                    invoiceSynced = !!(res && res.synced);
-                    invoiceSyncedForSave = invoiceSynced;
-                    renderInvoiceSyncStatus();
-                    if (st && !invoiceSynced && res && res.message) {
-                        st.style.color = '#dc3545';
-                        st.textContent = res.message;
-                    }
-                    invoiceSyncBtn.disabled = false;
-                    invoiceSyncBtn.innerHTML = btnText;
-                }).catch(function() {
-                    invoiceSynced = false;
-                    invoiceSyncedForSave = false;
-                    invoiceSyncBtn.disabled = false;
-                    invoiceSyncBtn.innerHTML = btnText;
-                    renderInvoiceSyncStatus();
-                    if (st) { st.style.display = 'block'; st.style.color = '#dc3545'; st.textContent = 'Sync request failed. Try again.'; }
+                confirmInvoiceSync(v).then(function(confirmed) {
+                    if (confirmed) runManualInvoiceSync(v, st);
                 });
+            });
+        }
+
+        function runManualInvoiceSync(v, st) {
+            var btnText = invoiceSyncBtn.innerHTML;
+            invoiceSyncBtn.disabled = true;
+            invoiceSyncBtn.innerHTML = 'Syncing...';
+            if (st) { st.style.display = 'block'; st.style.color = '#6c757d'; st.textContent = 'Processing sync to Blood Test...'; }
+            syncInvoiceToBloodTestSales(v).then(function(res) {
+                invoiceSynced = !!(res && res.synced);
+                invoiceSyncedForSave = invoiceSynced;
+                renderInvoiceSyncStatus();
+                if (st && !invoiceSynced && res && res.message) {
+                    st.style.color = '#dc3545';
+                    st.textContent = res.message;
+                }
+                invoiceSyncBtn.disabled = false;
+                invoiceSyncBtn.innerHTML = btnText;
+            }).catch(function() {
+                invoiceSynced = false;
+                invoiceSyncedForSave = false;
+                invoiceSyncBtn.disabled = false;
+                invoiceSyncBtn.innerHTML = btnText;
+                renderInvoiceSyncStatus();
+                if (st) { st.style.display = 'block'; st.style.color = '#dc3545'; st.textContent = 'Sync request failed. Try again.'; }
             });
         }
 
@@ -3516,8 +3649,9 @@
             draftBtn.addEventListener('click', function() {
                 invoiceSyncedForSave = invoiceSynced;
                 runSaveFlow(function() {
-                    alert('Saved as draft. You can continue editing.');
-                    window.location.reload();
+                    ccAlert('Saved as draft. You can continue editing.', { title: 'Draft Saved', variant: 'success' }).then(function() {
+                        window.location.reload();
+                    });
                 }, null, { isDraft: true, btnId: 'draftBtn' });
             });
         }

@@ -338,12 +338,18 @@
 
             if (!id) return;
 
-            if (isSettingInactive) {
-                var confirmed = window.confirm('Are you sure you want to set this action as inactive? It will no longer appear in the Action dropdown.');
-                if (!confirmed) return;
+            if (!isSettingInactive) {
+                toggleAction(id);
+                return;
             }
 
-            toggleAction(id);
+            ccConfirm('Are you sure you want to set this action as inactive? It will no longer appear in the Action dropdown.', {
+                title: 'Set Action Inactive',
+                okText: 'Set Inactive',
+                danger: true
+            }).then(function (confirmed) {
+                if (confirmed) toggleAction(id);
+            });
         }
     });
 
