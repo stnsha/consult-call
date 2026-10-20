@@ -2936,26 +2936,60 @@
             });
         }
 
-        if (saveWillCloseWithHeldReview()) {
+        // AO-only: once the customer has accepted, ask whether this submit also
+        // closes the case. "No" (or dismissing the dialog) saves it as Active.
+        var closeOnSave = false;
+        if (shouldAskCloseAddOnOnly(isDraft)) {
             gate = gate.then(function(ok) {
-                return ok && confirmCloseReleasesReview();
+                if (!ok) return false;
+                return ccConfirm(
+                    'You have completed the Add On Recommendation and Add On Response.\n\n' +
+                    'Update the Process Status to Closed?',
+                    { title: 'Close Case', okText: 'Yes, Close', cancelText: 'No, Keep Active' }
+                ).then(function(confirmed) {
+                    closeOnSave = confirmed;
+                    return true;
+                });
             });
         }
+
+        // Closing (by auto-close rules or the AO-only question above) releases an AI
+        // review that is still on hold, so confirm that separately.
+        gate = gate.then(function(ok) {
+            if (!ok) return false;
+            var closeReleases = closeOnSave && aiReviewOnHold &&
+                getRadioValue('cs_release_doctor_review') !== '1';
+            return (saveWillCloseWithHeldReview() || closeReleases) ? confirmCloseReleasesReview() : true;
+        });
 
         gate.then(function(ok) {
             if (!ok) {
                 if (onFailure) onFailure();
                 return;
             }
-            performSave(onSuccess, onFailure, options, isDraft);
+            performSave(onSuccess, onFailure, options, isDraft, closeOnSave);
         });
+    }
+
+    /**
+     * AO-only submit by Customer Support with the customer's response Accepted
+     * and the case not already Closed: ask whether to close the case. Refused /
+     * Others already close the case automatically, so they are not asked.
+     * @param {boolean} isDraft
+     * @returns {boolean}
+     */
+    function shouldAskCloseAddOnOnly(isDraft) {
+        if (isDraft || !isAddOnOnly || !hasRole(4)) return false;
+        if (getRadioValue('consent_status') !== CONSENT_OBTAINED) return false;
+        var current = getCurrentProcessStatus();
+        return current !== 3 && !!(currentDetailId || latestDetailId);
     }
 
     /**
      * Second half of runSaveFlow, run after validation and every confirmation
      * dialog has passed: builds the payloads and calls the API.
      */
-    function performSave(onSuccess, onFailure, options, isDraft) {
+    function performSave(onSuccess, onFailure, options, isDraft, closeOnSave) {
         var activeBtnId = (options && options.btnId) ? options.btnId : 'saveBtn';
         var activeBtn = document.getElementById(activeBtnId);
         var originalText = activeBtn ? activeBtn.innerHTML : '';
@@ -3100,6 +3134,11 @@
                     csDetailData.consult_status = 3;
                     // process_status will be forced to Closed by the backend's statusForcesClose rule
                 }
+                // AO-only: the user chose "Yes, Close" in the submit dialog.
+                if (closeOnSave) {
+                    csDetailData = csDetailData || {};
+                    csDetailData.process_status = 3;
+                }
 
                 // Add On Recommendation section (Customer Support-owned): invoice_id / invoice_status /
                 // is_invoice_synced are columns on consult_call_details.
@@ -3129,7 +3168,8 @@
                 // consultation (Consulted By, Action) from the list page.
                 var csIsInvoiceOnly = csDetailData && csDetailData.process_status === undefined
                     && csDetailData.consult_status === undefined;
-                var csTargetDetailId = currentDetailId || (csIsInvoiceOnly ? latestDetailId : null);
+                // The AO-only close targets the same latest detail as the header pill.
+                var csTargetDetailId = currentDetailId || ((csIsInvoiceOnly || closeOnSave) ? latestDetailId : null);
 
                 if (csDetailData) {
                     if (csTargetDetailId) {
