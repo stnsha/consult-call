@@ -3506,7 +3506,9 @@
                 // The add-on runs on the original blood sample: the endpoint lists the
                 // invoice under the consult call's original blood test sale (same REFID).
                 '&consult_call_id=' + encodeURIComponent(EDIT_CONFIG.consultCallId || '') +
-                '&consult_call_detail_id=' + encodeURIComponent(addOnSectionDetailId || ''),
+                '&consult_call_detail_id=' + encodeURIComponent(addOnSectionDetailId || '') +
+                // Same patient even when Xilnex formats the IC differently: no new customer.
+                '&expected_customer_id=' + encodeURIComponent(currentCustomerId || ''),
             credentials: 'same-origin'
         }).then(function(r) { return r.json(); }).then(function(res) {
             if (!res || !res.synced) return res;
