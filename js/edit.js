@@ -99,6 +99,11 @@
     // 2 = Refused) and the scheduling fields are hidden. Set in populateForm().
     var isAddOnOnly = false;
 
+    // True when the latest detail's advise type includes an add-on (AO or CC + AO). The
+    // customer can take the add-on without the consultation, so the Add On Recommendation
+    // card stays visible whatever the consent status is. Set in populateForm().
+    var hasAddOnAdvise = false;
+
     // Consent status integer constants
     var CONSENT_PENDING = '0';
     var CONSENT_OBTAINED = '1';
@@ -573,9 +578,9 @@
     function handleConsentChange(value) {
         var consentFields = document.querySelectorAll('[data-condition="consent_obtained"]');
         for (var i = 0; i < consentFields.length; i++) {
-            // AO-only: the Add On Recommendation card is what Customer Support offers on
-            // the call, so it stays visible whatever the response is.
-            var alwaysShown = isAddOnOnly && consentFields[i].id === 'addon-recommendation-section';
+            // AO / CC + AO: the customer can take the add-on even when the consultation is
+            // Pending, Refused or Others, so the Add On Recommendation card always shows.
+            var alwaysShown = hasAddOnAdvise && consentFields[i].id === 'addon-recommendation-section';
             if (value === CONSENT_OBTAINED || alwaysShown) {
                 consentFields[i].classList.add('visible');
             } else {
@@ -1079,7 +1084,8 @@
     /**
      * Switch the Eligibility card between the consultation flow (CC, CC + AO) and the
      * AO-only flow: relabel [data-ao-label] elements, hide [data-cc-only] scheduling
-     * fields, and place the Add On Recommendation card before the Eligibility card.
+     * fields, and place the Add On Recommendation card before the Eligibility card
+     * (AO and CC + AO; reads hasAddOnAdvise, so set it first).
      * Safe to call repeatedly -- the original label text is kept in data-cc-label.
      * @param {boolean} aoOnly
      */
@@ -1098,10 +1104,12 @@
             ccOnlyEls[j].classList.toggle('cc-hidden-by-advise-type', aoOnly);
         }
 
+        // AO and CC + AO: the add-on card comes first, since the customer can take the
+        // add-on whether or not they agree to the consultation.
         var eligCard = document.getElementById('eligibility-card');
         var addOnCard = document.getElementById('addon-recommendation-section');
         if (eligCard && addOnCard && eligCard.parentNode === addOnCard.parentNode) {
-            if (aoOnly) {
+            if (aoOnly || hasAddOnAdvise) {
                 eligCard.parentNode.insertBefore(addOnCard, eligCard);
             } else {
                 eligCard.parentNode.insertBefore(addOnCard, eligCard.nextSibling);
@@ -1666,30 +1674,8 @@
         }
         html += '</div></div>';
 
-        // Add-On report(s): lab reports of the add-on invoice(s) synced on this detail
-        // (consult_call_add_on_results, linked by blood_test_sales_id).
-        var addOnResults = detail.add_on_results || [];
-        var detailHasAddOnInvoice = consultCallAddOns.some(function(row) {
-            return row.blood_test_sales_id && String(row.consult_call_detail_id) === String(detail.id);
-        });
-        if (addOnResults.length > 0 || detailHasAddOnInvoice) {
-            html += '<div class="mb-2">';
-            html += '<div class="history-label">Add-On Report</div>';
-            html += '<div class="history-value">';
-            if (addOnResults.length === 0) {
-                html += '<span class="text-muted small">Pending result.</span>';
-            }
-            for (var ar = 0; ar < addOnResults.length; ar++) {
-                var addOnResult = addOnResults[ar];
-                var addOnTestResult = addOnResult.test_result || {};
-                html += '<div class="d-flex align-items-center gap-2' + (ar > 0 ? ' mt-1' : '') + '">';
-                html += '<span>' + escapeHtml(formatDate(addOnTestResult.reported_date)) + '</span>';
-                html += '<button type="button" class="btn btn-sm btn-outline-danger" onclick="openPdfReport(' + parseInt(addOnResult.test_result_id, 10) + ')">';
-                html += '<i class="bi bi-file-earmark-pdf me-1"></i>View PDF</button>';
-                html += '</div>';
-            }
-            html += '</div></div>';
-        }
+        // No separate Add-On report: an add-on runs on the same blood sample and is
+        // reported in the Blood Test Report above.
 
         // Risk tier
         var cc = detail.clinical_condition || null;
@@ -2363,6 +2349,7 @@
             ? latestDetailForAdviseType.clinical_condition.type
             : null;
         isAddOnOnly = (adviseTypeForSection === 'AO');
+        hasAddOnAdvise = (adviseTypeForSection === 'AO' || adviseTypeForSection === 'CC + AO');
         applyAddOnOnlyLayout(isAddOnOnly);
 
         // Global view's read-only Eligibility card (Consent Status + Remarks only);
@@ -3515,7 +3502,11 @@
             // is not this patient's IC.
             body: 'invoice=' + encodeURIComponent(invoiceId) +
                 '&required_item_codes=' + encodeURIComponent(required.codes.join(',')) +
-                '&expected_ic=' + encodeURIComponent(currentCustomerIc || ''),
+                '&expected_ic=' + encodeURIComponent(currentCustomerIc || '') +
+                // The add-on runs on the original blood sample: the endpoint lists the
+                // invoice under the consult call's original blood test sale (same REFID).
+                '&consult_call_id=' + encodeURIComponent(EDIT_CONFIG.consultCallId || '') +
+                '&consult_call_detail_id=' + encodeURIComponent(addOnSectionDetailId || ''),
             credentials: 'same-origin'
         }).then(function(r) { return r.json(); }).then(function(res) {
             if (!res || !res.synced) return res;

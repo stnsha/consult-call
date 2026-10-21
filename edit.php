@@ -212,6 +212,12 @@ if (!defined('CONSULTCALL_BASE')) {
         margin-bottom: 6px;
     }
 
+    /* The outer app's common/css/page.css sets span { font-size: 15px }; keep label text
+       wrapped in a span (data-ao-label, required asterisk) at the label's own size. */
+    .consultcall-container .form-label span {
+        font-size: inherit;
+    }
+
     .consultcall-container .form-control,
     .consultcall-container .form-select {
         font-size: 14px;
@@ -543,26 +549,6 @@ $psD = !hasConsultCallRole($currentStaffRoles, 2, 4) ? 'disabled' : '';
                             </div>
                         </div>
 
-                        <!-- Release Doctor Review? (Customer Support). Shown by js/edit.js
-                             (applyReleaseReviewVisibility) while the linked test result's AI review is
-                             on hold: AO-only once the Customer Response is not Pending; CC / CC + AO when
-                             consent is Refused/Others, so CS can close the case and release the review. -->
-                        <div class="col-md-12 conditional-field" id="cs-release-doctor-review-container">
-                            <label class="form-label">Release Doctor Review?<span style="color:red;"> *</span></label>
-                            <div class="radio-group">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="cs_release_doctor_review"
-                                        id="cs_release_review_yes" value="1" <?php echo $eD; ?>>
-                                    <label class="form-check-label" for="cs_release_review_yes">Yes</label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="cs_release_doctor_review"
-                                        id="cs_release_review_no" value="0" <?php echo $eD; ?>>
-                                    <label class="form-check-label" for="cs_release_review_no">No</label>
-                                </div>
-                            </div>
-                        </div>
-
                         <!-- Conditional fields when consent = obtained -->
                         <div class="col-md-6 conditional-field" data-condition="consent_obtained">
                             <label class="form-label"><span data-ao-label="Response Date">Consent Date</span><span style="color:red;"> *</span></label>
@@ -618,6 +604,27 @@ $psD = !hasConsultCallRole($currentStaffRoles, 2, 4) ? 'disabled' : '';
                             </select>
                         </div>
 
+                        <!-- Release Doctor Review? (Customer Support), placed above Remarks. Shown by
+                             js/edit.js (applyReleaseReviewVisibility) while the linked test result's AI
+                             review is on hold: AO-only once the Customer Response is not Pending; CC /
+                             CC + AO when consent is Refused/Others, so CS can close the case and release
+                             the review. -->
+                        <div class="col-md-12 conditional-field" id="cs-release-doctor-review-container">
+                            <label class="form-label">Release Doctor Review?<span style="color:red;"> *</span></label>
+                            <div class="radio-group">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="cs_release_doctor_review"
+                                        id="cs_release_review_yes" value="1" <?php echo $eD; ?>>
+                                    <label class="form-check-label" for="cs_release_review_yes">Yes</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="cs_release_doctor_review"
+                                        id="cs_release_review_no" value="0" <?php echo $eD; ?>>
+                                    <label class="form-check-label" for="cs_release_review_no">No</label>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Conditional field when consent = refused or others.
                              The red asterisk is toggled by js/edit.js: required unless the
                              Reason dropdown has a specific predefined (non-"Others") value. -->
@@ -631,9 +638,9 @@ $psD = !hasConsultCallRole($currentStaffRoles, 2, 4) ? 'disabled' : '';
                 </div>
             </div>
 
-            <!-- Section: Add On Recommendation. CC + AO: shown only when consent is Obtained.
-                 AO-only: always shown and moved above the Eligibility card, since Customer Support
-                 offers the add-on directly with no consultation (see applyAddOnOnlyLayout()).
+            <!-- Section: Add On Recommendation. AO and CC + AO: always shown, whatever the consent
+                 status, and moved above the Eligibility card, since the customer can take the add-on
+                 without the consultation (see handleConsentChange() and applyAddOnOnlyLayout()).
                  CC: hidden entirely, see updateAddOnRecommendationVisibility(). -->
             <div class="bento-card section-card conditional-field" id="addon-recommendation-section" data-condition="consent_obtained">
                 <div class="section-header" data-section="addon-recommendation">
