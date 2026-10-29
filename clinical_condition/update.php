@@ -126,6 +126,16 @@ if (!$condition_id) {
                             </select>
                         </div>
 
+                        <div class="mb-3">
+                            <label for="field-cluster-scope" class="form-label" style="font-size: 13px; font-weight: 500;">Cluster Scope <span class="text-danger">*</span></label>
+                            <select class="form-select" id="field-cluster-scope" name="cluster_scope" style="font-size: 13px;">
+                                <option value="1">1 — ConsultCall only</option>
+                                <option value="2">2 — Cluster only</option>
+                                <option value="3">3 — Both</option>
+                            </select>
+                            <div class="form-text" style="font-size: 11px; text-align: left;">Which flow evaluates this condition: ConsultCall, Cluster (ARR), or both.</div>
+                        </div>
+
                         <div class="mb-4">
                             <label for="field-active-from" class="form-label" style="font-size: 13px; font-weight: 500;">Active From</label>
                             <input type="date" class="form-control" id="field-active-from" name="active_from" style="font-size: 13px;">

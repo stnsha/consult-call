@@ -104,6 +104,7 @@ $can_toggle_condition_status = hasConsultCallRole($consult_call_roles, 1, 6);
                             <th>Description</th>
                             <th style="width: 120px;">Type</th>
                             <th style="width: 100px;">Risk Tier</th>
+                            <th style="width: 110px;">Cluster Scope</th>
                             <th style="width: 90px;">Status</th>
                             <th style="width: 110px;">Active From</th>
                             <th style="width: 160px;">Actions</th>
@@ -111,7 +112,7 @@ $can_toggle_condition_status = hasConsultCallRole($consult_call_roles, 1, 6);
                     </thead>
                     <tbody id="conditions-tbody">
                         <tr>
-                            <td colspan="8" class="text-center text-muted py-4">Loading...</td>
+                            <td colspan="9" class="text-center text-muted py-4">Loading...</td>
                         </tr>
                     </tbody>
                 </table>
@@ -135,7 +136,7 @@ $can_toggle_condition_status = hasConsultCallRole($consult_call_roles, 1, 6);
         apiUrl: '<?php echo CONSULTCALL_BASE; ?>api-jwt.php',
         isSuperAdmin: <?php echo hasConsultCallRole($consult_call_roles, 1) ? 'true' : 'false'; ?>,
         canToggleStatus: <?php echo $can_toggle_condition_status ? 'true' : 'false'; ?>,
-        colSpan: <?php echo $can_toggle_condition_status ? 8 : 7; ?>
+        colSpan: <?php echo $can_toggle_condition_status ? 9 : 8; ?>
     };
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>

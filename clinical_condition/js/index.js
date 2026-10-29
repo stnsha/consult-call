@@ -15,6 +15,18 @@
         3: 'bg-danger'
     };
 
+    var CLUSTER_SCOPE_LABELS = {
+        1: 'ConsultCall',
+        2: 'Cluster',
+        3: 'Both'
+    };
+
+    var CLUSTER_SCOPE_BADGES = {
+        1: 'bg-primary',
+        2: 'bg-info text-dark',
+        3: 'bg-dark'
+    };
+
     var allConditions = [];
     var filteredConditions = [];
     var currentPage = 1;
@@ -149,6 +161,9 @@
             var tier = parseInt(row.risk_tier, 10);
             var tierLabel = RISK_TIER_LABELS[tier] !== undefined ? RISK_TIER_LABELS[tier] : String(tier);
             var tierBadge = RISK_TIER_BADGES[tier] !== undefined ? RISK_TIER_BADGES[tier] : 'bg-secondary';
+            var scope = parseInt(row.cluster_scope, 10) || 1;
+            var scopeLabel = CLUSTER_SCOPE_LABELS[scope] !== undefined ? CLUSTER_SCOPE_LABELS[scope] : String(scope);
+            var scopeBadge = CLUSTER_SCOPE_BADGES[scope] !== undefined ? CLUSTER_SCOPE_BADGES[scope] : 'bg-secondary';
             var isActive = isConditionActive(row);
             var statusBadge = isActive ? 'bg-success' : 'bg-secondary';
             var statusLabel = isActive ? 'Active' : 'Inactive';
@@ -165,6 +180,7 @@
             html += '<td>' + escapeHtml(row.description) + '</td>';
             html += '<td>' + renderTypeCell(row) + '</td>';
             html += '<td><span class="badge ' + tierBadge + '">' + escapeHtml(tierLabel) + '</span></td>';
+            html += '<td><span class="badge ' + scopeBadge + '">' + escapeHtml(scopeLabel) + '</span></td>';
             html += '<td><span class="badge ' + statusBadge + '">' + statusLabel + '</span></td>';
 
             html += '<td>' + formatDate(row.active_from) + '</td>';

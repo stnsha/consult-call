@@ -53,6 +53,9 @@
         var fieldActiveFrom = document.getElementById('field-active-from');
         if (fieldActiveFrom) fieldActiveFrom.value = condition.active_from ? condition.active_from.substr(0, 10) : '';
 
+        var fieldClusterScope = document.getElementById('field-cluster-scope');
+        if (fieldClusterScope) fieldClusterScope.value = String(condition.cluster_scope !== undefined && condition.cluster_scope !== null ? condition.cluster_scope : 1);
+
         document.getElementById('form-loading').style.display = 'none';
         document.getElementById('update-form').style.display = 'block';
     }
@@ -93,10 +96,12 @@
             var checkedType = document.querySelector('input[name="type"]:checked');
             var riskField = document.getElementById('field-risk-tier');
             var activeFromField = document.getElementById('field-active-from');
+            var clusterScopeField = document.getElementById('field-cluster-scope');
             var description = descField ? descField.value.trim() : '';
             var type = checkedType ? checkedType.value : '';
             var riskTier = riskField ? parseInt(riskField.value, 10) : 0;
             var activeFrom = activeFromField && activeFromField.value ? activeFromField.value : null;
+            var clusterScope = clusterScopeField ? parseInt(clusterScopeField.value, 10) : 1;
 
             if (!description) {
                 showAlert('Description is required.', false);
@@ -115,7 +120,8 @@
                     description: description,
                     type: type,
                     risk_tier: riskTier,
-                    active_from: activeFrom
+                    active_from: activeFrom,
+                    cluster_scope: clusterScope
                 }
             }).then(function (result) {
                 if (result.success) {
